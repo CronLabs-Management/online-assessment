@@ -1,0 +1,19 @@
+Hello {{ application.full_name|default:email }},
+
+Your login for the assessment "{{ exam.title }}" is ready.
+
+  Sign-in page: {{ login_link }}
+  Email:        {{ email }}
+  Password:     {{ password }}
+
+After you sign in you will be asked to confirm your name and phone number. Then open the test:
+{{ exam_link }}
+
+Opens:  {{ exam.opens_at }}
+Closes: {{ exam.closes_at }}
+Time allowed once started: {{ exam.duration_minutes }} minutes
+
+Important:
+- Keep this email private. Anyone with the password can sign in as you.
+- Once you start, the timer runs without stopping. Start only when you can finish in one sitting.
+- If you lose this email, ask the test administrator to resend it. A new password is created each time and the old one stops working.

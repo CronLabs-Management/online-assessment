@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Session Security Notice (CSRF){% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-xl py-12 text-center">
+  <div class="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-blue-100 text-3xl font-black text-blue-800 shadow-xs">
+    &#x1F6E1;&#xFE0F;
+  </div>
+
+  <h1 class="mt-6 text-3xl sm:text-4xl font-extrabold text-slate-900">
+    Security Token Expired
+  </h1>
+
+  <p class="mt-3 text-base sm:text-lg leading-relaxed text-slate-600">
+    Your form security token has expired. To protect your assessment session, Django requires a fresh token for sensitive form submissions.
+  </p>
+
+  <div class="mt-6 rounded-xl border border-blue-200 bg-blue-50/60 p-6 text-left shadow-xs">
+    <h3 class="text-base font-bold text-slate-900 mb-1.5">&#x1F504; Why did this happen?</h3>
+    <ul class="text-sm text-slate-700 space-y-1 list-disc pl-5">
+      <li>The sign-in or submission page was left inactive for an extended period.</li>
+      <li>Multiple tabs of the test platform were open simultaneously.</li>
+      <li>Browser cookies or site cache were recently cleared.</li>
+    </ul>
+  </div>
+
+  <div class="mt-8 flex flex-wrap items-center justify-center gap-4">
+    <a href="javascript:location.reload()" class="btn btn-primary px-8 py-3 text-base shadow-sm">
+      &#x21BB; Refresh & Try Again
+    </a>
+    <a href="{% url 'login' %}" class="btn btn-secondary px-8 py-3 text-base">
+      Return to Sign In
+    </a>
+  </div>
+</div>
+{% endblock %}

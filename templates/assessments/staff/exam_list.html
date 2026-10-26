@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% load tz %}
+{% block title %}Tests{% endblock %}
+{% block content %}
+<div class="flex flex-wrap items-end justify-between gap-4">
+  <div>
+    <h1 class="text-3xl">Tests</h1>
+    <p class="mt-2 text-slate-600">Drafts stay hidden from candidates until you publish them.</p>
+  </div>
+  <a href="{% url 'staff_exam_create' %}" class="btn btn-primary">New test</a>
+</div>
+
+<ul class="ledger mt-8 rounded-md border border-slate-200 bg-white">
+  {% for exam in exams %}
+    <li class="grid gap-3 p-5 sm:grid-cols-[1fr_auto] sm:items-center">
+      <div>
+        <a class="font-serif text-xl hover:underline" href="{% url 'staff_exam_detail' exam.pk %}">{{ exam.title }}</a>
+        <p class="num mt-1 text-sm text-slate-600">{{ exam.opens_at|localtime|date:"D d M Y, H:i" }} to {{ exam.closes_at|localtime|date:"D d M Y, H:i" }}</p>
+      </div>
+      <div class="flex items-center gap-3">
+        {% if exam.is_published %}<span class="badge badge-ok">Published</span>{% else %}<span class="badge badge-neutral">Draft</span>{% endif %}
+        <a href="{% url 'staff_exam_candidates' exam.pk %}" class="btn btn-secondary btn-sm">Candidates</a>
+      </div>
+    </li>
+  {% empty %}
+    <li class="p-8 text-center">
+      <p class="font-serif text-xl">No tests yet</p>
+      <p class="mt-2 text-slate-600">Create a test, add sections and questions, then publish it.</p>
+    </li>
+  {% endfor %}
+</ul>
+{% endblock %}

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Add candidates | {{ exam.title }}{% endblock %}
+{% block content %}
+<a href="{% url 'staff_exam_candidates' exam.pk %}" class="crumb">Candidates</a>
+<div class="grid gap-10 lg:grid-cols-[1fr_300px]">
+  <div>
+    <h1 class="text-3xl">Add candidates</h1>
+    <p class="mt-2 text-slate-600">Paste the mailing list for <span class="font-medium text-slate-800">{{ exam.title }}</span>. Candidates are added as approved. Adding them does not send an email.</p>
+
+    <form method="post" class="mt-8">
+      {% csrf_token %}
+      <label for="{{ form.candidates.id_for_label }}" class="label">One candidate per line</label>
+      <textarea id="{{ form.candidates.id_for_label }}" name="candidates" rows="12" class="font-mono text-sm" placeholder="asha@example.com, Asha Rao, 9876543210">{{ form.candidates.value|default:"" }}</textarea>
+      <p class="helptext">Format: email, full name, phone. Name and phone are optional. Commas and tabs both work, so you can paste from a spreadsheet.</p>
+      {{ form.candidates.errors }}
+      <div class="mt-6 flex items-center gap-3">
+        <button class="btn btn-primary">Add to this test</button>
+        <a href="{% url 'staff_exam_candidates' exam.pk %}" class="btn btn-secondary">Cancel</a>
+      </div>
+    </form>
+  </div>
+
+  <aside class="alert alert-info h-fit">
+    <p class="font-medium">What happens next</p>
+    <ol class="mt-3 list-decimal space-y-2 pl-5 leading-relaxed">
+      <li>Candidates appear on the list as approved.</li>
+      <li>Press <em>Send login details</em> on the Candidates page.</li>
+      <li>Each candidate receives a password by email, then confirms their details at first sign-in.</li>
+    </ol>
+  </aside>
+</div>
+{% endblock %}

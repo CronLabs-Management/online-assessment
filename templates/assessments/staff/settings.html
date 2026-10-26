@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}Site Settings{% endblock %}
+{% block content %}
+<h1 class="text-3xl">Site Settings</h1>
+<p class="mt-2 text-slate-600">Global configuration and branding for the entire platform.</p>
+
+<form method="post" enctype="multipart/form-data" class="mt-8 max-w-2xl space-y-8">
+  {% csrf_token %}
+  
+  <section class="panel p-8">
+    <h2 class="text-xl">Branding & Identity</h2>
+    <p class="mt-1 text-sm text-slate-600">Set the name, header logo, and browser favicon shown to candidates and staff.</p>
+
+    <div class="mt-6 space-y-5">
+      <div>
+        <label for="{{ form.site_name.id_for_label }}" class="label">{{ form.site_name.label }}</label>
+        {{ form.site_name }}
+        {{ form.site_name.errors }}
+      </div>
+
+      <div class="rounded-lg border border-slate-200 bg-slate-50/50 p-4">
+        <label for="{{ form.site_logo.id_for_label }}" class="label">{{ form.site_logo.label }}</label>
+        {% if form.instance.site_logo %}
+          <div class="mb-3 flex items-center gap-3">
+            <img src="{% url 'serve_branding' 'logo' %}" alt="Current site logo" class="h-10 max-w-[160px] rounded border border-slate-200 bg-white p-1 object-contain">
+            <span class="text-xs text-slate-500">Current logo</span>
+          </div>
+        {% endif %}
+        {{ form.site_logo }}
+        <p class="mt-1 text-xs text-slate-500">PNG, SVG, or JPG image displayed on the top navigation bar.</p>
+        {{ form.site_logo.errors }}
+      </div>
+
+      <div class="rounded-lg border border-slate-200 bg-slate-50/50 p-4">
+        <label for="{{ form.favicon.id_for_label }}" class="label">{{ form.favicon.label }}</label>
+        {% if form.instance.favicon %}
+          <div class="mb-3 flex items-center gap-3">
+            <img src="{% url 'serve_branding' 'favicon' %}" alt="Current favicon" class="h-6 w-6 rounded border border-slate-200 bg-white p-0.5 object-contain">
+            <span class="text-xs text-slate-500">Current favicon</span>
+          </div>
+        {% endif %}
+        {{ form.favicon }}
+        <p class="mt-1 text-xs text-slate-500">.ico, .png, or .svg icon displayed in browser tabs.</p>
+        {{ form.favicon.errors }}
+      </div>
+    </div>
+  </section>
+
+  <section class="panel p-8">
+    <h2 class="text-xl">Proctoring Evidence Retention</h2>
+    <p class="mt-1 text-sm text-slate-600">Camera snapshots from tests are automatically purged after this many days.</p>
+    <div class="mt-6">
+      <label for="{{ form.snapshot_retention_days.id_for_label }}" class="label">Keep evidence snapshots for</label>
+      <div class="flex flex-wrap items-center gap-3">
+        <input id="{{ form.snapshot_retention_days.id_for_label }}" type="number" name="snapshot_retention_days" min="1" max="365" value="{{ form.snapshot_retention_days.value|default:60 }}" class="num w-28">
+        <span class="text-slate-600">days (1 to 365). Default: 60.</span>
+      </div>
+      {{ form.snapshot_retention_days.errors }}
+    </div>
+  </section>
+
+  <div>
+    <button class="btn btn-primary px-6 py-2.5 text-base">Save all settings</button>
+  </div>
+</form>
+
+<div class="mt-10 max-w-2xl">
+  <section class="panel p-8">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h2 class="text-xl">Email & Notifications</h2>
+        <p class="mt-1 text-sm text-slate-600">Active SMTP configuration used to deliver candidate logins and notifications.</p>
+      </div>
+      {% if email_status.is_configured %}
+        <span class="badge badge-good">SMTP Configured</span>
+      {% else %}
+        <span class="badge badge-warn">Password Not Set</span>
+      {% endif %}
+    </div>
+
+    <div class="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm">
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div>
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">SMTP Host & Port</span>
+          <div class="mt-1 font-mono font-medium text-slate-800">{{ email_status.host }}:{{ email_status.port }}</div>
+        </div>
+        <div>
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Security Protocol</span>
+          <div class="mt-1 text-slate-800">
+            {% if email_status.use_ssl %}
+              <span class="font-medium text-emerald-700">SSL (SMTPS)</span>
+            {% elif email_status.use_tls %}
+              <span class="font-medium text-blue-700">TLS (STARTTLS)</span>
+            {% else %}
+              <span class="font-medium text-slate-600">Plaintext (No SSL)</span>
+            {% endif %}
+          </div>
+        </div>
+        <div>
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Default Sender</span>
+          <div class="mt-1 font-mono text-xs text-slate-800">{{ email_status.from_email }}</div>
+        </div>
+        <div>
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Django Backend</span>
+          <div class="mt-1 font-mono text-xs text-slate-600">{{ email_status.backend }}</div>
+        </div>
+      </div>
+    </div>
+
+    <form method="post" action="{% url 'staff_settings' %}" class="mt-6 border-t border-slate-200 pt-6">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="test_email">
+      <h3 class="text-base font-medium">Verify Email Delivery</h3>
+      <p class="mt-1 text-xs text-slate-600">Send an instant test email through your server's active mail transport to confirm SMTP connections and credentials.</p>
+      
+      <div class="mt-4 flex flex-wrap items-center gap-3">
+        <input type="email" name="test_recipient" value="{{ request.user.email }}" placeholder="recipient@example.com" required class="flex-1 min-w-[240px]">
+        <button type="submit" class="btn btn-secondary whitespace-nowrap">Send test email</button>
+      </div>
+      <p class="mt-2 text-xs text-slate-500">
+        You can also run from SSH/cPanel terminal: <code class="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-slate-800">python manage.py test_email you@example.com</code>
+      </p>
+    </form>
+  </section>
+</div>
+{% endblock %}
+

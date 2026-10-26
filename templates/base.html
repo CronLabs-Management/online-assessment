@@ -1,0 +1,129 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Assessments{% endblock %} | {{ site_settings.site_name|default:"Assessments" }}</title>
+  {% if site_settings and site_settings.favicon %}
+    <link rel="icon" href="{% url 'serve_branding' 'favicon' %}">
+  {% endif %}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    // Palette: cool bone paper, ink-blue neutrals, teal for "open" and "done", brick for "stop", ochre for "watch".
+    if (typeof tailwind !== "undefined") tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"IBM Plex Sans"', "system-ui", "sans-serif"],
+            serif: ['"IBM Plex Serif"', "Georgia", "serif"],
+          },
+          colors: {
+            slate: { 50: "#F5F7F8", 100: "#EBEFF2", 200: "#DAE1E6", 300: "#BCC8D0", 400: "#8795A1", 500: "#637380", 600: "#4B5A66", 700: "#35434E", 800: "#223039", 900: "#15212B" },
+            green: { 50: "#EEF7F5", 100: "#D3EBE6", 200: "#A9D6CD", 600: "#14726D", 700: "#0E5F5B", 800: "#0B4C49" },
+            red: { 50: "#FBF1EF", 100: "#F3D9D4", 200: "#E6B4AC", 600: "#A23A2E", 700: "#8A2F25", 800: "#6E261F", 900: "#4F1B16" },
+            amber: { 50: "#FCF7EC", 100: "#F3E6C4", 200: "#E5CB8F", 600: "#9A5F0B", 800: "#6A3F06" },
+            blue: { 50: "#EFF4F9", 100: "#DCE7F2", 200: "#B7CCE2", 600: "#2C5D86", 800: "#1F4363" },
+          },
+        },
+      },
+    };
+  </script>
+  <style type="text/tailwindcss">
+    @layer base {
+      html { -webkit-font-smoothing: antialiased; }
+      body { @apply bg-slate-50 text-slate-900 text-base leading-relaxed; }
+      h1 { @apply font-serif tracking-tight text-slate-900 text-3xl font-extrabold; }
+      @media (min-width: 640px) {
+        h1 { font-size: 2.25rem; line-height: 2.5rem; }
+      }
+      h2 { @apply font-serif tracking-tight text-slate-900 text-2xl font-bold; }
+      h3 { @apply font-serif tracking-tight text-slate-900 text-xl font-bold; }
+      input:not([type=checkbox]):not([type=radio]), select, textarea {
+        @apply w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 placeholder:text-slate-400;
+      }
+      input[type=checkbox], input[type=radio] { @apply h-4 w-4 accent-green-700; }
+      input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible, button:focus-visible, summary:focus-visible {
+        @apply outline-none ring-2 ring-green-600 ring-offset-2;
+      }
+      input[readonly], input:disabled, select:disabled, textarea:disabled { @apply bg-slate-100 text-slate-500; }
+      .errorlist { @apply mt-1 list-none p-0 text-sm text-red-700 font-medium; }
+      .helptext { @apply mt-1 block text-sm text-slate-500; }
+    }
+    @layer components {
+      .btn { @apply inline-flex items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-base font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50; }
+      .btn-primary { @apply bg-slate-900 text-white hover:bg-slate-700 shadow-sm; }
+      .btn-accent { @apply bg-green-700 text-white hover:bg-green-600 shadow-sm; }
+      .btn-secondary { @apply border border-slate-300 bg-white text-slate-800 hover:bg-slate-100 shadow-sm; }
+      .btn-danger { @apply border border-red-300 bg-white text-red-700 hover:bg-red-50; }
+      .btn-sm { @apply px-3 py-1.5 text-xs font-semibold; }
+      .panel { @apply rounded-xl border border-slate-200 bg-white shadow-sm; }
+      .label { @apply mb-1.5 block text-base font-semibold text-slate-800; }
+      .badge { @apply inline-flex items-center whitespace-nowrap rounded-md px-2.5 py-0.5 text-xs font-semibold; }
+      .badge-ok { @apply bg-green-100 text-green-800; }
+      .badge-warn { @apply bg-amber-100 text-amber-800; }
+      .badge-bad { @apply bg-red-100 text-red-800; }
+      .badge-info { @apply bg-blue-100 text-blue-800; }
+      .badge-neutral { @apply bg-slate-200 text-slate-700; }
+      .alert { @apply rounded-xl border px-5 py-4 text-base; }
+      .alert-ok { @apply border-green-200 bg-green-50 text-green-900; }
+      .alert-warn { @apply border-amber-200 bg-amber-50 text-amber-900; }
+      .alert-bad { @apply border-red-200 bg-red-50 text-red-900; }
+      .alert-info { @apply border-blue-200 bg-blue-50 text-blue-900; }
+      .ledger > li, .ledger > div { @apply border-t border-slate-200 first:border-t-0; }
+      .num { font-variant-numeric: tabular-nums; }
+      .crumb { @apply mb-4 inline-flex items-center gap-1.5 text-base font-medium text-slate-600 hover:text-slate-900; }
+      .nav-link { @apply rounded-md px-3 py-1.5 text-base font-medium text-slate-700 hover:text-slate-900; }
+      .nav-link[aria-current=page] { @apply text-slate-900 underline decoration-green-600 decoration-2 underline-offset-8; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+    }
+  </style>
+</head>
+<body class="min-h-screen font-sans antialiased">
+  <header class="border-b border-slate-200 bg-white">
+    <nav class="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-6 gap-y-3 px-4 py-3" aria-label="Main">
+      <a href="{% url 'home' %}" class="flex items-center gap-2.5 font-serif text-lg font-semibold text-slate-900">
+        {% if site_settings and site_settings.site_logo %}
+          <img src="{% url 'serve_branding' 'logo' %}" alt="{{ site_settings.site_name|default:'Logo' }}" class="h-8 max-w-[150px] object-contain">
+        {% endif %}
+        <span>{{ site_settings.site_name|default:"Assessments" }}</span>
+      </a>
+      <div class="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+        {% if user.is_authenticated %}
+          {% if user.is_staff or user.groups.exists %}
+            <a class="nav-link" href="{% url 'staff_exam_list' %}" {% if request.resolver_match.url_name == 'staff_exam_list' %}aria-current="page"{% endif %}>Tests</a>
+          {% else %}
+            <a class="nav-link" href="{% url 'home' %}" {% if request.resolver_match.url_name == 'home' %}aria-current="page"{% endif %}>My tests</a>
+          {% endif %}
+          {% if user.is_staff %}
+            <a class="nav-link" href="{% url 'staff_settings' %}" {% if request.resolver_match.url_name == 'staff_settings' %}aria-current="page"{% endif %}>Settings</a>
+            <a class="nav-link" href="{% url 'staff_audit_log' %}" {% if request.resolver_match.url_name == 'staff_audit_log' %}aria-current="page"{% endif %}>Audit log</a>
+          {% endif %}
+          <span class="hidden text-slate-500 md:inline">{{ user.email|default:user.username }}</span>
+          <form method="post" action="{% url 'logout' %}" class="inline">{% csrf_token %}
+            <button class="btn btn-secondary btn-sm">Sign out</button>
+          </form>
+        {% else %}
+          <a class="btn btn-primary btn-sm" href="{% url 'login' %}">Sign in</a>
+        {% endif %}
+      </div>
+    </nav>
+  </header>
+  <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-white focus:px-4 focus:py-2 focus:shadow-lg">Skip to main content</a>
+  <main id="main-content" tabindex="-1" class="mx-auto max-w-5xl px-4 py-10">
+    {% if messages %}
+      <div class="mb-8 space-y-2" role="status">
+        {% for message in messages %}
+          <div class="alert {% if message.tags == 'error' %}alert-bad{% elif message.tags == 'success' %}alert-ok{% elif message.tags == 'warning' %}alert-warn{% else %}alert-info{% endif %}">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

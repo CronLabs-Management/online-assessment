@@ -1,0 +1,298 @@
+{% extends "base.html" %}
+{% load tz %}
+{% block title %}{{ exam.title }}{% endblock %}
+{% block content %}
+<a href="{% url 'home' %}" class="crumb text-base font-medium">&larr; Back to my tests</a>
+<div class="mt-2 flex flex-wrap items-center gap-3">
+  <h1 class="text-3xl sm:text-4xl font-extrabold text-slate-900">{{ exam.title }}</h1>
+  {% include "assessments/partials/state_badge.html" with state=state %}
+</div>
+
+<!-- ========================================================================= -->
+<!-- EARLY ACCESS / WAITING ROOM: Large Centered Real-Time Countdown Banner   -->
+<!-- ========================================================================= -->
+{% if state.code == "waiting" %}
+<div class="mt-8 rounded-2xl border-2 border-blue-200 bg-gradient-to-b from-blue-50/70 to-white p-8 sm:p-10 text-center shadow-sm">
+  <div class="inline-flex items-center gap-2 rounded-full bg-blue-100 px-4 py-1.5 text-sm font-bold text-blue-800">
+    <span class="inline-block h-2.5 w-2.5 rounded-full bg-blue-600 animate-pulse"></span>
+    Waiting Room &bull; Test Opens Soon
+  </div>
+
+  <h2 class="mt-4 text-3xl font-extrabold text-slate-900 sm:text-4xl">Time Left Until Assessment Starts</h2>
+  <p class="mx-auto mt-3 max-w-xl text-base sm:text-lg text-slate-600">
+    This test is scheduled to open on <strong class="text-slate-900">{{ exam.opens_at|localtime|date:"l, d F Y at H:i" }}</strong>.
+    The page will automatically unlock and refresh when the countdown reaches zero.
+  </p>
+
+  <!-- Big Digital Countdown Blocks with Seconds -->
+  <div class="my-8 flex flex-wrap items-center justify-center gap-2 sm:gap-4" id="countdown-board">
+    <div class="flex min-w-[75px] flex-col items-center rounded-2xl bg-slate-900 p-3.5 sm:min-w-[105px] sm:p-5 shadow-lg">
+      <span id="cd-days" class="font-mono text-3xl font-black text-blue-400 sm:text-5xl">00</span>
+      <span class="mt-1 text-xs font-semibold uppercase tracking-wider text-slate-400">Days</span>
+    </div>
+    <span class="font-mono text-2xl font-bold text-slate-400 sm:text-4xl">:</span>
+    <div class="flex min-w-[75px] flex-col items-center rounded-2xl bg-slate-900 p-3.5 sm:min-w-[105px] sm:p-5 shadow-lg">
+      <span id="cd-hours" class="font-mono text-3xl font-black text-blue-400 sm:text-5xl">00</span>
+      <span class="mt-1 text-xs font-semibold uppercase tracking-wider text-slate-400">Hours</span>
+    </div>
+    <span class="font-mono text-2xl font-bold text-slate-400 sm:text-4xl">:</span>
+    <div class="flex min-w-[75px] flex-col items-center rounded-2xl bg-slate-900 p-3.5 sm:min-w-[105px] sm:p-5 shadow-lg">
+      <span id="cd-mins" class="font-mono text-3xl font-black text-blue-400 sm:text-5xl">00</span>
+      <span class="mt-1 text-xs font-semibold uppercase tracking-wider text-slate-400">Minutes</span>
+    </div>
+    <span class="font-mono text-2xl font-bold text-slate-400 sm:text-4xl">:</span>
+    <div class="flex min-w-[75px] flex-col items-center rounded-2xl bg-slate-900 p-3.5 sm:min-w-[105px] sm:p-5 shadow-lg">
+      <span id="cd-secs" class="font-mono text-3xl font-black text-emerald-400 sm:text-5xl">00</span>
+      <span class="mt-1 text-xs font-semibold uppercase tracking-wider text-slate-400">Seconds</span>
+    </div>
+  </div>
+
+  <div class="inline-flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm text-slate-700 shadow-sm">
+    <span class="font-medium">Authoritative Cloud Server Clock:</span>
+    <span id="cloud-clock" class="font-mono font-bold text-slate-900">{{ server_now|localtime|date:"H:i:s" }}</span>
+    <span class="text-xs text-slate-400">&bull; Local device time changes do not alter opening time</span>
+  </div>
+
+  <script>
+    (function() {
+      const serverNowMs = new Date("{{ server_now.isoformat }}").getTime();
+      const opensAtMs = new Date("{{ exam.opens_at.isoformat }}").getTime();
+      const pageLoadDeviceMs = Date.now();
+
+      const elDays = document.getElementById("cd-days");
+      const elHours = document.getElementById("cd-hours");
+      const elMins = document.getElementById("cd-mins");
+      const elSecs = document.getElementById("cd-secs");
+      const clockEl = document.getElementById("cloud-clock");
+
+      function updateCountdown() {
+        const elapsed = Date.now() - pageLoadDeviceMs;
+        const currentServerMs = serverNowMs + elapsed;
+        const diffSec = Math.floor((opensAtMs - currentServerMs) / 1000);
+
+        if (clockEl) {
+          clockEl.textContent = new Date(currentServerMs).toLocaleTimeString();
+        }
+
+        if (diffSec <= 0) {
+          if (elSecs) elSecs.textContent = "00";
+          setTimeout(function() { window.location.reload(); }, 1200);
+          return;
+        }
+
+        const days = Math.floor(diffSec / 86400);
+        const hours = Math.floor((diffSec % 86400) / 3600);
+        const mins = Math.floor((diffSec % 3600) / 60);
+        const secs = diffSec % 60;
+
+        if (elDays) elDays.textContent = String(days).padStart(2, "0");
+        if (elHours) elHours.textContent = String(hours).padStart(2, "0");
+        if (elMins) elMins.textContent = String(mins).padStart(2, "0");
+        if (elSecs) elSecs.textContent = String(secs).padStart(2, "0");
+      }
+
+      updateCountdown();
+      setInterval(updateCountdown, 1000);
+    })();
+  </script>
+</div>
+{% endif %}
+
+<!-- ========================================================================= -->
+<!-- POST-EXAM: Large Centered Concluded Banner                               -->
+<!-- ========================================================================= -->
+{% if state.code == "closed" or state.code == "ended" %}
+<div class="mt-8 rounded-2xl border border-slate-200 bg-white p-8 sm:p-10 text-center shadow-sm">
+  {% if state.code == "ended" %}
+    <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-3xl text-emerald-700">
+      &#10003;
+    </div>
+    <h2 class="mt-4 text-3xl font-extrabold text-slate-900 sm:text-4xl">Assessment Successfully Submitted</h2>
+    <p class="mx-auto mt-2 max-w-lg text-base sm:text-lg text-slate-600">
+      Your responses have been recorded and saved. The evaluation team will review your submission.
+    </p>
+    {% if attempt %}
+      <div class="mt-6 flex flex-wrap items-center justify-center gap-3">
+        <a href="{% url 'attempt_result' attempt.pk %}" class="btn btn-secondary px-8 py-3 text-base font-bold shadow-sm">
+          View Submission Confirmation &rarr;
+        </a>
+      </div>
+    {% endif %}
+  {% else %}
+    <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 text-3xl text-slate-600">
+      &times;
+    </div>
+    <h2 class="mt-4 text-3xl font-extrabold text-slate-900 sm:text-4xl">This Assessment Has Closed</h2>
+    <p class="mx-auto mt-2 max-w-lg text-base sm:text-lg text-slate-600">
+      The test window officially closed on <strong class="text-slate-900">{{ exam.closes_at|localtime|date:"l, d F Y at H:i" }}</strong>.
+      Submissions are no longer accepted for this assessment.
+    </p>
+    <div class="mt-6 inline-flex rounded-xl border border-slate-200 bg-slate-50 px-5 py-2.5 text-sm text-slate-500">
+      If you experienced exceptional technical difficulties, please reach out directly to your test administrator.
+    </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- ========================================================================= -->
+<!-- COMPLETE TEST OVERVIEW & BREAKDOWN CARD (High Visibility, Large Fonts)     -->
+<!-- ========================================================================= -->
+<div class="mt-8 rounded-2xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm">
+  <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-5">
+    <div>
+      <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900">Complete Test Overview</h2>
+      <p class="mt-1 text-base text-slate-600">Review all sections, question allocations, and timers before you start.</p>
+    </div>
+    <div class="flex flex-wrap items-center gap-2.5">
+      <span class="rounded-xl bg-blue-50 px-4 py-2 font-mono text-sm font-bold text-blue-800 border border-blue-200">
+        {{ exam.duration_minutes }} Mins Total
+      </span>
+      <span class="rounded-xl bg-slate-100 px-4 py-2 font-mono text-sm font-bold text-slate-800 border border-slate-200">
+        {{ exam.sections.count }} Section{{ exam.sections.count|pluralize }}
+      </span>
+    </div>
+  </div>
+
+  <!-- Key Metrics Row -->
+  <div class="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+    <div class="rounded-xl bg-slate-50 p-4 border border-slate-100">
+      <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Total Sections</span>
+      <div class="mt-1 text-2xl sm:text-3xl font-extrabold text-slate-900">{{ exam.sections.count }}</div>
+    </div>
+    <div class="rounded-xl bg-slate-50 p-4 border border-slate-100">
+      <span class="text-xs font-bold uppercase tracking-wider text-slate-500">MCQ Questions</span>
+      <div class="mt-1 text-2xl sm:text-3xl font-extrabold text-emerald-700">{{ exam.mcq_questions.count }}</div>
+    </div>
+    <div class="rounded-xl bg-slate-50 p-4 border border-slate-100">
+      <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Coding Challenges</span>
+      <div class="mt-1 text-2xl sm:text-3xl font-extrabold text-purple-700">{{ exam.coding_problems.count }}</div>
+    </div>
+    <div class="rounded-xl bg-slate-50 p-4 border border-slate-100">
+      <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Total Duration</span>
+      <div class="mt-1 text-2xl sm:text-3xl font-extrabold text-blue-700">{{ exam.duration_minutes }}m</div>
+    </div>
+  </div>
+
+  <!-- Section-by-Section Breakdown Table -->
+  <div class="mt-8 overflow-x-auto">
+    <table class="w-full text-left text-base border-collapse">
+      <thead>
+        <tr class="border-b-2 border-slate-200 bg-slate-50 text-xs font-bold uppercase tracking-wider text-slate-600">
+          <th class="py-3.5 px-4">Order</th>
+          <th class="py-3.5 px-4">Section Name</th>
+          <th class="py-3.5 px-4">Type</th>
+          <th class="py-3.5 px-4">Questions</th>
+          <th class="py-3.5 px-4">Time Limit</th>
+          <th class="py-3.5 px-4">Timing Rules</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for section in exam.sections.all %}
+          <tr class="hover:bg-slate-50/70 transition-colors">
+            <td class="py-4 px-4 font-mono font-bold text-slate-500">
+              #{{ section.order }}
+            </td>
+            <td class="py-4 px-4 font-bold text-slate-900 text-lg">
+              {{ section.title }}
+            </td>
+            <td class="py-4 px-4">
+              {% if section.kind == "coding" %}
+                <span class="inline-block rounded-full bg-purple-100 px-3 py-1 text-xs font-bold text-purple-800">
+                  Coding Challenge
+                </span>
+              {% else %}
+                <span class="inline-block rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-800">
+                  Multiple Choice
+                </span>
+              {% endif %}
+            </td>
+            <td class="py-4 px-4 font-semibold text-slate-800">
+              {% if section.kind == "coding" %}
+                {{ section.coding_selection_count }} Problem{{ section.coding_selection_count|pluralize }}
+              {% else %}
+                {% if section.question_count %}{{ section.question_count }} Question{{ section.question_count|pluralize }}{% else %}All Questions ({{ exam.mcq_questions.count }}){% endif %}
+              {% endif %}
+            </td>
+            <td class="py-4 px-4 font-mono font-bold text-blue-700 text-lg">
+              {{ section.duration_minutes }} min
+            </td>
+            <td class="py-4 px-4 text-xs text-slate-500">
+              Individual timer &bull; Locks on submit
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="6" class="py-6 px-4 text-center text-slate-500 text-base">
+              No sections configured for this exam yet.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Big Start Test Action Banner (when open) -->
+  {% if state.code == "open" and not attempt %}
+  <div class="mt-8 rounded-2xl border-2 border-emerald-300 bg-emerald-50/50 p-6 sm:p-8 text-center">
+    <h3 class="text-2xl sm:text-3xl font-extrabold text-slate-900">Ready to Begin Your Test?</h3>
+    <p class="mx-auto mt-2 max-w-lg text-base text-slate-700">
+      Once you click start, the first section timer begins immediately. Full-screen mode and camera proctoring will activate.
+    </p>
+    <form method="post" action="{% url 'start_attempt' exam.pk %}" class="mt-6">
+      {% csrf_token %}
+      <button class="btn btn-accent px-10 py-4 text-xl font-extrabold shadow-lg rounded-xl hover:scale-[1.02] transition-transform">
+        Start Assessment Now &rarr;
+      </button>
+    </form>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Details & Sidebar Info -->
+<div class="mt-10 grid gap-10 lg:grid-cols-[1fr_300px]">
+  <div class="space-y-8">
+    {% if exam.instructions %}
+    <section class="panel p-6 sm:p-8">
+      <h2 class="text-2xl font-bold text-slate-900">Important Instructions & Rules</h2>
+      <div class="mt-4 whitespace-pre-line text-base leading-relaxed text-slate-700">{{ exam.instructions }}</div>
+    </section>
+    {% endif %}
+  </div>
+
+  <aside class="space-y-6">
+    <section class="panel p-6">
+      <h2 class="text-lg font-bold text-slate-900">Schedule Window</h2>
+      <dl class="num mt-4 space-y-3.5 text-base">
+        <div><dt class="text-xs uppercase font-semibold text-slate-500">Opens</dt><dd class="font-bold text-slate-900 mt-0.5">{{ exam.opens_at|localtime|date:"D d M, H:i" }}</dd></div>
+        <div><dt class="text-xs uppercase font-semibold text-slate-500">Closes</dt><dd class="font-bold text-slate-900 mt-0.5">{{ exam.closes_at|localtime|date:"D d M, H:i" }}</dd></div>
+        <div><dt class="text-xs uppercase font-semibold text-slate-500">Total Duration</dt><dd class="font-bold text-blue-700 mt-0.5">{{ exam.duration_minutes }} minutes</dd></div>
+      </dl>
+    </section>
+
+    <section class="panel p-6">
+      <h2 class="text-lg font-bold text-slate-900">Status & Action</h2>
+      <div class="mt-4 text-base leading-relaxed text-slate-700">
+        {% if state.code == "revoked" %}
+          <p class="font-bold text-red-700">Your access to this test has been removed. Contact the administrator if this is a mistake.</p>
+        {% elif state.code == "confirm" %}
+          <p class="font-medium text-slate-800">Please confirm your personal details and upload your resume before starting.</p>
+          <a href="{% url 'confirm_details' exam.pk %}" class="btn btn-primary mt-4 w-full text-center font-bold py-3 text-base">Confirm your details &rarr;</a>
+        {% elif state.code == "open" and not attempt %}
+          <p class="text-sm text-slate-600">The assessment is currently open. Click above to start.</p>
+        {% elif state.code == "in_progress" %}
+          <p class="font-bold text-amber-800">You have an attempt in progress.</p>
+          <a href="{% url 'attempt_page' attempt.pk %}" class="btn btn-accent mt-4 w-full text-center font-bold py-3 text-base">Continue test &rarr;</a>
+        {% elif state.code == "ended" %}
+          <p class="text-emerald-800 font-semibold">You have submitted this test.</p>
+          <a href="{% url 'attempt_result' attempt.pk %}" class="btn btn-secondary mt-4 w-full text-center font-bold py-3 text-base">View confirmation</a>
+        {% elif state.code == "waiting" %}
+          <p class="font-bold text-blue-900">Waiting room active.</p>
+          <p class="mt-1 text-sm text-slate-500">When the countdown clock above reaches zero, the test will unlock automatically.</p>
+        {% elif state.code == "closed" %}
+          <p class="text-slate-500 font-semibold">This assessment has closed.</p>
+        {% endif %}
+      </div>
+    </section>
+  </aside>
+</div>
+{% endblock %}

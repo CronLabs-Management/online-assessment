@@ -1,0 +1,5 @@
+{% if state.tone == "green" %}<span class="badge badge-ok">{{ state.label }}</span>
+{% elif state.tone == "amber" %}<span class="badge badge-warn">{{ state.label }}</span>
+{% elif state.tone == "blue" %}<span class="badge badge-info">{{ state.label }}</span>
+{% elif state.tone == "red" %}<span class="badge badge-bad">{{ state.label }}</span>
+{% else %}<span class="badge badge-neutral">{{ state.label }}</span>{% endif %}

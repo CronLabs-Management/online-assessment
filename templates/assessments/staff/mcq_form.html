@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}{% if question %}Edit question{% else %}New question{% endif %}{% endblock %}
+{% block content %}
+<a href="{% url 'staff_exam_detail' exam.pk %}" class="crumb">Back to {{ exam.title }}</a>
+<h1 class="text-3xl font-bold">{% if question %}Edit question{% else %}New question{% endif %}</h1>
+<p class="mt-2 text-slate-600">Provide the question text, set the marks, and add as many answer options as you need (minimum 2). Mark exactly one option as the correct answer.</p>
+
+<form method="post" class="mt-8 max-w-3xl space-y-10" id="mcq-form">
+  {% csrf_token %}
+  <div class="space-y-5">
+    {% for field in question_form %}
+      <div>
+        <label class="label font-medium" for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% for error in field.errors %}<p class="errorlist text-red-600 text-xs mt-1">{{ error }}</p>{% endfor %}
+      </div>
+    {% endfor %}
+  </div>
+
+  <section class="panel p-6">
+    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
+      <div>
+        <h2 class="text-xl font-bold text-slate-900">Answer Options</h2>
+        <p class="text-xs text-slate-500 mt-0.5">Add as many options as you need (A, B, C, D, E...). Options retain their identity during candidate shuffling.</p>
+      </div>
+      <button type="button" id="btn-add-option" class="btn btn-secondary btn-sm flex items-center gap-1.5 font-semibold">
+        <span>+</span> Add Another Option
+      </button>
+    </div>
+
+    {{ option_formset.management_form }}
+    {% if option_formset.non_form_errors %}
+      <div class="alert alert-bad my-4">{{ option_formset.non_form_errors }}</div>
+    {% endif %}
+
+    <ul id="options-list" class="ledger mt-4 rounded-xl border border-slate-200 bg-white divide-y divide-slate-100">
+      {% for form in option_formset %}
+        <li class="option-row flex flex-wrap items-center gap-4 px-4 py-3.5" data-index="{{ forloop.counter0 }}">
+          {{ form.id }}
+          <span class="option-label w-20 shrink-0 text-sm font-semibold text-slate-600">Option {{ forloop.counter }}</span>
+          <div class="min-w-[200px] flex-1">
+            <label class="sr-only" for="{{ form.text.id_for_label }}">Text for option {{ forloop.counter }}</label>
+            {{ form.text }}
+            {% for error in form.text.errors %}<p class="errorlist text-red-600 text-xs mt-1">{{ error }}</p>{% endfor %}
+          </div>
+          <div class="flex items-center gap-4 shrink-0">
+            <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer rounded-lg bg-slate-50 px-3 py-1.5 border border-slate-200 hover:bg-emerald-50">
+              {{ form.is_correct }}
+              <span class="font-semibold text-emerald-800">Correct answer</span>
+            </label>
+            {% if form.instance.pk %}
+              <label class="flex items-center gap-1 text-xs font-medium text-red-600 cursor-pointer ml-1">
+                {{ form.DELETE }} Delete
+              </label>
+            {% else %}
+              <button type="button" class="btn-remove-row text-xs text-slate-400 hover:text-red-600 font-medium ml-1">
+                &times; Remove
+              </button>
+            {% endif %}
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+
+    <div class="mt-4 flex justify-end">
+      <button type="button" id="btn-add-option-bottom" class="text-sm font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1">
+        <span>+</span> Add another option
+      </button>
+    </div>
+  </section>
+
+  <div class="flex items-center gap-3">
+    <button class="btn btn-primary px-6 py-2.5 font-bold">{% if question %}Save changes{% else %}Save question{% endif %}</button>
+    <a href="{% url 'staff_exam_detail' exam.pk %}" class="btn btn-secondary px-5 py-2.5">Cancel</a>
+  </div>
+</form>
+
+<script>
+  (function() {
+    const list = document.getElementById("options-list");
+    const totalFormsInput = document.getElementById("id_options-TOTAL_FORMS");
+    const btnAdd = document.getElementById("btn-add-option");
+    const btnAddBottom = document.getElementById("btn-add-option-bottom");
+
+    function reindexLabels() {
+      const rows = list.querySelectorAll(".option-row");
+      rows.forEach((row, idx) => {
+        const label = row.querySelector(".option-label");
+        if (label) label.textContent = "Option " + (idx + 1);
+      });
+    }
+
+    function addOption() {
+      let currentTotal = parseInt(totalFormsInput.value, 10);
+      const newIdx = currentTotal;
+
+      const li = document.createElement("li");
+      li.className = "option-row flex flex-wrap items-center gap-4 px-4 py-3.5 bg-blue-50/20";
+      li.setAttribute("data-index", newIdx);
+
+      li.innerHTML = `
+        <span class="option-label w-20 shrink-0 text-sm font-semibold text-slate-600">Option ${list.children.length + 1}</span>
+        <div class="min-w-[200px] flex-1">
+          <input type="text" name="options-${newIdx}-text" id="id_options-${newIdx}-text" class="w-full rounded border px-3 py-2" placeholder="Enter option text" required>
+        </div>
+        <div class="flex items-center gap-4 shrink-0">
+          <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer rounded-lg bg-slate-50 px-3 py-1.5 border border-slate-200 hover:bg-emerald-50">
+            <input type="checkbox" name="options-${newIdx}-is_correct" id="id_options-${newIdx}-is_correct" class="h-4 w-4">
+            <span class="font-semibold text-emerald-800">Correct answer</span>
+          </label>
+          <button type="button" class="btn-remove-row text-xs text-slate-400 hover:text-red-600 font-medium ml-1">
+            &times; Remove
+          </button>
+        </div>
+      `;
+
+      list.appendChild(li);
+      totalFormsInput.value = currentTotal + 1;
+      reindexLabels();
+
+      const input = li.querySelector("input[type='text']");
+      if (input) input.focus();
+    }
+
+    if (btnAdd) btnAdd.addEventListener("click", addOption);
+    if (btnAddBottom) btnAddBottom.addEventListener("click", addOption);
+
+    list.addEventListener("click", function(e) {
+      if (e.target.closest(".btn-remove-row")) {
+        const row = e.target.closest(".option-row");
+        if (row) {
+          row.remove();
+          reindexLabels();
+        }
+      }
+    });
+  })();
+</script>
+{% endblock %}

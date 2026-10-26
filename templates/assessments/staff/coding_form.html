@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}{% if problem %}Edit coding problem{% else %}New coding problem{% endif %}{% endblock %}
+{% block content %}
+<a href="{% url 'staff_exam_detail' exam.pk %}" class="crumb">Back to {{ exam.title }}</a>
+<h1 class="text-3xl">{% if problem %}Edit coding problem{% else %}New coding problem{% endif %}</h1>
+<p class="mt-2 text-slate-600">Public cases are shown to candidates. Hidden cases are used only for grading and are never sent to a candidate's browser.</p>
+
+<form method="post" class="mt-8 max-w-3xl space-y-10">
+  {% csrf_token %}
+  <div class="space-y-5">
+    {% for field in problem_form %}
+      <div>
+        <label class="label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.help_text %}<p class="helptext">{{ field.help_text }}</p>{% endif %}
+        {% for error in field.errors %}<p class="errorlist">{{ error }}</p>{% endfor %}
+      </div>
+    {% endfor %}
+  </div>
+
+  <section>
+    <h2 class="text-xl">Test cases</h2>
+    {{ case_formset.management_form }}
+    {% if case_formset.non_form_errors %}<div class="alert alert-bad mb-4">{{ case_formset.non_form_errors }}</div>{% endif %}
+    <div class="mt-4 space-y-4">
+      {% for form in case_formset %}
+        <div class="panel grid gap-4 p-5 md:grid-cols-2">
+          {{ form.id }}
+          <div><label class="label" for="{{ form.input_data.id_for_label }}">Input</label>{{ form.input_data }}</div>
+          <div><label class="label" for="{{ form.expected_output.id_for_label }}">Expected output</label>{{ form.expected_output }}</div>
+          <div class="flex items-center justify-between md:col-span-2 pt-1 border-t border-slate-100">
+            <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+              {{ form.is_hidden }} <span class="font-medium text-slate-600">Hidden from candidates (grading only)</span>
+            </label>
+            {% if form.instance.pk %}
+              <label class="flex items-center gap-1.5 text-xs font-medium text-red-600 cursor-pointer">
+                {{ form.DELETE }} Delete this test case
+              </label>
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <div class="flex items-center gap-3">
+    <button class="btn btn-primary">{% if problem %}Save changes{% else %}Save coding problem{% endif %}</button>
+    <a href="{% url 'staff_exam_detail' exam.pk %}" class="btn btn-secondary">Cancel</a>
+  </div>
+</form>
+{% endblock %}

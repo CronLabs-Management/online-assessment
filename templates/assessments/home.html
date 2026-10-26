@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% load tz %}
+{% block title %}My tests{% endblock %}
+{% block content %}
+<h1 class="text-3xl">My tests</h1>
+<p class="mt-2 text-slate-600">Each test shows the one thing to do next.</p>
+
+{% if rows %}
+<ul class="ledger mt-8 rounded-md border border-slate-200 bg-white">
+  {% for row in rows %}
+  <li class="grid gap-4 p-6 md:grid-cols-[1fr_auto] md:items-center">
+    <div>
+      <div class="flex flex-wrap items-center gap-3">
+        <h2 class="font-serif text-xl">{{ row.exam.title }}</h2>
+        {% include "assessments/partials/state_badge.html" with state=row.state %}
+      </div>
+      <p class="num mt-2 text-sm text-slate-600">
+        Opens {{ row.exam.opens_at|localtime|date:"D d M, H:i" }} and closes {{ row.exam.closes_at|localtime|date:"D d M, H:i" }}. Time allowed: {{ row.exam.duration_minutes }} minutes.
+      </p>
+    </div>
+    <div>
+      {% if row.state.code == "confirm" %}
+        <a href="{% url 'confirm_details' row.exam.pk %}" class="btn btn-primary">Confirm your details</a>
+      {% elif row.state.code == "open" %}
+        <a href="{% url 'exam_detail' row.exam.pk %}" class="btn btn-accent">Go to test</a>
+      {% elif row.state.code == "in_progress" %}
+        <a href="{% url 'attempt_page' row.attempt.pk %}" class="btn btn-accent">Continue test</a>
+      {% elif row.state.code == "ended" %}
+        <a href="{% url 'attempt_result' row.attempt.pk %}" class="btn btn-secondary">View confirmation</a>
+      {% elif row.state.code == "revoked" %}
+        <p class="max-w-xs text-sm text-slate-600">Your access to this test has been removed. Contact the administrator if this is a mistake.</p>
+      {% else %}
+        <a href="{% url 'exam_detail' row.exam.pk %}" class="btn btn-secondary">View details</a>
+      {% endif %}
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<div class="mt-8 rounded-md border border-dashed border-slate-300 bg-white p-10">
+  <p class="font-serif text-xl">No tests yet</p>
+  <p class="mt-2 text-slate-600">Tests you are invited to will appear here.</p>
+</div>
+{% endif %}
+{% endblock %}

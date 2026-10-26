@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Unexpected Server Error (500) | Assessments</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #F5F7F8;
+      color: #15212B;
+      line-height: 1.6;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: #ffffff;
+      border-bottom: 1px solid #DAE1E6;
+      padding: 16px 24px;
+    }
+    .header-inner {
+      max-width: 1024px;
+      margin: 0 auto;
+      font-family: "IBM Plex Serif", Georgia, serif;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #15212B;
+    }
+    main {
+      flex: 1;
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 48px 24px;
+      text-align: center;
+    }
+    .badge-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 80px;
+      height: 80px;
+      border-radius: 16px;
+      background: #FEE2E2;
+      color: #991B1B;
+      font-size: 2rem;
+      font-weight: 900;
+      margin-bottom: 24px;
+    }
+    h1 {
+      font-family: "IBM Plex Serif", Georgia, serif;
+      font-size: 2.25rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: #15212B;
+      margin-bottom: 12px;
+    }
+    p {
+      color: #4B5A66;
+      font-size: 1.1rem;
+      margin-bottom: 24px;
+    }
+    .info-card {
+      background: #ffffff;
+      border: 1px solid #DAE1E6;
+      border-radius: 12px;
+      padding: 24px;
+      text-align: left;
+      margin-bottom: 32px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+    .info-card h3 {
+      font-family: "IBM Plex Sans", sans-serif;
+      font-size: 1rem;
+      font-weight: 700;
+      color: #15212B;
+      margin-bottom: 8px;
+    }
+    .info-card p {
+      font-size: 0.95rem;
+      color: #4B5A66;
+      margin-bottom: 0;
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 16px;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 28px;
+      font-size: 1rem;
+      font-weight: 600;
+      border-radius: 8px;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.15s ease-in-out;
+    }
+    .btn-primary {
+      background: #15212B;
+      color: #ffffff;
+      border: 1px solid #15212B;
+    }
+    .btn-primary:hover {
+      background: #35434E;
+    }
+    .btn-secondary {
+      background: #ffffff;
+      color: #223039;
+      border: 1px solid #BCC8D0;
+    }
+    .btn-secondary:hover {
+      background: #EBEFF2;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      Assessments
+    </div>
+  </header>
+
+  <main>
+    <div class="badge-icon">
+      500
+    </div>
+
+    <h1>Unexpected Server Error</h1>
+
+    <p>
+      An unexpected error occurred while processing your request. Our system administrators have been automatically notified.
+    </p>
+
+    <div class="info-card">
+      <h3>&#x1F6E1;&#xFE0F; Test Candidates: Your Work is Safe</h3>
+      <p>
+        If you are in the middle of an examination, don't panic. All previously saved responses and timers remain recorded in our database. Wait a few moments, then reload the page to reconnect.
+      </p>
+    </div>
+
+    <div class="actions">
+      <a href="javascript:location.reload()" class="btn btn-primary">
+        &#x21BB; Reload Page
+      </a>
+      <a href="/" class="btn btn-secondary">
+        Return to Dashboard
+      </a>
+    </div>
+  </main>
+</body>
+</html>

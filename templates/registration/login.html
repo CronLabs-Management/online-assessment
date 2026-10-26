@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Sign in{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-sm">
+  <h1 class="text-3xl">Sign in</h1>
+  <p class="mt-2 text-slate-600">Use the email address you were given and the password from your login email.</p>
+
+  {% if form.non_field_errors %}
+    <div class="alert alert-bad mt-6" role="alert">
+      {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+    </div>
+  {% endif %}
+
+  <form method="post" action="{% url 'login' %}" class="mt-8 space-y-5">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ next }}">
+    <div>
+      <label for="{{ form.username.id_for_label }}" class="label">Email</label>
+      {{ form.username }}
+    </div>
+    <div>
+      <label for="{{ form.password.id_for_label }}" class="label">Password</label>
+      <div class="relative">
+        {{ form.password }}
+        <span role="button" tabindex="0" id="toggle-password" class="cursor-pointer absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-700 focus:outline-none" aria-label="Show password" title="Show password">
+          <svg id="eye-icon-show" class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+          </svg>
+          <svg id="eye-icon-hide" class="hidden h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />
+          </svg>
+        </span>
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary w-full">Sign in</button>
+  </form>
+  <script>
+    (function() {
+      const toggleBtn = document.getElementById('toggle-password');
+      const pwdInput = document.getElementById('{{ form.password.id_for_label }}');
+      const eyeShow = document.getElementById('eye-icon-show');
+      const eyeHide = document.getElementById('eye-icon-hide');
+      if (toggleBtn && pwdInput) {
+        function toggle() {
+          const isPassword = pwdInput.type === 'password';
+          pwdInput.type = isPassword ? 'text' : 'password';
+          eyeShow.classList.toggle('hidden', isPassword);
+          eyeHide.classList.toggle('hidden', !isPassword);
+          toggleBtn.setAttribute('aria-label', isPassword ? 'Hide password' : 'Show password');
+          toggleBtn.setAttribute('title', isPassword ? 'Hide password' : 'Show password');
+        }
+        toggleBtn.addEventListener('click', toggle);
+        toggleBtn.addEventListener('keydown', function(e) {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            toggle();
+          }
+        });
+      }
+    })();
+  </script>
+  <p class="mt-8 text-sm text-slate-600">Lost your password? Ask the administrator to send your login details again.</p>
+</div>
+{% endblock %}

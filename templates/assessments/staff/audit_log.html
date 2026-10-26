@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% load tz %}
+{% block title %}Audit log{% endblock %}
+{% block content %}
+<h1 class="text-3xl">Audit log</h1>
+<p class="mt-2 text-slate-600">Every change to tests, candidate access and settings, with who made it.</p>
+<div class="panel mt-8 overflow-x-auto">
+  <table class="min-w-full text-sm">
+    <thead class="border-b border-slate-200 bg-slate-50 text-left text-slate-600">
+      <tr><th scope="col" class="px-5 py-3 font-medium">When</th><th scope="col" class="px-5 py-3 font-medium">Who</th><th scope="col" class="px-5 py-3 font-medium">Action</th><th scope="col" class="px-5 py-3 font-medium">Target</th><th scope="col" class="px-5 py-3 font-medium">Detail</th></tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+    {% for entry in entries %}
+      <tr class="align-top"><td class="num whitespace-nowrap px-5 py-3">{{ entry.created_at|localtime|date:"d M Y, H:i" }}</td><td class="px-5 py-3">{{ entry.actor|default:"System" }}</td><td class="px-5 py-3">{{ entry.action }}</td><td class="px-5 py-3 text-slate-600">{{ entry.target }}</td><td class="px-5 py-3 text-slate-600">{{ entry.detail|truncatechars:160 }}</td></tr>
+    {% empty %}
+      <tr><td colspan="5" class="px-5 py-12 text-center text-slate-600">No changes recorded yet.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

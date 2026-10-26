@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Overview | {{ exam.title }}{% endblock %}
+{% block content %}
+<a href="{% url 'staff_exam_detail' exam.pk %}" class="crumb">{{ exam.title }}</a>
+<h1 class="text-3xl">Overview</h1>
+<p class="mt-2 text-slate-600">Live numbers for this test. Marks are visible to staff only.</p>
+
+<dl class="mt-10 grid grid-cols-2 gap-px overflow-hidden rounded-md border border-slate-200 bg-slate-200 md:grid-cols-4">
+  <div class="bg-white p-6"><dt class="text-sm text-slate-600">On the list</dt><dd class="num mt-2 font-serif text-4xl">{{ on_list }}</dd><dd class="mt-1 text-xs text-slate-500">{{ revoked }} with access removed</dd></div>
+  <div class="bg-white p-6"><dt class="text-sm text-slate-600">Login email sent</dt><dd class="num mt-2 font-serif text-4xl">{{ emailed }}</dd><dd class="mt-1 text-xs text-slate-500">{{ confirmed }} confirmed details</dd></div>
+  <div class="bg-white p-6"><dt class="text-sm text-slate-600">Not started</dt><dd class="num mt-2 font-serif text-4xl">{{ not_started }}</dd><dd class="mt-1 text-xs text-slate-500">{{ in_progress }} in progress</dd></div>
+  <div class="bg-white p-6"><dt class="text-sm text-slate-600">Completion</dt><dd class="num mt-2 font-serif text-4xl">{{ completion_rate }}%</dd><dd class="mt-1 text-xs text-slate-500">{{ submitted }} submitted, {{ expired }} timed out</dd></div>
+</dl>
+
+<div class="mt-8 grid gap-6 md:grid-cols-2">
+  <section class="panel p-6">
+    <h2 class="text-lg">Average marks</h2>
+    <p class="mt-1 text-sm text-slate-600">Finished attempts only</p>
+    <dl class="num mt-5 space-y-3 text-sm">
+      <div class="flex justify-between border-b border-slate-100 pb-3"><dt>Multiple choice</dt><dd class="font-medium">{{ avg_mcq }}</dd></div>
+      <div class="flex justify-between"><dt>Coding</dt><dd class="font-medium">{{ avg_coding }}</dd></div>
+    </dl>
+  </section>
+  <section class="panel p-6">
+    <h2 class="text-lg">Needs attention</h2>
+    <p class="mt-3"><span class="num font-serif text-3xl {% if flagged %}text-red-800{% endif %}">{{ flagged }}</span> flagged attempt{{ flagged|pluralize }}</p>
+    <p class="mt-2 text-sm leading-relaxed text-slate-600">Monitoring signals prompt a review. They never decide an outcome on their own.</p>
+    <div class="mt-5 flex flex-wrap gap-4 text-sm">
+      <a class="underline underline-offset-4" href="{% url 'staff_exam_candidates' exam.pk %}?flagged=1">Flagged candidates</a>
+      <a class="underline underline-offset-4" href="{% url 'staff_exam_candidates' exam.pk %}">All candidates</a>
+      <a class="underline underline-offset-4" href="{% url 'staff_export_csv' exam.pk %}">Export CSV</a>
+    </div>
+  </section>
+</div>
+{% endblock %}

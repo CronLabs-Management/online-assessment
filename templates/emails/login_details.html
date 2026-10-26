@@ -1,0 +1,67 @@
+{% extends "emails/base.html" %}
+
+{% block content %}
+<h1 style="color:#0f172a; font-size:20px; font-weight:700; margin:0 0 14px 0;">
+  Your Login for {{ exam.title }}
+</h1>
+
+<p style="color:#475569; font-size:15px; line-height:1.6; margin:0 0 20px 0;">
+  Hello <strong>{{ application.full_name|default:email }}</strong>,
+</p>
+
+<p style="color:#475569; font-size:15px; line-height:1.6; margin:0 0 20px 0;">
+  Your login credentials for the assessment <strong>{{ exam.title }}</strong> are ready. Use the details below to sign in and take your test.
+</p>
+
+<!-- Credentials Box -->
+<div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:10px; padding:20px; margin:24px 0;">
+  <h3 style="margin:0 0 12px 0; color:#1e293b; font-size:15px; font-weight:600; border-bottom:1px solid #e2e8f0; padding-bottom:8px;">
+    Your Sign-In Credentials
+  </h3>
+
+  <table width="100%" cellpadding="6" cellspacing="0" style="font-size:14px;">
+    <tr>
+      <td width="120" style="color:#64748b; font-weight:500;">Sign-in page:</td>
+      <td>
+        <a href="{{ login_link }}" style="color:#2563eb; text-decoration:none; word-break:break-all;">{{ login_link }}</a>
+      </td>
+    </tr>
+    <tr>
+      <td style="color:#64748b; font-weight:500;">Email:</td>
+      <td>
+        <strong style="color:#0f172a; font-family:monospace; background:#e2e8f0; padding:2px 8px; border-radius:4px; font-size:14px;">{{ email }}</strong>
+      </td>
+    </tr>
+    <tr>
+      <td style="color:#64748b; font-weight:500;">Password:</td>
+      <td>
+        <strong style="color:#0f172a; font-family:monospace; font-size:16px; background:#fef2f2; border:1px dashed #f87171; padding:3px 10px; border-radius:4px; letter-spacing:0.5px;">{{ password }}</strong>
+      </td>
+    </tr>
+  </table>
+</div>
+
+<!-- Test Details Box -->
+<div style="background:#f1f5f9; border-left:4px solid #3b82f6; border-radius:6px; padding:14px 18px; margin:20px 0; font-size:14px; color:#334155;">
+  <div style="font-weight:600; color:#1e293b; margin-bottom:6px;">Assessment Window</div>
+  <div><strong>Opens:</strong> {{ exam.opens_at }}</div>
+  <div><strong>Closes:</strong> {{ exam.closes_at }}</div>
+  <div><strong>Duration:</strong> {{ exam.duration_minutes }} minutes once started</div>
+</div>
+
+<div style="text-align:center; margin:28px 0;">
+  <a href="{{ exam_link }}" style="background-color:#2563eb; color:#ffffff !important; padding:13px 32px; border-radius:8px; text-decoration:none; font-weight:600; display:inline-block; font-size:15px;">
+    Go to Assessment &rarr;
+  </a>
+</div>
+
+<!-- Important Notice -->
+<div style="background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:14px 18px; margin:24px 0; font-size:13px; color:#92400e; line-height:1.5;">
+  <strong style="display:block; margin-bottom:4px; color:#b45309;">Important Instructions:</strong>
+  <ul style="margin:0; padding-left:18px;">
+    <li>Keep this email private. Anyone with your password can sign in as you.</li>
+    <li>Once you click Start Test, the timer runs continuously. Begin only when you are ready to complete the test in one sitting.</li>
+    <li>If you lose this password, request the test administrator to resend it. A new password is created each time.</li>
+  </ul>
+</div>
+{% endblock %}
