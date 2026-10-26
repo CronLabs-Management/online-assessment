@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% load tz %}
+{% block title %}Candidates | {{ exam.title }}{% endblock %}
+{% block content %}
+<a href="{% url 'staff_exam_detail' exam.pk %}" class="crumb">{{ exam.title }}</a>
+
+<div class="flex flex-wrap items-end justify-between gap-4">
+  <div>
+    <h1 class="text-3xl">Candidates</h1>
+    <p class="num mt-2 text-slate-600">{{ counts.total }} on the list, {{ counts.unsent }} waiting for login details, {{ counts.not_started }} not started</p>
+  </div>
+  <a href="{% url 'staff_candidates_import' exam.pk %}" class="btn btn-primary">Add candidates</a>
+</div>
+
+<div class="mt-8 grid gap-4 md:grid-cols-2">
+  <form method="post" action="{% url 'staff_send_credentials' exam.pk %}" class="panel p-6">
+    {% csrf_token %}
+    <input type="hidden" name="mode" value="unsent">
+    <h2 class="text-lg">Send login details</h2>
+    <p class="mt-2 text-sm leading-relaxed text-slate-600">Emails a new password to everyone who has not received one. Sends up to {{ batch }} per click.</p>
+    <button {% if not counts.unsent %}disabled{% endif %} class="btn btn-primary mt-5">Send to {{ counts.unsent }} candidate{{ counts.unsent|pluralize }}</button>
+  </form>
+  <form method="post" action="{% url 'staff_send_credentials' exam.pk %}" class="panel p-6" onsubmit="return confirm('Send a new password to every candidate? Each old password stops working straight away.');">
+    {% csrf_token %}
+    <input type="hidden" name="mode" value="all">
+    <h2 class="text-lg">Resend to everyone</h2>
+    <p class="mt-2 text-sm leading-relaxed text-slate-600">Use this after a delivery problem. Every candidate gets a new password and the old one stops working. Sends up to {{ batch }} per click.</p>
+    <button class="btn btn-danger mt-5">Resend to all</button>
+  </form>
+</div>
+
+<form method="get" class="mt-8 flex flex-wrap items-end gap-4">
+  <div class="min-w-[220px] flex-1">
+    <label for="q" class="label">Search by name or email</label>
+    <input id="q" type="search" name="q" value="{{ q }}">
+  </div>
+  <div class="w-56">
+    <label for="status" class="label">Test status</label>
+    <select id="status" name="status">
+      <option value="">All</option>
+      {% for value, label in statuses %}<option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+  </div>
+  <label class="flex items-center gap-2 pb-2 text-sm"><input type="checkbox" name="flagged" value="1" {% if flagged %}checked{% endif %}> Flagged only</label>
+  <button class="btn btn-secondary">Apply</button>
+</form>
+
+<div class="panel mt-6 overflow-x-auto">
+  <table class="min-w-full text-sm">
+    <caption class="sr-only">Candidates for {{ exam.title }}</caption>
+    <thead class="border-b border-slate-200 bg-slate-50 text-left text-slate-600">
+      <tr>
+        <th scope="col" class="px-5 py-3 font-medium">Candidate</th>
+        <th scope="col" class="px-5 py-3 font-medium">Login email</th>
+        <th scope="col" class="px-5 py-3 font-medium">Details</th>
+        <th scope="col" class="px-5 py-3 font-medium">Test</th>
+        <th scope="col" class="px-5 py-3 font-medium">Marks</th>
+        <th scope="col" class="px-5 py-3 text-right font-medium"><span class="sr-only">Actions</span></th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for row in rows %}
+        {% with app=row.application attempt=row.attempt %}
+        <tr class="align-top">
+          <td class="px-5 py-4">
+            <p class="font-medium">{{ app.full_name }}</p>
+            <p class="text-slate-500">{{ app.candidate.email|default:app.candidate.username }}</p>
+            {% if app.phone %}<p class="text-xs text-slate-500">{{ app.phone }}</p>{% endif %}
+            {% if app.status == "revoked" %}<span class="badge badge-bad mt-2">Access removed</span>{% endif %}
+          </td>
+          <td class="whitespace-nowrap px-5 py-4 text-slate-700">
+            {% if app.credentials_sent_at %}Sent <span class="num">{{ app.credentials_sent_at|localtime|date:"d M, H:i" }}</span>{% else %}<span class="badge badge-warn">Not sent</span>{% endif %}
+          </td>
+          <td class="whitespace-nowrap px-5 py-4 text-slate-700">
+            {% if app.details_confirmed_at %}
+              <div class="num">{{ app.details_confirmed_at|localtime|date:"d M, H:i" }}</div>
+              {% if app.resume %}
+                <a href="{% url 'staff_application_resume' app.pk %}" target="_blank" class="mt-1 inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:underline">
+                  📄 View resume
+                </a>
+              {% endif %}
+            {% else %}
+              <span class="text-slate-400">Not yet</span>
+            {% endif %}
+          </td>
+          <td class="whitespace-nowrap px-5 py-4">
+            {% if attempt %}
+              <span class="{% if attempt.status == 'submitted' %}text-green-800{% endif %}">{{ attempt.get_status_display }}</span>
+              {% if attempt.flagged_for_review %}<span class="badge badge-bad ml-1">Flagged</span>{% endif %}
+              <div><a class="text-sm underline" href="{% url 'staff_attempt_review' attempt.pk %}">Review attempt</a></div>
+            {% else %}<span class="text-slate-500">Not started</span>{% endif %}
+          </td>
+          <td class="num px-5 py-4 text-slate-700">
+            {% if attempt and attempt.mcq_score is not None %}<div>MCQ {{ attempt.mcq_score }}</div>{% endif %}
+            {% if attempt and attempt.coding_score is not None %}<div>Coding {{ attempt.coding_score }}</div>{% endif %}
+          </td>
+          <td class="px-5 py-4">
+            <div class="flex flex-col items-end gap-2">
+              {% if app.status == "approved" %}
+                <form method="post" action="{% url 'staff_resend_credentials' app.pk %}">
+                  {% csrf_token %}
+                  <button class="btn btn-secondary btn-sm">{% if app.credentials_sent_at %}Resend login email{% else %}Send login email{% endif %}</button>
+                </form>
+                <form method="post" action="{% url 'staff_access' app.pk %}" class="flex w-60 flex-col items-end gap-2">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="revoke">
+                  <label class="sr-only" for="reason-{{ app.pk }}">Reason for removing access</label>
+                  <input id="reason-{{ app.pk }}" type="text" name="reason" placeholder="Reason (optional)" class="text-xs">
+                  <button class="text-sm font-medium text-red-700 underline underline-offset-4">Remove access</button>
+                </form>
+              {% else %}
+                <form method="post" action="{% url 'staff_access' app.pk %}">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="restore">
+                  <button class="btn btn-secondary btn-sm">Restore access</button>
+                </form>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endwith %}
+      {% empty %}
+        <tr><td colspan="6" class="px-5 py-14 text-center">
+          <p class="font-serif text-lg">No candidates match</p>
+          <p class="mt-2 text-slate-600">Add the mailing list to get started.</p>
+          <a href="{% url 'staff_candidates_import' exam.pk %}" class="btn btn-primary mt-5">Add candidates</a>
+        </td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<p class="mt-4 text-sm text-slate-600">Resending a login email creates a new password. The previous one stops working straight away.</p>
+{% endblock %}

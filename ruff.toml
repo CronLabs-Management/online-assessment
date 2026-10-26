@@ -1,0 +1,16 @@
+# Lint configuration for CI. Rules are chosen for correctness; style rules that fight
+# Django conventions are excluded on purpose.
+target-version = "py310"
+line-length = 120
+extend-exclude = ["**/migrations/**", ".venv", "staticfiles"]
+
+[lint]
+select = ["E9", "F", "I", "B", "UP", "PLW1510", "SIM115"]
+ignore = [
+  "UP017",   # datetime.UTC needs Python 3.11; keep timezone.utc for 3.10 compatibility
+  "B008",    # Django's default-argument patterns are intentional
+]
+
+[lint.per-file-ignores]
+"config/passenger_wsgi.py" = ["F401"]
+"passenger_wsgi.py" = ["F401"]

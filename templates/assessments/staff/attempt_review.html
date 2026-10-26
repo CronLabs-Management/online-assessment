@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}Review: {{ summary.candidate }}{% endblock %}
+{% block content %}
+<div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+  <div>
+    <div class="flex items-center gap-3">
+      <h1 class="text-3xl">{{ summary.candidate }}</h1>
+      {% if attempt.application.resume %}
+        <a href="{% url 'staff_application_resume' attempt.application.pk %}" target="_blank" class="btn btn-secondary btn-sm">
+          📄 View resume
+        </a>
+      {% endif %}
+    </div>
+    <p class="mt-1 text-sm text-slate-500">
+      {{ summary.email }}{% if attempt.application.phone %} • {{ attempt.application.phone }}{% endif %}, application {{ summary.application_status }}, attempt {{ summary.status }}
+    </p>
+  </div>
+  <a class="crumb" href="{% url 'staff_exam_candidates' attempt.exam_id %}">Back to candidates</a>
+</div>
+
+{% if summary.flagged_for_review %}
+  <div class="mb-6 alert alert-bad">Flagged for review: monitoring events crossed a threshold. This is a prompt to look, not a finding.</div>
+{% endif %}
+
+<section class="mb-8 grid gap-4 md:grid-cols-4">
+  <div class="panel p-5 text-sm"><div class="text-slate-500">Started</div>{{ summary.started_at|date:"d M Y H:i" }}</div>
+  <div class="panel p-5 text-sm"><div class="text-slate-500">Ended</div>{% if summary.ended_at %}{{ summary.ended_at|date:"d M Y H:i" }}{% else %}—{% endif %}</div>
+  <div class="panel p-5 text-sm"><div class="text-slate-500">Active time</div>{{ summary.active_seconds }} s (paused {{ summary.paused_seconds }} s)</div>
+  <div class="panel p-5 text-sm"><div class="text-slate-500">Score</div>MCQ {{ summary.mcq_score }}; Coding {{ summary.coding_score|floatformat:2 }} / {{ summary.max_score }}</div>
+  <div class="panel p-5 text-sm"><div class="text-slate-500">Tab/window switches</div>{{ summary.tab_switches }}</div>
+  <div class="panel p-5 text-sm"><div class="text-slate-500">Face not detected</div>{{ summary.missing_face_count }} time(s), {{ summary.missing_face_seconds }} s total</div>
+  <div class="panel p-5 text-sm"><div class="text-slate-500">Multiple faces / head turns</div>{{ summary.multiple_faces_count }} multiple-face event(s)</div>
+  <div class="panel p-5 text-sm"><div class="text-slate-500">Connection & camera</div>{{ summary.connection_interruptions }} interruption(s); {{ summary.camera_interruptions }} camera issue(s); {{ summary.snapshot_count }} snapshot(s)</div>
+</section>
+
+<section class="mb-8">
+  <h2 class="mb-4 text-xl">Browser session</h2>
+  <div class="panel flex flex-wrap items-center justify-between gap-4 p-5 text-sm">
+    <div>
+      {% if attempt.session_fingerprint %}
+        <p class="font-medium">Bound to one browser session.</p>
+        <p class="mt-1 text-slate-600">Any other session is refused until you allow it here. Each refusal is recorded in the timeline below.</p>
+      {% else %}
+        <p class="font-medium">Not bound yet.</p>
+        <p class="mt-1 text-slate-600">The test binds to the browser that makes its first action.</p>
+      {% endif %}
+    </div>
+    {% if not attempt.is_final %}
+      <form method="post" action="{% url 'staff_attempt_allow_resume' attempt.pk %}" onsubmit="return confirm('Allow the candidate to continue in their current browser? Do this only after confirming who they are.');">
+        {% csrf_token %}
+        <button class="btn btn-secondary">Allow resume in this browser</button>
+      </form>
+    {% endif %}
+  </div>
+</section>
+
+<section class="mb-8">
+  <h2 class="mb-4 text-xl">Interview decision</h2>
+  <div class="mb-4 space-y-2">
+    {% for review in reviews %}
+      <div class="panel p-4 text-sm">
+        <div class="font-medium">{{ review.get_decision_display }}</div>
+        <div class="text-slate-500">{{ review.reviewer|default:"—" }}; {{ review.created_at|date:"d M Y H:i" }}</div>
+        <div class="mt-1 whitespace-pre-line">{{ review.notes }}</div>
+      </div>
+    {% empty %}
+      <p class="text-sm text-slate-600">No decision recorded yet.</p>
+    {% endfor %}
+  </div>
+  <form method="post" action="{% url 'staff_attempt_decision' attempt.pk %}" class="max-w-xl space-y-3">
+    {% csrf_token %}
+    {{ decision_form.as_p }}
+    <button class="btn btn-primary">Record decision</button>
+  </form>
+  <p class="mt-2 text-xs text-slate-500">Monitoring signals inform the decision; they never make it automatically.</p>
+</section>
+
+<section class="mb-8">
+  <h2 class="mb-4 text-xl">Multiple-choice answers</h2>
+  <div class="space-y-3">
+  {% for row in mcq_rows %}
+    <div class="panel p-5 text-sm">
+      <div class="mb-1 flex justify-between"><span class="font-medium">Q{{ row.position }}. {{ row.text }}</span><span>{{ row.marks_awarded }}/{{ row.marks }}</span></div>
+      <ol class="ml-5 list-decimal text-slate-700">{% for option in row.shown_options %}<li>{{ option }}</li>{% endfor %}</ol>
+      <div class="mt-2">Selected: <b>{{ row.selected|default:"No answer" }}</b>; Correct: <b>{{ row.correct }}</b>; {% if row.is_correct %}<span class="text-green-700">Correct</span>{% else %}<span class="text-red-700">Incorrect</span>{% endif %}</div>
+      <div class="mt-1 text-slate-600">Time: {{ row.total_seconds }} s total; visits: {% for s in row.visit_seconds %}{{ s }} s{% if not forloop.last %} + {% endif %}{% empty %}none{% endfor %} ({{ row.visit_count }}); answer changes: {{ row.answer_changes }}; saved revisions: {{ row.revision_count }}</div>
+    </div>
+  {% empty %}
+    <p class="text-sm text-slate-600">No multiple-choice questions were assigned.</p>
+  {% endfor %}
+  </div>
+</section>
+
+<section class="mb-8">
+  <h2 class="mb-4 text-xl">Coding answers</h2>
+  <div class="space-y-6">
+  {% for row in coding_rows %}
+    <div class="panel p-5 text-sm">
+      <div class="mb-2 flex justify-between"><span class="font-medium">Problem {{ row.position }}: {{ row.title }}</span><span>{% if row.latest %}{{ row.latest.marks }}/{{ row.marks }}{% else %}not submitted{% endif %}</span></div>
+      <div class="mb-2 whitespace-pre-line text-slate-700">{{ row.statement }}</div>
+      <div class="mb-2 text-slate-600">Time: {{ row.total_seconds }} s total; visits: {% for s in row.visit_seconds %}{{ s }} s{% if not forloop.last %} + {% endif %}{% empty %}none{% endfor %} ({{ row.visit_count }})</div>
+      {% if row.latest %}
+        <div class="mb-2">Latest: version {{ row.latest.version }} ({{ row.latest.language }}); {{ row.latest.status }}; {{ row.latest.submitted_at|date:"d M Y H:i" }}; passed {{ row.latest.public_passed }} public, {{ row.latest.hidden_passed }} hidden of {{ row.latest.total_cases }}</div>
+        {% if row.latest.runner_error %}<div class="text-red-700">Runner: {{ row.latest.runner_error }}</div>{% endif %}
+        {% if row.latest.compile_output %}<pre class="mb-2 whitespace-pre-wrap rounded bg-slate-50 p-2 font-mono text-xs">{{ row.latest.compile_output }}</pre>{% endif %}
+        <table class="mb-3 w-full text-left text-xs">
+          <thead><tr><th class="p-1">Case</th><th class="p-1">Result</th><th class="p-1">Time</th><th class="p-1">Memory</th><th class="p-1">Input / expected / output</th></tr></thead>
+          <tbody>
+          {% for result in row.results %}
+            <tr class="border-t"><td class="p-1">{{ result.label }}</td><td class="p-1">{{ result.status }}</td><td class="p-1">{{ result.time_ms }} ms</td><td class="p-1">{{ result.memory_kb }} KB</td>
+              <td class="p-1">{% if result.is_hidden %}<span class="text-slate-500">Hidden: inputs and outputs are not shown here.</span>{% else %}<div>In: <code>{{ result.input }}</code></div><div>Expected: <code>{{ result.expected }}</code></div><div>Got: <code>{{ result.stdout }}</code></div>{% endif %}</td></tr>
+          {% empty %}
+            <tr><td class="p-1 text-slate-500" colspan="5">No graded results for the latest version.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        <details class="mb-2"><summary class="cursor-pointer underline">Source code (latest)</summary><pre class="mt-2 max-h-96 overflow-auto whitespace-pre rounded bg-slate-900 p-3 font-mono text-xs text-slate-100">{{ row.latest.source_code }}</pre></details>
+        {% if row.versions|length > 1 %}
+          <details><summary class="cursor-pointer underline">Previous versions ({{ row.versions|length|add:"-1" }})</summary>
+            <ul class="mt-2 space-y-1 text-xs">{% for v in row.versions|slice:"1:" %}<li>v{{ v.version }}; {{ v.status }}; {{ v.marks }} marks; {{ v.submitted_at|date:"d M Y H:i" }}</li>{% endfor %}</ul>
+          </details>
+        {% endif %}
+      {% else %}
+        <p class="text-slate-600">No submission yet.</p>
+      {% endif %}
+    </div>
+  {% empty %}
+    <p class="text-sm text-slate-600">No coding problems were assigned.</p>
+  {% endfor %}
+  </div>
+</section>
+
+<section class="mb-8">
+  <h2 class="mb-4 text-xl">Proctoring timeline</h2>
+  <table class="panel w-full text-sm">
+    <thead class="bg-slate-50 text-left"><tr><th class="p-2">Time</th><th class="p-2">Event</th><th class="p-2">Duration</th><th class="p-2">Threshold</th><th class="p-2">Evidence</th></tr></thead>
+    <tbody>
+    {% for event in timeline %}
+      <tr class="border-t">
+        <td class="p-2 whitespace-nowrap">{{ event.server_at|date:"H:i:s" }}</td>
+        <td class="p-2">{{ event.label }}</td>
+        <td class="p-2">{% if event.duration_seconds %}{{ event.duration_seconds }} s{% else %}—{% endif %}</td>
+        <td class="p-2">{% if event.over_threshold %}<span class="text-red-700">Over</span>{% else %}Within{% endif %}</td>
+        <td class="p-2">{% if event.snapshot_id %}<a class="underline" href="{% url 'staff_snapshot' event.snapshot_id %}" target="_blank" rel="noopener">View image</a>{% else %}—{% endif %}</td>
+      </tr>
+    {% empty %}
+      <tr><td class="p-3 text-slate-600" colspan="5">No monitoring events recorded.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% if connections %}
+    <h3 class="mb-2 mt-6 font-semibold">Connection interruptions</h3>
+    <ul class="space-y-1 text-sm">
+      {% for c in connections %}<li>{{ c.detected_at|date:"H:i:s" }}; gap {{ c.gap_seconds }} s; time added {{ c.granted_seconds }} s; not added {{ c.denied_seconds }} s</li>{% endfor %}
+    </ul>
+  {% endif %}
+</section>
+{% endblock %}

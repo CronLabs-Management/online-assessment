@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Edit Section - {{ section.title }}{% endblock %}
+{% block content %}
+<a href="{% url 'staff_exam_detail' exam.pk %}" class="crumb">Back to {{ exam.title }}</a>
+<h1 class="text-3xl">Edit Section</h1>
+<p class="mt-2 text-slate-600">Update section title, order, time limit, and question counts.</p>
+
+<form method="post" class="mt-8 max-w-xl space-y-6">
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="alert alert-bad">{{ form.non_field_errors }}</div>{% endif %}
+  {% for field in form %}
+    <div>
+      <label class="label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+      {{ field }}
+      {% if field.help_text %}<p class="helptext">{{ field.help_text }}</p>{% endif %}
+      {% for error in field.errors %}<p class="errorlist">{{ error }}</p>{% endfor %}
+    </div>
+  {% endfor %}
+  <div class="flex items-center gap-3 pt-2">
+    <button class="btn btn-primary">Save changes</button>
+    <a href="{% url 'staff_exam_detail' exam.pk %}" class="btn btn-secondary">Cancel</a>
+  </div>
+</form>
+{% endblock %}

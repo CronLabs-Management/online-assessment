@@ -1,0 +1,279 @@
+{% extends "base.html" %}
+{% load tz %}
+{% block title %}{{ exam.title }}{% endblock %}
+{% block content %}
+<a href="{% url 'staff_exam_list' %}" class="crumb">All tests</a>
+
+<div class="flex flex-wrap items-start justify-between gap-6">
+  <div>
+    <div class="flex flex-wrap items-center gap-3">
+      <h1 class="text-3xl">{{ exam.title }}</h1>
+      {% if exam.is_published %}<span class="badge badge-ok">Published</span>{% else %}<span class="badge badge-neutral">Draft</span>{% endif %}
+    </div>
+    <p class="num mt-2 text-sm text-slate-600">{{ exam.opens_at|localtime|date:"D d M Y, H:i" }} to {{ exam.closes_at|localtime|date:"D d M Y, H:i" }}, {{ exam.duration_minutes }} minutes</p>
+  </div>
+  <div class="flex flex-wrap gap-2">
+    <a href="{% url 'staff_exam_candidates' exam.pk %}" class="btn btn-secondary btn-sm">Candidates ({{ candidate_count }})</a>
+    <a href="{% url 'staff_exam_overview' exam.pk %}" class="btn btn-secondary btn-sm">Overview</a>
+    <a href="{% url 'staff_exam_edit' exam.pk %}" class="btn btn-secondary btn-sm">Edit settings</a>
+  </div>
+</div>
+
+<div class="mt-10 grid gap-10 lg:grid-cols-[320px_1fr]">
+  <aside class="space-y-6 lg:sticky lg:top-24 lg:self-start">
+    <div class="panel p-6">
+      <h2 class="text-xl">Before you publish</h2>
+      <p class="mt-2 text-sm text-slate-600">
+        {% if exam.is_published %}Candidates can see this test. Unpublish it before making changes they should not see mid-way.
+        {% elif blocking_count == 0 %}Everything required is in place.
+        {% else %}There are {{ blocking_count }} warning{{ blocking_count|pluralize }}. You can publish anyway with an override.{% endif %}
+      </p>
+
+      <ul class="mt-5 space-y-3 text-sm">
+        {% for check in checks %}
+          <li class="flex gap-3">
+            {% if check.ok %}
+              <span class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-green-100 text-xs font-bold text-green-800"><span class="sr-only">Passed:</span>&#10003;</span>
+              <span class="text-slate-600">{{ check.text }}</span>
+            {% elif check.blocking %}
+              <span class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-100 text-xs font-bold text-amber-800"><span class="sr-only">Warning:</span>!</span>
+              <span class="text-amber-900 font-medium">{{ check.text }}</span>
+            {% else %}
+              <span class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-700">i</span>
+              <span class="text-slate-600">{{ check.text }}</span>
+            {% endif %}
+          </li>
+        {% empty %}
+          <li class="text-slate-500">Nothing to check yet.</li>
+        {% endfor %}
+      </ul>
+
+      <div class="mt-6 border-t border-slate-200 pt-5">
+        {% if exam.is_published %}
+          <form method="post" action="{% url 'staff_exam_unpublish' exam.pk %}" onsubmit="return confirm('Unpublish this test? Candidates lose access until you publish it again.');">
+            {% csrf_token %}
+            <button class="btn btn-danger w-full">Unpublish test</button>
+          </form>
+        {% else %}
+          <form method="post" action="{% url 'staff_exam_publish' exam.pk %}" {% if blocking_count > 0 %}onsubmit="return confirm('You have {{ blocking_count }} pre-publish warning(s). Do you wish to override and publish this test anyway?');"{% endif %}>
+            {% csrf_token %}
+            <input type="hidden" name="override" value="true">
+            <button class="btn btn-accent w-full">{% if blocking_count > 0 %}Override & Publish test{% else %}Publish test{% endif %}</button>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="panel p-6">
+      <div class="flex items-center justify-between">
+        <h2 class="text-base font-semibold text-slate-900">Proctoring & Integrity</h2>
+        <a href="{% url 'staff_exam_edit' exam.pk %}" class="text-xs font-medium text-blue-600 hover:underline">Edit</a>
+      </div>
+      <dl class="mt-4 space-y-3 text-xs">
+        <div class="flex justify-between border-b border-slate-100 pb-2">
+          <dt class="text-slate-500">Screen Switch Warning Limit</dt>
+          <dd class="font-medium text-slate-800">{{ exam.tab_switch_threshold }} exits</dd>
+        </div>
+        <div class="flex justify-between border-b border-slate-100 pb-2">
+          <dt class="text-slate-500">Full-Screen Mode</dt>
+          <dd class="font-medium {% if exam.fullscreen_required %}text-green-700{% else %}text-slate-600{% endif %}">{% if exam.fullscreen_required %}Enforced{% else %}Optional{% endif %}</dd>
+        </div>
+        <div class="flex justify-between border-b border-slate-100 pb-2">
+          <dt class="text-slate-500">Webcam Check</dt>
+          <dd class="font-medium {% if exam.camera_required %}text-green-700{% else %}text-slate-600{% endif %}">{% if exam.camera_required %}Required{% else %}Disabled{% endif %}</dd>
+        </div>
+        <div class="flex justify-between border-b border-slate-100 pb-2">
+          <dt class="text-slate-500">Violation Snapshots</dt>
+          <dd class="font-medium {% if exam.snapshots_enabled %}text-green-700{% else %}text-slate-600{% endif %}">{% if exam.snapshots_enabled %}Enabled{% else %}Disabled{% endif %}</dd>
+        </div>
+        <div class="flex justify-between border-b border-slate-100 pb-2">
+          <dt class="text-slate-500">Missing Face Threshold</dt>
+          <dd class="font-medium text-slate-800">{{ exam.missing_face_seconds }}s</dd>
+        </div>
+        <div class="flex justify-between border-b border-slate-100 pb-2">
+          <dt class="text-slate-500">Network Grace Period</dt>
+          <dd class="font-medium text-slate-800">{{ exam.network_grace_seconds }}s</dd>
+        </div>
+        <div class="flex justify-between border-b border-slate-100 pb-2">
+          <dt class="text-slate-500">Pause Credit</dt>
+          <dd class="font-medium text-slate-800">{% if exam.pause_enabled %}Up to {{ exam.max_pause_minutes }}m{% else %}Disabled{% endif %}</dd>
+        </div>
+        <div class="flex justify-between pt-1">
+          <dt class="text-slate-500">Shuffling</dt>
+          <dd class="font-medium text-slate-800">
+            {% if exam.shuffle_questions %}Questions{% endif %}
+            {% if exam.shuffle_questions and exam.shuffle_options %} &amp; {% endif %}
+            {% if exam.shuffle_options %}Options{% endif %}
+            {% if not exam.shuffle_questions and not exam.shuffle_options %}None{% endif %}
+          </dd>
+        </div>
+      </dl>
+    </div>
+  </aside>
+
+  <div class="space-y-10">
+    <!-- ===================================================================== -->
+    <!-- CARD 1: EXAM SECTIONS (Timed Stages)                                 -->
+    <!-- ===================================================================== -->
+    <div class="panel p-6 border-l-4 border-l-blue-600">
+      <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="rounded bg-blue-100 px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-blue-800">Stage 1</span>
+            <h2 class="text-xl font-bold text-slate-900">Exam Sections (Timed Stages)</h2>
+          </div>
+          <p class="mt-1 text-xs text-slate-500">
+            Sections control the test sequence and timers. Candidates complete sections in order (Section 1 &rarr; Section 2). Once a section expires or is submitted, it is permanently locked.
+          </p>
+        </div>
+        <span class="text-xs font-semibold text-slate-500 bg-slate-100 px-3 py-1 rounded-full">{{ sections|length }} Section{{ sections|length|pluralize }} Configured</span>
+      </div>
+
+      <ol class="ledger mt-5 rounded-xl border border-slate-200 bg-white divide-y divide-slate-100">
+        {% for section in sections %}
+          <li class="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+            <div class="min-w-[220px] flex-1">
+              <div class="flex items-center gap-2.5">
+                <span class="flex h-6 w-6 items-center justify-center rounded-full bg-slate-800 text-xs font-bold text-white">{{ section.order }}</span>
+                <p class="font-bold text-slate-900">{{ section.title }}</p>
+                {% if section.kind == "coding" %}
+                  <span class="rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-semibold text-purple-800">Coding Section</span>
+                {% else %}
+                  <span class="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-800">MCQ Section</span>
+                {% endif %}
+              </div>
+              <p class="mt-1.5 text-xs text-slate-600">
+                {% if section.kind == "coding" %}
+                  Draws <strong>{{ section.coding_selection_count }} problem{{ section.coding_selection_count|pluralize }}</strong> per candidate from the Coding Pool ({{ coding_problems|length }} available).
+                {% else %}
+                  Draws <strong>{% if section.question_count %}{{ section.question_count }} question{{ section.question_count|pluralize }}{% else %}All questions{% endif %}</strong> per candidate from the MCQ Pool ({{ mcq_questions|length }} available).
+                {% endif %}
+              </p>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="num text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded">Timer: {{ section.duration_minutes }} min</span>
+              <a href="{% url 'staff_section_edit' section.pk %}" class="btn btn-secondary btn-sm">Edit</a>
+              <form method="post" action="{% url 'staff_section_delete' section.pk %}" onsubmit="return confirm('Delete section \'{{ section.title }}\'?');" class="inline">
+                {% csrf_token %}
+                <button class="btn btn-danger btn-sm">Delete</button>
+              </form>
+            </div>
+          </li>
+        {% empty %}
+          <li class="px-5 py-6 text-center text-sm text-slate-500">
+            No sections created yet. Add at least one section below to define how candidates take this test.
+          </li>
+        {% endfor %}
+      </ol>
+
+      <details class="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-5" {% if not sections %}open{% endif %}>
+        <summary class="cursor-pointer font-bold text-slate-800 text-sm hover:text-blue-700">+ Add a new section to this test</summary>
+        <form method="post" action="{% url 'staff_section_add' exam.pk %}" class="mt-4 grid gap-4 sm:grid-cols-2">
+          {% csrf_token %}
+          {% for field in section_form %}
+            <div class="{% if field.name == 'title' %}sm:col-span-2{% endif %}">
+              <label for="{{ field.id_for_label }}" class="label font-medium text-xs">{{ field.label }}</label>
+              {{ field }}
+              {% if field.help_text %}<span class="helptext text-[11px] text-slate-500">{{ field.help_text }}</span>{% endif %}
+            </div>
+          {% endfor %}
+          <div class="sm:col-span-2"><button class="btn btn-primary btn-sm font-semibold">Save New Section</button></div>
+        </form>
+      </details>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- CARD 2: MULTIPLE-CHOICE QUESTION POOL (MCQs)                          -->
+    <!-- ===================================================================== -->
+    <div class="panel p-6 border-l-4 border-l-emerald-600">
+      <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="rounded bg-emerald-100 px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-emerald-800">Stage 2</span>
+            <h2 class="text-xl font-bold text-slate-900">Multiple-Choice Question Pool (MCQs)</h2>
+          </div>
+          <p class="mt-1 text-xs text-slate-500">
+            Create questions with options. When candidates start an MCQ section, questions are drawn from this pool (optionally shuffled). You can add as many options per question as you need.
+          </p>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="text-xs font-semibold text-slate-500 bg-slate-100 px-3 py-1 rounded-full">{{ mcq_questions|length }} Question{{ mcq_questions|length|pluralize }}</span>
+          <a href="{% url 'staff_mcq_add' exam.pk %}" class="btn btn-primary btn-sm font-semibold">+ Add MCQ</a>
+        </div>
+      </div>
+
+      <ol class="ledger mt-5 rounded-xl border border-slate-200 bg-white divide-y divide-slate-100">
+        {% for question in mcq_questions %}
+          <li class="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+            <div class="min-w-[220px] flex-1">
+              <p class="font-medium text-slate-900"><strong class="text-slate-500">Q{{ question.order }}.</strong> {{ question.text }}</p>
+              <div class="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                <span class="rounded bg-slate-100 px-2 py-0.5 font-medium text-slate-700">{{ question.options.count }} Option{{ question.options.count|pluralize }}</span>
+                <span class="rounded bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700">{{ question.marks }} Mark{{ question.marks|pluralize }}</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <a href="{% url 'staff_mcq_edit' question.pk %}" class="btn btn-secondary btn-sm">Edit</a>
+              <form method="post" action="{% url 'staff_mcq_delete' question.pk %}" onsubmit="return confirm('Delete this question?');" class="inline">
+                {% csrf_token %}
+                <button class="btn btn-danger btn-sm">Delete</button>
+              </form>
+            </div>
+          </li>
+        {% empty %}
+          <li class="px-5 py-6 text-center text-sm text-slate-500">
+            No multiple-choice questions added yet. Click <a href="{% url 'staff_mcq_add' exam.pk %}" class="text-blue-600 font-semibold underline">+ Add MCQ</a> to add your first question.
+          </li>
+        {% endfor %}
+      </ol>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- CARD 3: CODING PROBLEMS POOL                                          -->
+    <!-- ===================================================================== -->
+    <div class="panel p-6 border-l-4 border-l-purple-600">
+      <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="rounded bg-purple-100 px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-purple-800">Stage 3</span>
+            <h2 class="text-xl font-bold text-slate-900">Coding Challenges Pool</h2>
+          </div>
+          <p class="mt-1 text-xs text-slate-500">
+            Interactive programming problems with test cases. Candidates write, compile, and execute code in Python, Java, C, or C++ within an isolated sandbox.
+          </p>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="text-xs font-semibold text-slate-500 bg-slate-100 px-3 py-1 rounded-full">{{ coding_problems|length }} Challenge{{ coding_problems|length|pluralize }}</span>
+          <a href="{% url 'staff_coding_add' exam.pk %}" class="btn btn-primary btn-sm font-semibold">+ Add Coding Challenge</a>
+        </div>
+      </div>
+
+      <ol class="ledger mt-5 rounded-xl border border-slate-200 bg-white divide-y divide-slate-100">
+        {% for problem in coding_problems %}
+          <li class="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+            <div class="min-w-[220px] flex-1">
+              <p class="font-bold text-slate-900">{{ problem.order }}. {{ problem.title }}</p>
+              <div class="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                <span class="rounded bg-slate-100 px-2 py-0.5 font-mono text-slate-700">Languages: {{ problem.languages }}</span>
+                <span class="rounded bg-purple-50 px-2 py-0.5 font-semibold text-purple-700">{{ problem.marks }} Mark{{ problem.marks|pluralize }}</span>
+                <span class="rounded bg-blue-50 px-2 py-0.5 font-semibold text-blue-700">{{ problem.test_cases.count }} Test Case{{ problem.test_cases.count|pluralize }}</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <a href="{% url 'staff_coding_edit' problem.pk %}" class="btn btn-secondary btn-sm">Edit</a>
+              <form method="post" action="{% url 'staff_coding_delete' problem.pk %}" onsubmit="return confirm('Delete coding problem \'{{ problem.title }}\'?');" class="inline">
+                {% csrf_token %}
+                <button class="btn btn-danger btn-sm">Delete</button>
+              </form>
+            </div>
+          </li>
+        {% empty %}
+          <li class="px-5 py-6 text-center text-sm text-slate-500">
+            No coding challenges added yet. Click <a href="{% url 'staff_coding_add' exam.pk %}" class="text-blue-600 font-semibold underline">+ Add Coding Challenge</a> to create one.
+          </li>
+        {% endfor %}
+      </ol>
+    </div>
+  </div>
+</div>
+{% endblock %}

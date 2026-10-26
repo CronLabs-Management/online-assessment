@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Sign in{% endblock %}
+{% block content %}
+<section class="mx-auto max-w-2xl">
+  <h1 class="text-4xl leading-tight">Your assessments, in one place</h1>
+  <p class="mt-4 max-w-xl text-lg leading-relaxed text-slate-700">Sign in with the email address you were given. The login email has your password.</p>
+  <a href="{% url 'login' %}" class="btn btn-primary mt-8">Sign in</a>
+
+  <h2 class="mt-14 font-serif text-xl">What happens next</h2>
+  <ol class="mt-5 space-y-6 border-l border-slate-300 pl-6">
+    <li class="relative">
+      <span class="absolute -left-[31px] top-1 h-2.5 w-2.5 rounded-full bg-slate-900"></span>
+      <p class="font-medium">Find your login email</p>
+      <p class="mt-1 text-slate-600">It has your password. Keep it private.</p>
+    </li>
+    <li class="relative">
+      <span class="absolute -left-[31px] top-1 h-2.5 w-2.5 rounded-full bg-slate-900"></span>
+      <p class="font-medium">Sign in and confirm your details</p>
+      <p class="mt-1 text-slate-600">Check your name and phone number before you start a test.</p>
+    </li>
+    <li class="relative">
+      <span class="absolute -left-[31px] top-1 h-2.5 w-2.5 rounded-full bg-slate-900"></span>
+      <p class="font-medium">Start when the test opens</p>
+      <p class="mt-1 text-slate-600">The timer starts when you begin and does not pause.</p>
+    </li>
+  </ol>
+
+  <p class="mt-12 border-t border-slate-200 pt-6 text-sm text-slate-600">Lost the email? Ask the administrator to send your login details again. A new password replaces the old one.</p>
+</section>
+{% endblock %}

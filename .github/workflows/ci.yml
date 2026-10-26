@@ -1,0 +1,110 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.13"
+  NODE_VERSION: "22"
+
+jobs:
+  lint:
+    name: Lint and JavaScript syntax
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install ruff==0.17.2
+      - name: Ruff
+        run: ruff check .
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: JavaScript syntax
+        # Checked as ES modules (the browser loads them that way), which is the stricter parse.
+        run: |
+          for f in static/js/*.js; do
+            cp "$f" "$RUNNER_TEMP/check.mjs"
+            node --check "$RUNNER_TEMP/check.mjs"
+          done
+
+  test:
+    name: Django tests and checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+      - name: Migrations are up to date
+        env:
+          DJANGO_DEBUG: "1"
+        run: python manage.py makemigrations --check --dry-run
+      - name: Test suite
+        env:
+          DJANGO_DEBUG: "1"
+          CODE_RUNNER: local
+        run: python manage.py test --parallel 1 --verbosity 2
+      - name: Production settings check
+        env:
+          DJANGO_DEBUG: "0"
+          DJANGO_SECRET_KEY: ci-only-secret-key-not-used-anywhere-else-0123456789
+          DJANGO_ALLOWED_HOSTS: example.com
+          SITE_URL: https://example.com
+          EMAIL_BACKEND: django.core.mail.backends.locmem.EmailBackend
+          DJANGO_CSRF_TRUSTED_ORIGINS: https://example.com
+          DB_NAME: ci_check
+          DB_USER: ci
+          DB_PASSWORD: ci
+          DB_HOST: 127.0.0.1
+        run: python manage.py check --deploy --fail-level ERROR
+
+  e2e:
+    name: Browser flow (Playwright)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    needs: [lint, test]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+      # Package downloads occasionally stall on hosted runners, so the install is bounded and retried once.
+      - name: Install Chromium
+        timeout-minutes: 10
+        run: python -m playwright install --with-deps chromium
+        continue-on-error: true
+        id: chromium
+      - name: Install Chromium (retry)
+        if: steps.chromium.outcome == 'failure'
+        timeout-minutes: 10
+        run: python -m playwright install --with-deps chromium
+      - name: Run candidate flow
+        run: bash e2e/run_flow.sh
+      - name: Upload server log on failure
+        if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: server-log
+          path: server.log
+          if-no-files-found: ignore

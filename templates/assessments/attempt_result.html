@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Submitted{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-lg py-10 text-center">
+  <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-2xl text-green-800" aria-hidden="true">&#10003;</div>
+  <h1 class="mt-6 text-3xl">Your test is submitted</h1>
+  <p class="mt-2 font-medium text-slate-700">{{ exam.title }}</p>
+  <p class="mx-auto mt-6 max-w-md leading-relaxed text-slate-700">Your answers are recorded and can no longer be changed. Results are not shown here. The administrator will contact you about next steps.</p>
+  {% if summary.ended_at %}<p class="num mt-4 text-sm text-slate-500">Ended {{ summary.ended_at|date:"D d M Y, H:i" }}</p>{% endif %}
+  <a href="{% url 'home' %}" class="btn btn-secondary mt-10">Back to my tests</a>
+</div>
+{% endblock %}

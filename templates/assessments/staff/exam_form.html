@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}{% if exam %}Edit test{% else %}New test{% endif %}{% endblock %}
+{% block content %}
+{% if exam %}<a href="{% url 'staff_exam_detail' exam.pk %}" class="crumb">Back to {{ exam.title }}</a>{% else %}<a href="{% url 'staff_exam_list' %}" class="crumb">Back to tests</a>{% endif %}
+<h1 class="text-3xl">{% if exam %}Edit test{% else %}New test{% endif %}</h1>
+<p class="mt-2 text-slate-600">{% if exam %}Changes apply to the test straight away.{% else %}The test is created as a draft. Add sections and questions, then publish.{% endif %}</p>
+
+<form method="post" class="mt-8 max-w-2xl space-y-6">
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="alert alert-bad">{{ form.non_field_errors }}</div>{% endif %}
+  {% for field in form %}
+    {% if field.field.widget.input_type == 'checkbox' %}
+      <div class="rounded-lg border border-slate-200 bg-slate-50/50 p-4">
+        <label class="flex items-start gap-3 cursor-pointer">
+          <div class="pt-0.5">{{ field }}</div>
+          <div>
+            <span class="text-sm font-medium text-slate-900">{{ field.label }}</span>
+            {% if field.help_text %}<p class="mt-0.5 text-xs text-slate-500">{{ field.help_text }}</p>{% endif %}
+          </div>
+        </label>
+        {% for error in field.errors %}<p class="errorlist">{{ error }}</p>{% endfor %}
+      </div>
+    {% else %}
+      <div>
+        <label class="label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.help_text %}<p class="helptext">{{ field.help_text }}</p>{% endif %}
+        {% for error in field.errors %}<p class="errorlist">{{ error }}</p>{% endfor %}
+      </div>
+    {% endif %}
+  {% endfor %}
+  <div class="flex items-center gap-3 pt-2">
+    <button class="btn btn-primary">{% if exam %}Save changes{% else %}Create draft{% endif %}</button>
+    <a href="{% if exam %}{% url 'staff_exam_detail' exam.pk %}{% else %}{% url 'staff_exam_list' %}{% endif %}" class="btn btn-secondary">Cancel</a>
+  </div>
+</form>
+{% endblock %}

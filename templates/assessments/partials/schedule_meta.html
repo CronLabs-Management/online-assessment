@@ -1,0 +1,5 @@
+<dl class="grid gap-x-8 gap-y-3 text-sm sm:grid-cols-3">
+  <div><dt class="text-slate-500">Opens</dt><dd class="num mt-0.5 font-medium">{{ exam.opens_at|localtime|date:"D d M, H:i" }}</dd></div>
+  <div><dt class="text-slate-500">Closes</dt><dd class="num mt-0.5 font-medium">{{ exam.closes_at|localtime|date:"D d M, H:i" }}</dd></div>
+  <div><dt class="text-slate-500">Time allowed</dt><dd class="num mt-0.5 font-medium">{{ exam.duration_minutes }} minutes</dd></div>
+</dl>

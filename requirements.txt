@@ -1,0 +1,5 @@
+Django==5.2.18
+whitenoise==6.9.0
+PyMySQL==1.2.3
+asgiref==3.12.1
+sqlparse==0.6.0
