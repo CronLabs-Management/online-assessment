@@ -1,6 +1,12 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}{{ exam.title }}{% endblock %}
+{% block title %}{{ exam.title }} | Assessment{% endblock %}
+{% block header %}{% endblock %}
+{% block footer %}{% endblock %}
+{% block body_class %}bg-[#F4F6FB] min-h-screen{% endblock %}
+{% block wrapper_class %}min-h-screen{% endblock %}
+{% block main_class %}w-full p-0 m-0 flex-grow flex flex-col{% endblock %}
+
 {% block content %}
 <style>
   /* Restrict selection on test content to prevent copying */
@@ -20,7 +26,7 @@
     -ms-user-select: text !important;
     user-select: text !important;
   }
-  /* Centered fullscreen overlay guarantee */
+  /* Fullscreen overlay dialog */
   #fullscreen-gate {
     display: none;
     position: fixed;
@@ -28,7 +34,7 @@
     right: 0;
     bottom: 0;
     left: 0;
-    z-index: 9999;
+    z-index: 99999;
     align-items: center;
     justify-content: center;
   }
@@ -37,87 +43,392 @@
   }
 </style>
 
-<div id="attempt-root" data-attempt-id="{{ attempt.pk }}" data-camera-required="{{ exam.camera_required|yesno:'1,0' }}" data-missing-face="{{ exam.missing_face_seconds }}" data-fullscreen-required="{{ exam.fullscreen_required|yesno:'1,0' }}" class="text-base">
+<div id="attempt-root" data-attempt-id="{{ attempt.pk }}" data-result-url="{% url 'attempt_result' attempt.pk %}" data-camera-required="{{ exam.camera_required|yesno:'1,0' }}" data-missing-face="{{ exam.missing_face_seconds }}" data-fullscreen-required="{{ exam.fullscreen_required|yesno:'1,0' }}" class="text-sm sm:text-base font-sans pb-12">
 
   {% if exam.fullscreen_required %}
-  <div id="fullscreen-gate" class="bg-slate-900/95 backdrop-blur-sm p-6" role="dialog" aria-modal="true" aria-labelledby="fullscreen-title" aria-describedby="fullscreen-body">
-    <div class="m-auto w-full max-w-lg rounded-2xl bg-white p-8 sm:p-10 text-center text-slate-900 shadow-2xl border border-slate-100">
-      <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-blue-100 text-3xl text-blue-700">
-        &#x26F6;
+  <div id="fullscreen-gate" class="bg-slate-950/80 backdrop-blur-md p-6" role="dialog" aria-modal="true" aria-labelledby="fullscreen-title" aria-describedby="fullscreen-body">
+    <div class="m-auto w-full max-w-lg rounded-3xl bg-white p-8 sm:p-10 text-center text-slate-900 shadow-elevated border-[1.5px] border-slate-200">
+      <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[#EEF1FE] border border-blue-200 text-[#2447F5] mb-4 shadow-xs">
+        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>
       </div>
-      <h2 id="fullscreen-title" class="mt-4 text-3xl font-extrabold text-slate-900">Return to full screen</h2>
-      <p id="fullscreen-body" class="mt-3 text-base sm:text-lg leading-relaxed text-slate-600">
-        This test runs in full-screen mode. Leaving full screen is recorded and reviewed. Your timer keeps running.
+      <h2 id="fullscreen-title" class="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#0F172A]">Return to Full Screen</h2>
+      <p id="fullscreen-body" class="mt-3 text-sm leading-relaxed text-slate-600 font-medium">
+        This proctored assessment requires full-screen mode. Departing full-screen view is recorded and flagged in the reviewer audit log.
       </p>
-      <button id="enter-fullscreen" type="button" class="btn btn-accent mt-6 w-full py-3.5 text-lg font-bold shadow-md">
-        Enter full screen to continue
+      <button id="enter-fullscreen" type="button" class="btn btn-primary mt-6 w-full py-3.5 text-base font-extrabold shadow-cta">
+        Enter Full Screen to Continue
       </button>
     </div>
   </div>
   {% endif %}
 
-  <div id="offline" class="alert alert-warn mb-6 hidden text-base font-medium" role="status">
-    Connection lost. Your answers are kept on this device and sent when you reconnect. Time keeps running on the server.
-  </div>
-
-  <header class="sticky top-0 z-10 mb-8 border-b border-slate-200 bg-slate-50/95 py-4 backdrop-blur">
-    <div class="flex flex-wrap items-end justify-between gap-x-8 gap-y-3">
-      <div class="min-w-0">
-        <p class="text-sm font-semibold uppercase tracking-wider text-slate-500">{{ exam.title }}</p>
-        <h1 id="section-title" class="mt-0.5 truncate text-2xl sm:text-3xl font-bold text-slate-900">Loading…</h1>
+  <!-- Assessment Top Header Bar -->
+  <header class="sticky top-0 z-30 bg-white border-b border-slate-200 px-4 sm:px-8 py-3 min-h-[72px] flex items-center shadow-xs">
+    <div class="mx-auto max-w-7xl w-full flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+      <div class="min-w-0 flex items-center gap-4">
+        <div class="w-10 h-10 rounded-xl bg-[#2447F5] flex items-center justify-center text-white shrink-0 shadow-xs">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3l8 3v6c0 4.5-3.2 8-8 9-4.8-1-8-4.5-8-9V6l8-3z"></path>
+            <path d="M8.5 12l2.5 2.5 4.5-5"></path>
+          </svg>
+        </div>
+        <div class="min-w-0">
+          <div class="flex items-center gap-2">
+            {% if exam.camera_required %}
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase tracking-wider bg-[#E3F5EC] text-[#0B6B43]">
+              <span class="w-1.5 h-1.5 rounded-full bg-[#0B6B43] animate-pulse"></span>
+              Live Proctored
+            </span>
+            {% else %}
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase tracking-wider bg-slate-100 text-slate-600">
+              Assessment
+            </span>
+            {% endif %}
+            <span class="text-xs text-slate-400 font-bold truncate max-w-[180px] sm:max-w-xs">{{ exam.title }}</span>
+          </div>
+          <h1 id="section-title" class="truncate text-base sm:text-lg font-extrabold text-[#0F172A] tracking-tight">Candidate Verification &amp; Setup</h1>
+        </div>
       </div>
-      <div class="flex items-end gap-8 text-right">
-        <div>
-          <p class="text-xs uppercase tracking-wider text-slate-500 font-semibold">This section</p>
-          <p id="timer" class="num font-serif text-3xl sm:text-4xl font-bold text-slate-900 transition-colors" aria-live="off">--:--</p>
+
+      <!-- Timers Strip, Candidate Profile & Docked Micro-Webcam -->
+      <div class="flex items-center gap-3 sm:gap-4 shrink-0">
+        <!-- Timers Strip -->
+        <div class="flex items-center gap-2.5 sm:gap-3 bg-[#0F172A] text-white rounded-2xl px-3 sm:px-4 py-1.5 sm:py-2 border border-slate-800 shadow-sm">
+          <div class="text-right">
+            <div class="text-[9px] uppercase tracking-wider text-slate-400 font-extrabold">Section</div>
+            <div id="timer" class="num text-lg sm:text-2xl font-extrabold text-[#FFB020] font-mono tracking-tight" aria-live="off">--:--</div>
+          </div>
+          <div class="h-7 w-px bg-slate-700"></div>
+          <div class="text-right">
+            <div class="text-[9px] uppercase tracking-wider text-slate-400 font-extrabold">Total</div>
+            <div class="num text-xs sm:text-sm font-bold text-slate-300 font-mono"><span id="overall">--:--</span></div>
+          </div>
         </div>
-        <div>
-          <p class="text-xs uppercase tracking-wider text-slate-500 font-semibold">Whole test</p>
-          <p class="num text-xl font-bold text-slate-700"><span id="overall">--:--</span></p>
+
+        <!-- Candidate Profile Chip -->
+        <div class="hidden lg:flex items-center gap-2 pl-2 border-l border-slate-200 text-xs">
+          <div class="w-8 h-8 rounded-lg bg-blue-100 text-[#2447F5] font-black flex items-center justify-center text-xs shadow-2xs">
+            {{ request.user.get_full_name|default:request.user.email|slice:":1"|upper }}
+          </div>
+          <div class="leading-tight text-left">
+            <div class="font-extrabold text-slate-900 truncate max-w-[120px]">{{ request.user.get_full_name|default:request.user.email }}</div>
+            <div class="text-[10px] text-slate-400 font-mono">Candidate</div>
+          </div>
         </div>
+
+        <!-- Header Submit Section Action (Visible during live test sections) -->
+        <button id="header-submit-section" type="button" class="btn btn-primary text-xs font-black py-2 px-3.5 shadow-cta hidden items-center gap-1.5 cursor-pointer">
+          <span>Submit Section</span>
+          <span>&rarr;</span>
+        </button>
+
+        {% if exam.camera_required %}
+        <!-- Top Header Docked Micro-Webcam (Strictly 3cm x 3cm, Non-intrusive) -->
+        <div id="header-proctor-dock" class="relative rounded-2xl overflow-hidden bg-slate-950 border-2 border-blue-500/50 shadow-md shrink-0 select-none" style="width: 3cm !important; height: 3cm !important; min-width: 3cm !important; min-height: 3cm !important; max-width: 3cm !important; max-height: 3cm !important;" title="Live proctoring camera feed">
+          <video id="camera" muted playsinline autoplay class="w-full h-full object-cover" style="width: 3cm !important; height: 3cm !important; min-width: 3cm !important; min-height: 3cm !important; max-width: 3cm !important; max-height: 3cm !important; object-fit: cover !important; display: block !important;"></video>
+          <!-- Live Indicator Beacon -->
+          <div class="absolute top-1 left-1.5 flex items-center gap-1 bg-black/70 backdrop-blur-xs px-1.5 py-0.5 rounded-full text-[9px] font-black text-emerald-400 border border-emerald-500/30 pointer-events-none">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span>Live</span>
+          </div>
+          <!-- Face Guide Outline -->
+          <div id="camera-face-guide" class="camera-face-guide absolute inset-1 rounded-xl border border-emerald-400/50 pointer-events-none transition-colors"></div>
+          <!-- Hidden accessibility texts -->
+          <span id="camera-status" class="sr-only">Camera active</span>
+          <span id="face-status-text" class="sr-only">Face active</span>
+          <!-- Camera Retry Overlay if feed drops -->
+          <div id="camera-error-overlay" class="hidden absolute inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-1 text-center z-10">
+            <span class="text-amber-400 text-xs">⚠️</span>
+            <button id="retry-camera" type="button" class="text-[9px] font-bold text-blue-400 underline mt-0.5 cursor-pointer">Retry</button>
+          </div>
+        </div>
+        {% endif %}
       </div>
     </div>
   </header>
 
-  <div class="grid gap-8 lg:grid-cols-[260px_1fr]">
-    <aside class="space-y-6">
-      <section class="panel p-4">
-        <video id="camera" muted playsinline class="aspect-video w-full rounded-xl bg-slate-900 object-cover" aria-label="Your camera preview"></video>
-        <p id="camera-status" class="mt-3 text-sm font-medium text-slate-700">Camera not started.</p>
-        <button id="retry-camera" type="button" class="btn btn-secondary btn-sm mt-3 hidden w-full">Retry camera</button>
-      </section>
+  <div id="attempt-outer-container" class="mx-auto max-w-7xl px-4 sm:px-8 pt-6">
 
-      <section id="sections-panel" class="panel hidden p-5">
-        <h2 class="text-base font-bold text-slate-900">Sections</h2>
-        <ul id="sections" class="mt-3 space-y-2 text-sm font-medium"></ul>
-        <button id="submit-section" type="button" class="btn btn-primary mt-5 w-full hidden font-bold">Submit this section</button>
-      </section>
-
-      <p id="status" class="min-h-[1.5rem] text-sm text-slate-600 font-medium" aria-live="polite"></p>
-    </aside>
-
-    <main class="min-w-0">
-      <div id="readiness" class="alert alert-info mb-6 hidden">
-        <p class="text-lg font-bold text-blue-900">Camera Check & Setup</p>
-        <p class="mt-1 text-base leading-relaxed text-blue-800">Allow camera access and position yourself so your face is clearly visible and centered in the frame. The test will unlock and enter full screen once the check passes.</p>
-        {% if exam.snapshots_enabled %}
-        <label class="mt-4 flex items-start gap-3 cursor-pointer">
-          <input id="snapshot-consent" type="checkbox" class="mt-1.5 h-4 w-4">
-          <span class="text-sm leading-relaxed text-blue-900">I agree that the proctoring system may capture still frames of my webcam feed if an event occurs (such as facing away or leaving the frame). Images are stored securely and deleted after the review period.</span>
-        </label>
-        {% endif %}
+    <!-- Offline status indicator -->
+    <div id="offline" class="alert alert-warn mb-6 hidden font-medium" role="status">
+      <svg class="w-5 h-5 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      <div>
+        <p class="font-bold">Connection Interrupted</p>
+        <p class="text-xs text-amber-900 mt-0.5">Your responses are cached securely on this machine and will automatically sync once your connection is restored. Time continues to track on the server.</p>
       </div>
+    </div>
 
-      <div id="content" class="panel min-h-[26rem] p-6 sm:p-10 text-base">
-        <p class="text-slate-600 text-lg">Loading your test…</p>
+    <!-- Floating Proctor Alert Banner (Top Center, high z-index, unmissable) -->
+    <div id="proctor-alert" class="hidden fixed top-6 left-1/2 -translate-x-1/2 z-[99999] max-w-lg w-[calc(100vw-2rem)] rounded-2xl border-[1.5px] border-amber-400 bg-amber-50/98 p-4 sm:p-5 text-amber-950 shadow-elevated backdrop-blur-md transition-all">
+      <div class="flex items-start justify-between gap-3">
+        <div class="flex items-start gap-3.5">
+          <span id="proctor-alert-icon" class="text-3xl shrink-0 mt-0.5">⚠️</span>
+          <div>
+            <h4 id="proctor-alert-title" class="font-extrabold text-sm sm:text-base text-amber-950">Proctoring Notice</h4>
+            <p id="proctor-alert-body" class="mt-1 text-xs sm:text-sm text-amber-900 leading-relaxed font-medium"></p>
+            <div class="mt-2.5 flex flex-wrap items-center gap-2">
+              <span id="proctor-alert-limit" class="text-[11px] font-bold text-amber-900 bg-amber-100/90 px-2.5 py-1 rounded-lg border border-amber-300"></span>
+              <span id="proctor-alert-count" class="text-[11px] font-extrabold text-rose-800 bg-rose-100/90 px-2.5 py-1 rounded-lg border border-rose-300 hidden"></span>
+            </div>
+          </div>
+        </div>
+        <button type="button" id="dismiss-proctor-alert" class="rounded-xl p-1.5 text-amber-700 hover:bg-amber-100 hover:text-amber-900 text-sm font-bold transition-colors" title="Dismiss notice">✕</button>
       </div>
+    </div>
 
-      <details class="mt-10 border-t border-slate-200 pt-6">
-        <summary class="cursor-pointer font-bold text-slate-800 text-base">Test Instructions & Rules</summary>
-        <div class="mt-4 max-w-prose whitespace-pre-line text-base leading-relaxed text-slate-700">{{ exam.instructions }}</div>
-      </details>
-    </main>
+    <!-- Workspace: Left Sidebar + Right Test Workspace -->
+    <div class="attempt-layout">
+      <aside class="attempt-sidebar">
+        <!-- Sections Navigation Panel -->
+        <section id="sections-panel" class="bg-white border-[1.5px] border-slate-200 rounded-3xl p-5 shadow-card">
+          <div class="flex items-center justify-between mb-3.5">
+            <h2 class="text-xs font-extrabold uppercase tracking-wider text-[#0F172A] flex items-center gap-2">
+              <svg class="w-4 h-4 text-[#2447F5]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+              Assessment Sections
+            </h2>
+            <span class="text-[11px] font-bold text-slate-400">Step-by-step</span>
+          </div>
+          <ul id="sections" class="space-y-2.5 text-xs font-bold">
+            <li class="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-100 text-slate-600">
+              <span>Loading sections…</span>
+            </li>
+          </ul>
+          <button id="submit-section" type="button" class="btn btn-primary mt-4 w-full hidden text-xs font-extrabold py-2.5 shadow-cta">
+            Submit This Section &rarr;
+          </button>
+        </section>
+
+        <!-- Proctoring Integrity & Session Rules Card -->
+        <section class="bg-white border-[1.5px] border-slate-200 rounded-3xl p-5 shadow-card text-xs">
+          <h3 class="text-xs font-extrabold uppercase tracking-wider text-[#0F172A] mb-3 flex items-center gap-2">
+            <svg class="w-4 h-4 text-[#0B6B43]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+            Session Integrity
+          </h3>
+          <div class="space-y-2.5 text-slate-600">
+            {% if exam.camera_required %}
+            <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+              <span class="font-medium">Camera proctor:</span>
+              <span class="font-bold text-[#0B6B43] flex items-center gap-1">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#0B6B43] animate-pulse"></span>
+                Active Corner PIP
+              </span>
+            </div>
+            {% endif %}
+            <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+              <span class="font-medium">Tab switch limit:</span>
+              <span id="tab-switch-stat-sidebar" class="font-mono font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">0 / {{ exam.tab_switch_threshold }}</span>
+            </div>
+            {% if exam.camera_required %}
+            <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+              <span class="font-medium">Face absences:</span>
+              <span id="face-missing-stat-sidebar" class="font-mono font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">0 logged</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="font-medium">Absence tolerance:</span>
+              <span class="font-mono font-bold text-slate-700">{{ exam.missing_face_seconds }}s</span>
+            </div>
+            {% endif %}
+            <div id="flag-warning-chip" class="hidden text-[11px] font-bold text-rose-700 bg-rose-50 p-2.5 rounded-xl border border-rose-200 mt-2">
+              ⚠️ Limit exceeded: Session flagged for reviewer
+            </div>
+          </div>
+        </section>
+
+        <!-- Network sync status -->
+        <p id="status" class="min-h-[1.5rem] text-xs text-slate-500 font-medium px-1" aria-live="polite"></p>
+      </aside>
+
+      <!-- Main Question / Problem Solver Canvas -->
+      <main class="attempt-main">
+        <!-- Interactive Pre-Assessment Hardware & Environment Diagnostics -->
+        <div id="readiness" class="bg-white border-[1.5px] border-slate-200 rounded-3xl p-6 sm:p-8 shadow-card">
+          <!-- Header Banner -->
+          <div class="flex flex-wrap items-center justify-between gap-4 pb-5 border-b border-slate-100">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase tracking-wider bg-blue-100 text-[#2447F5]">
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#2447F5] animate-pulse"></span>
+                  Pre-Flight Verification
+                </span>
+                <span class="text-xs text-slate-400 font-bold">Hardware &amp; Environment</span>
+              </div>
+              <h2 class="text-xl sm:text-2xl font-extrabold text-[#0F172A] tracking-tight mt-1">Pre-Assessment Device Diagnostics</h2>
+              <p class="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">Please test your camera, microphone, internet, and enable full screen to unlock your assessment.</p>
+            </div>
+            <div id="diagnostic-overall-pill" class="flex items-center gap-2 px-3.5 py-1.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-bold shadow-xs">
+              <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+              <span id="diagnostic-overall-text">Testing System Requirements…</span>
+            </div>
+          </div>
+
+          <!-- 4-Card Diagnostics Grid -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+            {% if exam.camera_required %}
+            <!-- 1. Camera & Face Alignment Check -->
+            <div id="diag-camera-card" class="p-4 sm:p-5 rounded-2xl border-[1.5px] border-slate-200 bg-slate-50/70 hover:bg-slate-50 transition-all flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between gap-2 mb-2">
+                  <div class="flex items-center gap-2.5 min-w-0">
+                    <div class="w-9 h-9 rounded-xl bg-blue-100 text-[#2447F5] flex items-center justify-center font-bold shrink-0">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </div>
+                    <div class="min-w-0">
+                      <h3 class="text-sm font-extrabold text-[#0F172A] truncate">Camera &amp; Face Alignment</h3>
+                      <p class="text-[11px] text-slate-500 truncate">Live feed active &amp; centered</p>
+                    </div>
+                  </div>
+                  <span id="diag-cam-badge" class="diag-badge-pending shrink-0">Testing…</span>
+                </div>
+                <p id="diag-cam-detail" class="text-xs text-slate-600 font-medium mt-1 truncate">Connecting to video feed and checking face position…</p>
+              </div>
+              <div class="mt-3.5 pt-3 border-t border-slate-200/80 flex items-center justify-between text-xs">
+                <span class="text-slate-500 text-[11px]">Preview in top bar</span>
+                <button type="button" id="diag-retry-cam" class="text-[#2447F5] font-bold hover:underline text-xs shrink-0">Retry Camera</button>
+              </div>
+            </div>
+            {% endif %}
+
+            <!-- 2. Geolocation & Location Lock -->
+            <div id="diag-geo-card" class="p-4 sm:p-5 rounded-2xl border-[1.5px] border-slate-200 bg-slate-50/70 hover:bg-slate-50 transition-all flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between gap-2 mb-2">
+                  <div class="flex items-center gap-2.5 min-w-0">
+                    <div class="w-9 h-9 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold shrink-0">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                    </div>
+                    <div class="min-w-0">
+                      <h3 class="text-sm font-extrabold text-[#0F172A] truncate">Geolocation Lock</h3>
+                      <p class="text-[11px] text-slate-500 truncate">Candidate origin verification</p>
+                    </div>
+                  </div>
+                  <span id="diag-geo-badge" class="diag-badge-pending shrink-0">Detecting…</span>
+                </div>
+                <p id="diag-geo-detail" class="text-xs text-slate-600 font-medium mt-1 truncate">Verifying GPS / browser location coordinates.</p>
+              </div>
+              <div class="mt-3.5 pt-3 border-t border-slate-200/80 flex items-center justify-between text-xs">
+                <span id="diag-geo-coords" class="text-slate-500 font-mono text-[11px]">--° N, --° E</span>
+                <button type="button" id="diag-retry-geo" class="text-[#2447F5] font-bold hover:underline text-xs shrink-0">Detect Location</button>
+              </div>
+            </div>
+
+            <!-- 3. WiFi & Internet Latency Check -->
+            <div id="diag-net-card" class="p-4 sm:p-5 rounded-2xl border-[1.5px] border-slate-200 bg-slate-50/70 hover:bg-slate-50 transition-all flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between gap-2 mb-2">
+                  <div class="flex items-center gap-2.5 min-w-0">
+                    <div class="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold shrink-0">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    </div>
+                    <div class="min-w-0">
+                      <h3 class="text-sm font-extrabold text-[#0F172A] truncate">WiFi &amp; Network Latency</h3>
+                      <p class="text-[11px] text-slate-500 truncate">Checking WiFi speed &amp; ping</p>
+                    </div>
+                  </div>
+                  <span id="diag-net-badge" class="diag-badge-pending shrink-0">Testing…</span>
+                </div>
+                <p id="diag-net-detail" class="text-xs text-slate-600 font-medium mt-1 truncate">Pinging server to test connection stability…</p>
+              </div>
+              <div class="mt-3.5 pt-3 border-t border-slate-200/80 flex items-center justify-between text-xs">
+                <span id="diag-net-metrics" class="text-slate-600 font-mono text-[11px] font-bold">-- ms</span>
+                <button type="button" id="diag-retest-net" class="text-[#2447F5] font-bold hover:underline text-xs shrink-0">Re-test Ping</button>
+              </div>
+            </div>
+
+            <!-- 4. Full Screen Mode Check -->
+            <div id="diag-fs-card" class="p-4 sm:p-5 rounded-2xl border-[1.5px] border-slate-200 bg-slate-50/70 hover:bg-slate-50 transition-all flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between gap-2 mb-2">
+                  <div class="flex items-center gap-2.5 min-w-0">
+                    <div class="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold shrink-0">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>
+                    </div>
+                    <div class="min-w-0">
+                      <h3 class="text-sm font-extrabold text-[#0F172A] truncate">Full Screen Mode</h3>
+                      <p class="text-[11px] text-slate-500 truncate">Dedicated window required</p>
+                    </div>
+                  </div>
+                  <span id="diag-fs-badge" class="diag-badge-action shrink-0">Action Required</span>
+                </div>
+                <p id="diag-fs-detail" class="text-xs text-slate-600 font-medium mt-1 truncate">Enable full screen mode to prevent distractions.</p>
+              </div>
+              <div class="mt-3.5 pt-3 border-t border-slate-200/80 flex items-center justify-between text-xs">
+                <span id="diag-fs-status" class="text-slate-500 text-[11px]">Window mode</span>
+                <button type="button" id="btn-toggle-diag-fullscreen" class="btn btn-primary btn-sm py-1.5 px-3.5 text-xs font-extrabold shadow-cta shrink-0">
+                  Enable Full Screen
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Snapshot Consent (if camera and snapshots enabled) -->
+          {% if exam.camera_required and exam.snapshots_enabled %}
+          <label class="mt-5 flex items-start gap-3 cursor-pointer p-3.5 rounded-2xl bg-slate-50 border border-slate-200 hover:border-blue-300 transition-colors">
+            <input id="snapshot-consent" type="checkbox" checked class="mt-0.5 h-4 w-4 accent-[#2447F5] cursor-pointer">
+            <span class="text-xs leading-relaxed text-slate-700 font-medium">
+              I agree that automated low-resolution still frames of my webcam may be securely captured if an integrity event occurs (such as looking away, face missing, or leaving full screen).
+            </span>
+          </label>
+          {% endif %}
+
+          <!-- Action Footer with Gated Start Button -->
+          <div class="mt-6 pt-5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-4">
+            <p id="diagnostic-gate-hint" class="text-xs text-slate-500 font-medium flex items-center gap-1.5">
+              <span class="text-amber-500 font-bold">⚠️</span>
+              <span>Enable Full Screen and complete hardware verification to unlock assessment.</span>
+            </p>
+
+            <button id="btn-confirm-readiness" type="button" disabled class="btn btn-primary text-sm font-extrabold py-3.5 px-8 shadow-cta disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+              <span>Complete Verification to Start</span>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Question / Solver Viewport Container -->
+        <div id="content" class="bg-white border-[1.5px] border-slate-200 rounded-3xl p-6 sm:p-9 shadow-card min-h-[30rem] hidden">
+          <div class="py-16 text-center space-y-3">
+            <div class="inline-block w-8 h-8 border-3 border-[#2447F5] border-t-transparent rounded-full animate-spin"></div>
+            <p class="text-slate-600 text-sm font-bold">Preparing test environment and loading questions…</p>
+          </div>
+        </div>
+
+        <!-- Instructions Drawer -->
+        <details id="exam-instructions-drawer" class="rounded-2xl border-[1.5px] border-slate-200 bg-white p-5 shadow-xs group">
+          <summary class="cursor-pointer font-bold text-slate-900 text-sm flex items-center justify-between list-none select-none">
+            <span class="flex items-center gap-2">
+              <svg class="w-4 h-4 text-slate-400 group-open:rotate-90 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+              Exam Guidelines &amp; Instructions
+            </span>
+            <span class="text-xs text-[#2447F5] font-bold">Click to toggle</span>
+          </summary>
+          <div class="mt-4 pt-4 border-t border-slate-100 whitespace-pre-line text-xs sm:text-sm leading-relaxed text-slate-600 font-medium">
+            {{ exam.instructions }}
+          </div>
+        </details>
+      </main>
+    </div>
   </div>
+
+  <!-- In-App Modal Dialog Root (Ensures Fullscreen is never broken by native browser confirm/alert dialogs) -->
+  <div id="in-app-modal-root" class="hidden fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm transition-opacity" role="dialog" aria-modal="true" aria-labelledby="in-app-modal-title">
+    <div id="in-app-modal-dialog" class="w-full max-w-lg bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 sm:p-7 transform transition-all space-y-5">
+      <div class="flex items-start gap-4">
+        <div id="in-app-modal-icon-wrap" class="w-12 h-12 rounded-2xl bg-blue-50 text-[#2447F5] flex items-center justify-center shrink-0 text-2xl font-bold shadow-xs">
+          <span id="in-app-modal-icon">ℹ️</span>
+        </div>
+        <div class="space-y-1.5 flex-1 min-w-0">
+          <h3 id="in-app-modal-title" class="text-lg font-extrabold text-[#0F172A] leading-tight">Confirmation Required</h3>
+          <p id="in-app-modal-message" class="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium">Please confirm your action.</p>
+        </div>
+      </div>
+      <div id="in-app-modal-details" class="hidden bg-slate-50 border border-slate-100 rounded-2xl p-3.5 text-xs text-slate-600 space-y-1"></div>
+      <div class="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
+        <button type="button" id="in-app-modal-cancel" class="btn btn-secondary text-xs sm:text-sm font-bold py-2.5 px-5">Cancel</button>
+        <button type="button" id="in-app-modal-confirm" class="btn btn-primary text-xs sm:text-sm font-extrabold py-2.5 px-6 shadow-cta">Confirm &amp; Proceed</button>
+      </div>
+    </div>
+  </div>
+
   <canvas id="snapshot-canvas" class="hidden"></canvas>
 </div>
 <script type="module" src="{% static 'js/attempt.js' %}"></script>

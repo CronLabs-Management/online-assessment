@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, enhancements]
   pull_request:
   workflow_dispatch:
 
@@ -89,16 +89,10 @@ jobs:
           cache: pip
           cache-dependency-path: requirements-dev.txt
       - run: pip install -r requirements-dev.txt
-      # Package downloads occasionally stall on hosted runners, so the install is bounded and retried once.
-      - name: Install Chromium
-        timeout-minutes: 10
-        run: python -m playwright install --with-deps chromium
-        continue-on-error: true
-        id: chromium
-      - name: Install Chromium (retry)
-        if: steps.chromium.outcome == 'failure'
-        timeout-minutes: 10
-        run: python -m playwright install --with-deps chromium
+      - name: Install Chromium and system dependencies
+        run: |
+          sudo python -m playwright install-deps chromium
+          python -m playwright install chromium
       - name: Run candidate flow
         run: bash e2e/run_flow.sh
       - name: Upload server log on failure

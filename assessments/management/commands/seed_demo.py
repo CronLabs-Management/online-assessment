@@ -127,22 +127,39 @@ class Command(BaseCommand):
                 )
 
         created = []
+        roles = [
+            "Senior Full Stack Engineer", "Backend Systems Architect", "Frontend Platform Specialist",
+            "DevOps & Infrastructure Engineer", "Cloud Systems Engineer", "Data Platform Engineer",
+            "Machine Learning Engineer", "Site Reliability Engineer", "Software Security Engineer", "Lead Software Engineer",
+        ]
+        from django.core.files.base import ContentFile
+        from assessments.resume_builder import build_candidate_resume_pdf
+
         for number in range(1, options["candidates"] + 1):
             email = f"candidate{number:04d}@example.test"
             user, _ = User.objects.get_or_create(username=email, defaults={"email": email})
             user.email = email
             user.set_password(password)
             user.save()
-            Application.objects.update_or_create(
+            candidate_name = f"Candidate {number:04d}"
+            candidate_phone = f"+1 555 010 {number:04d}"
+            app, _ = Application.objects.update_or_create(
                 candidate=user,
                 exam=exam,
                 defaults={
-                    "full_name": f"Candidate {number:04d}",
+                    "full_name": candidate_name,
+                    "phone": candidate_phone,
                     "status": Application.Status.APPROVED,
+                    "plain_password": password,
                     "credentials_sent_at": now,
                     "details_confirmed_at": now,
                 },
             )
+            if not app.resume or not app.resume.name:
+                pdf_bytes = build_candidate_resume_pdf(
+                    candidate_name, email, candidate_phone, role=roles[(number - 1) % len(roles)]
+                )
+                app.resume.save(f"candidate_{number:04d}_resume.pdf", ContentFile(pdf_bytes), save=True)
             created.append(email)
 
         self.stdout.write(self.style.SUCCESS(f"Demo test #{exam.pk} '{exam.title}' is published."))

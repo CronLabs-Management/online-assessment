@@ -1,5 +1,6 @@
-{% if state.tone == "green" %}<span class="badge badge-ok">{{ state.label }}</span>
-{% elif state.tone == "amber" %}<span class="badge badge-warn">{{ state.label }}</span>
-{% elif state.tone == "blue" %}<span class="badge badge-info">{{ state.label }}</span>
-{% elif state.tone == "red" %}<span class="badge badge-bad">{{ state.label }}</span>
-{% else %}<span class="badge badge-neutral">{{ state.label }}</span>{% endif %}
+{% if state.tone == "green" %}<span class="inline-flex items-center gap-2 rounded-full bg-[#E3F5EC] px-3.5 py-1.5 text-xs sm:text-[13px] font-extrabold text-[#0B6B43] tracking-tight"><span class="w-2 h-2 rounded-full bg-[#0B6B43] inline-block animate-pulse"></span>{{ state.label }}</span>
+{% elif state.tone == "amber" %}<span class="inline-flex items-center gap-2 rounded-full bg-[#FCF7EC] px-3.5 py-1.5 text-xs sm:text-[13px] font-extrabold text-[#9A5F0B] tracking-tight"><span class="w-2 h-2 rounded-full bg-[#FFB020] inline-block"></span>{{ state.label }}</span>
+{% elif state.tone == "blue" %}<span class="inline-flex items-center gap-2 rounded-full bg-[#EEF1FE] px-3.5 py-1.5 text-xs sm:text-[13px] font-extrabold text-[#1E3AC8] tracking-tight"><span class="w-2 h-2 rounded-full bg-[#2447F5] inline-block"></span>{{ state.label }}</span>
+{% elif state.tone == "red" %}<span class="inline-flex items-center gap-2 rounded-full bg-[#FEE2E2] px-3.5 py-1.5 text-xs sm:text-[13px] font-extrabold text-[#991B1B] tracking-tight"><span class="w-2 h-2 rounded-full bg-[#EF4444] inline-block"></span>{{ state.label }}</span>
+{% else %}<span class="inline-flex items-center gap-2 rounded-full bg-[#EEF1F7] px-3.5 py-1.5 text-xs sm:text-[13px] font-extrabold text-[#334155] tracking-tight"><span class="w-2 h-2 rounded-full bg-[#64748B] inline-block"></span>{{ state.label }}</span>
+{% endif %}

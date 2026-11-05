@@ -1,33 +1,103 @@
-{% load static %}<!doctype html>
+{% load static %}
+<!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Assessments{% endblock %} | {{ site_settings.site_name|default:"Assessments" }}</title>
+  <title>{% block title %}Assessments{% endblock %} | {{ site_settings.site_name|default:"TestShield" }}</title>
   {% if site_settings and site_settings.favicon %}
-    <link rel="icon" href="{% url 'serve_branding' 'favicon' %}">
+  <link rel="icon" href="{% url 'serve_branding' 'favicon' %}">
   {% endif %}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=20261031_v6">
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
-    // Palette: cool bone paper, ink-blue neutrals, teal for "open" and "done", brick for "stop", ochre for "watch".
     if (typeof tailwind !== "undefined") tailwind.config = {
       theme: {
         extend: {
           fontFamily: {
-            sans: ['"IBM Plex Sans"', "system-ui", "sans-serif"],
-            serif: ['"IBM Plex Serif"', "Georgia", "serif"],
+            sans: ['"Plus Jakarta Sans"', "system-ui", "-apple-system", "sans-serif"],
+            mono: ['"JetBrains Mono"', "ui-monospace", "monospace"],
           },
           colors: {
-            slate: { 50: "#F5F7F8", 100: "#EBEFF2", 200: "#DAE1E6", 300: "#BCC8D0", 400: "#8795A1", 500: "#637380", 600: "#4B5A66", 700: "#35434E", 800: "#223039", 900: "#15212B" },
-            green: { 50: "#EEF7F5", 100: "#D3EBE6", 200: "#A9D6CD", 600: "#14726D", 700: "#0E5F5B", 800: "#0B4C49" },
-            red: { 50: "#FBF1EF", 100: "#F3D9D4", 200: "#E6B4AC", 600: "#A23A2E", 700: "#8A2F25", 800: "#6E261F", 900: "#4F1B16" },
-            amber: { 50: "#FCF7EC", 100: "#F3E6C4", 200: "#E5CB8F", 600: "#9A5F0B", 800: "#6A3F06" },
-            blue: { 50: "#EFF4F9", 100: "#DCE7F2", 200: "#B7CCE2", 600: "#2C5D86", 800: "#1F4363" },
+            brand: {
+              DEFAULT: "#2447F5",
+              50: "#F1F5FF",
+              100: "#EEF1FE",
+              200: "#D5DEFB",
+              300: "#B8C9F8",
+              400: "#7091F6",
+              500: "#3B62F6",
+              600: "#2447F5",
+              700: "#1E3AC8",
+              800: "#172A99",
+              900: "#0F1B66",
+            },
+            slate: {
+              50: "#F4F6FB",
+              100: "#F1F5F9",
+              200: "#E2E8F0",
+              300: "#CBD5E1",
+              400: "#94A3B8",
+              500: "#64748B",
+              600: "#475569",
+              700: "#334155",
+              800: "#1E293B",
+              900: "#0F172A",
+              950: "#080D1A",
+            },
+            emerald: {
+              50: "#E3F5EC",
+              100: "#D1FAE5",
+              600: "#059669",
+              700: "#0B6B43",
+              800: "#065F46",
+            },
+            amber: {
+              50: "#FCF7EC",
+              100: "#F3E6C4",
+              200: "#FDE68A",
+              500: "#FFB020",
+              600: "#D97706",
+              700: "#B45309",
+              800: "#9A5F0B",
+            },
+            rose: {
+              50: "#FEE2E2",
+              100: "#FFE4E6",
+              600: "#E11D48",
+              700: "#B91C1C",
+              800: "#991B1B",
+            },
+            blue: {
+              50: "#F1F5FF",
+              100: "#EEF1FE",
+              200: "#D5DEFB",
+              600: "#2447F5",
+              700: "#1E3AC8",
+              800: "#172A99",
+            },
+            teal: {
+              50: "#EEF1FE",
+              100: "#D5DEFB",
+              200: "#B8C9F8",
+              500: "#3B62F6",
+              600: "#2447F5",
+              700: "#1E3AC8",
+              800: "#172A99",
+              900: "#0F1B66",
+            },
           },
+          boxShadow: {
+            'card': '0 2px 8px rgba(15,23,42,0.05)',
+            'cta': '0 6px 16px rgba(15,23,42,0.18)',
+            'elevated': '0 12px 32px rgba(15,23,42,0.12)',
+          }
         },
       },
     };
@@ -35,95 +105,171 @@
   <style type="text/tailwindcss">
     @layer base {
       html { -webkit-font-smoothing: antialiased; }
-      body { @apply bg-slate-50 text-slate-900 text-base leading-relaxed; }
-      h1 { @apply font-serif tracking-tight text-slate-900 text-3xl font-extrabold; }
-      @media (min-width: 640px) {
-        h1 { font-size: 2.25rem; line-height: 2.5rem; }
-      }
-      h2 { @apply font-serif tracking-tight text-slate-900 text-2xl font-bold; }
-      h3 { @apply font-serif tracking-tight text-slate-900 text-xl font-bold; }
+      body { @apply bg-[#F4F6FB] text-slate-900 text-base leading-relaxed font-sans; }
+      h1 { @apply font-sans tracking-tight text-slate-900 text-3xl sm:text-4xl font-extrabold; }
+      h2 { @apply font-sans tracking-tight text-slate-900 text-2xl font-bold; }
+      h3 { @apply font-sans tracking-tight text-slate-900 text-xl font-bold; }
+      a { @apply text-[#2447F5] no-underline hover:underline; }
       input:not([type=checkbox]):not([type=radio]), select, textarea {
-        @apply w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 placeholder:text-slate-400;
+        @apply w-full rounded-xl border-[1.5px] border-slate-300 bg-white px-4 py-3 text-base text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#2447F5] focus:ring-4 focus:ring-blue-500/15 transition-all;
       }
-      input[type=checkbox], input[type=radio] { @apply h-4 w-4 accent-green-700; }
+      input[type=checkbox], input[type=radio] { @apply h-5 w-5 accent-[#2447F5] rounded cursor-pointer; }
       input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible, button:focus-visible, summary:focus-visible {
-        @apply outline-none ring-2 ring-green-600 ring-offset-2;
+        @apply outline-none ring-3 ring-blue-500/30 ring-offset-2;
       }
-      input[readonly], input:disabled, select:disabled, textarea:disabled { @apply bg-slate-100 text-slate-500; }
-      .errorlist { @apply mt-1 list-none p-0 text-sm text-red-700 font-medium; }
-      .helptext { @apply mt-1 block text-sm text-slate-500; }
+      input[readonly], input:disabled, select:disabled, textarea:disabled { @apply bg-slate-100 text-slate-500 cursor-not-allowed border-slate-200; }
+      svg { flex-shrink: 0; }
+      .svg-12 { width: 12px !important; height: 12px !important; min-width: 12px !important; max-width: 12px !important; }
+      .svg-14 { width: 14px !important; height: 14px !important; min-width: 14px !important; max-width: 14px !important; }
+      .svg-16 { width: 16px !important; height: 16px !important; min-width: 16px !important; max-width: 16px !important; }
+      .svg-18 { width: 18px !important; height: 18px !important; min-width: 18px !important; max-width: 18px !important; }
+      .svg-20 { width: 20px !important; height: 20px !important; min-width: 20px !important; max-width: 20px !important; }
+      .svg-24 { width: 24px !important; height: 24px !important; min-width: 24px !important; max-width: 24px !important; }
+      .errorlist { @apply mt-1.5 list-none p-0 text-xs text-rose-700 font-semibold; }
+      .helptext { @apply mt-1 block text-xs text-slate-500 font-medium; }
     }
     @layer components {
-      .btn { @apply inline-flex items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-base font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50; }
-      .btn-primary { @apply bg-slate-900 text-white hover:bg-slate-700 shadow-sm; }
-      .btn-accent { @apply bg-green-700 text-white hover:bg-green-600 shadow-sm; }
-      .btn-secondary { @apply border border-slate-300 bg-white text-slate-800 hover:bg-slate-100 shadow-sm; }
-      .btn-danger { @apply border border-red-300 bg-white text-red-700 hover:bg-red-50; }
-      .btn-sm { @apply px-3 py-1.5 text-xs font-semibold; }
-      .panel { @apply rounded-xl border border-slate-200 bg-white shadow-sm; }
-      .label { @apply mb-1.5 block text-base font-semibold text-slate-800; }
-      .badge { @apply inline-flex items-center whitespace-nowrap rounded-md px-2.5 py-0.5 text-xs font-semibold; }
-      .badge-ok { @apply bg-green-100 text-green-800; }
-      .badge-warn { @apply bg-amber-100 text-amber-800; }
-      .badge-bad { @apply bg-red-100 text-red-800; }
-      .badge-info { @apply bg-blue-100 text-blue-800; }
-      .badge-neutral { @apply bg-slate-200 text-slate-700; }
-      .alert { @apply rounded-xl border px-5 py-4 text-base; }
-      .alert-ok { @apply border-green-200 bg-green-50 text-green-900; }
+      .btn { @apply inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-base font-bold transition-all disabled:cursor-not-allowed disabled:opacity-50; }
+      .btn-primary { @apply bg-[#2447F5] text-white hover:bg-[#1E3AC8] shadow-md shadow-blue-600/20 active:scale-[0.99] hover:no-underline; }
+      .btn-accent { @apply bg-[#2447F5] text-white hover:bg-[#1E3AC8] shadow-md shadow-blue-600/20 hover:no-underline; }
+      .btn-secondary { @apply border-2 border-slate-900 bg-white text-slate-900 hover:bg-slate-50 shadow-xs font-bold hover:no-underline; }
+      .btn-danger { @apply border border-rose-300 bg-white text-rose-700 hover:bg-rose-50 font-bold; }
+      .btn-sm { @apply px-3.5 py-1.5 text-xs font-bold rounded-lg; }
+      .panel, .card { @apply rounded-2xl border-[1.5px] border-slate-200 bg-white shadow-card; }
+      .label { @apply mb-1.5 block text-sm sm:text-base font-bold text-slate-900; }
+      .badge { @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1 text-xs font-extrabold; }
+      .badge-ok { @apply bg-[#E3F5EC] text-[#0B6B43]; }
+      .badge-warn { @apply bg-[#FCF7EC] text-[#9A5F0B]; }
+      .badge-bad { @apply bg-[#FEE2E2] text-[#991B1B]; }
+      .badge-info { @apply bg-[#EEF1FE] text-[#1E3AC8]; }
+      .badge-neutral { @apply bg-[#EEF1F7] text-[#334155]; }
+      .alert { @apply rounded-2xl border-[1.5px] px-5 py-4 text-base font-medium; }
+      .alert-ok { @apply border-emerald-200 bg-emerald-50 text-emerald-900; }
       .alert-warn { @apply border-amber-200 bg-amber-50 text-amber-900; }
-      .alert-bad { @apply border-red-200 bg-red-50 text-red-900; }
+      .alert-bad { @apply border-rose-200 bg-rose-50 text-rose-900; }
       .alert-info { @apply border-blue-200 bg-blue-50 text-blue-900; }
-      .ledger > li, .ledger > div { @apply border-t border-slate-200 first:border-t-0; }
       .num { font-variant-numeric: tabular-nums; }
-      .crumb { @apply mb-4 inline-flex items-center gap-1.5 text-base font-medium text-slate-600 hover:text-slate-900; }
-      .nav-link { @apply rounded-md px-3 py-1.5 text-base font-medium text-slate-700 hover:text-slate-900; }
-      .nav-link[aria-current=page] { @apply text-slate-900 underline decoration-green-600 decoration-2 underline-offset-8; }
+      .crumb { @apply mb-4 inline-flex items-center gap-1.5 text-sm font-bold text-slate-600 hover:text-slate-900 hover:no-underline; }
+      .nav-link { @apply font-bold text-base text-slate-600 hover:text-slate-900 py-6 border-b-[3px] border-transparent transition-colors hover:no-underline; }
+      .nav-link[aria-current=page] { @apply text-slate-900 border-b-[3px] border-[#2447F5] no-underline; }
     }
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
     }
   </style>
+  {% block extra_head %}{% endblock %}
 </head>
-<body class="min-h-screen font-sans antialiased">
-  <header class="border-b border-slate-200 bg-white">
-    <nav class="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-6 gap-y-3 px-4 py-3" aria-label="Main">
-      <a href="{% url 'home' %}" class="flex items-center gap-2.5 font-serif text-lg font-semibold text-slate-900">
-        {% if site_settings and site_settings.site_logo %}
-          <img src="{% url 'serve_branding' 'logo' %}" alt="{{ site_settings.site_name|default:'Logo' }}" class="h-8 max-w-[150px] object-contain">
-        {% endif %}
-        <span>{{ site_settings.site_name|default:"Assessments" }}</span>
-      </a>
-      <div class="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
-        {% if user.is_authenticated %}
-          {% if user.is_staff or user.groups.exists %}
-            <a class="nav-link" href="{% url 'staff_exam_list' %}" {% if request.resolver_match.url_name == 'staff_exam_list' %}aria-current="page"{% endif %}>Tests</a>
+
+<body class="min-h-screen font-sans antialiased bg-[#F4F6FB] text-[#0F172A] flex flex-col justify-between {% block body_class %}{% endblock %}">
+  <div class="flex-grow flex flex-col {% block wrapper_class %}{% endblock %}">
+    {% block header %}
+    <header class="sticky top-0 z-40 border-b border-slate-200 bg-white min-h-[76px] flex items-center">
+      <nav class="mx-auto flex max-w-6xl w-full flex-wrap items-center justify-between gap-x-6 gap-y-3 px-4 sm:px-6"
+        aria-label="Main">
+        <div class="flex items-center gap-8 flex-wrap">
+          <a href="{% url 'home' %}" class="flex items-center gap-3 hover:no-underline group py-2">
+            {% if site_settings and site_settings.site_logo %}
+            <img src="{% url 'serve_branding' 'logo' %}" alt="{{ site_settings.site_name|default:'Logo' }}"
+              class="h-9 max-w-[160px] object-contain">
+            {% else %}
+            <div class="w-10 h-10 rounded-xl bg-[#2447F5] flex items-center justify-center text-white shadow-xs group-hover:bg-[#1E3AC8] transition-colors">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3l8 3v6c0 4.5-3.2 8-8 9-4.8-1-8-4.5-8-9V6l8-3z"></path>
+                <path d="M8.5 12l2.5 2.5 4.5-5"></path>
+              </svg>
+            </div>
+            {% endif %}
+            <span class="text-xl font-extrabold tracking-tight text-slate-900">{{ site_settings.site_name|default:"TestShield" }}</span>
+          </a>
+
+          {% if user.is_authenticated %}
+          <div class="hidden md:flex items-center gap-7">
+            {% if user.is_staff or user.groups.exists %}
+              <a class="nav-link" href="{% url 'staff_exam_list' %}" {% if request.resolver_match.url_name == 'staff_exam_list' or request.resolver_match.url_name == 'staff_exam_detail' or request.resolver_match.url_name == 'staff_exam_overview' %}aria-current="page"{% endif %}>Exams</a>
+            {% else %}
+              <a class="nav-link" href="{% url 'home' %}" {% if request.resolver_match.url_name == 'home' %}aria-current="page"{% endif %}>Dashboard</a>
+            {% endif %}
+            {% if user.is_staff %}
+              <a class="nav-link" href="{% url 'staff_settings' %}" {% if request.resolver_match.url_name == 'staff_settings' %}aria-current="page"{% endif %}>Settings</a>
+              <a class="nav-link" href="{% url 'staff_audit_log' %}" {% if request.resolver_match.url_name == 'staff_audit_log' %}aria-current="page"{% endif %}>Audit Log</a>
+            {% endif %}
+          </div>
+          {% endif %}
+        </div>
+
+        <div class="flex items-center gap-3 text-sm">
+          {% if user.is_authenticated %}
+            <div class="flex items-center gap-3">
+              <div class="flex items-center gap-2.5 rounded-full bg-slate-50 border border-slate-200/90 py-1 pl-3 pr-1.5 shadow-2xs">
+                <div class="flex flex-col text-left">
+                  <span class="text-xs font-bold text-slate-800 leading-tight max-w-[180px] truncate" title="{{ user.email|default:user.username }}">
+                    {{ user.email|default:user.username }}
+                  </span>
+                  <span class="text-[10px] font-semibold text-slate-400 leading-tight">
+                    {% if user.is_staff or user.is_superuser %}Administrator{% else %}Candidate{% endif %}
+                  </span>
+                </div>
+                <div class="w-7 h-7 rounded-full bg-[#EEF1FE] text-[#2447F5] border border-blue-200/80 flex items-center justify-center shrink-0 shadow-xs" aria-hidden="true">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                  </svg>
+                </div>
+              </div>
+              <form method="post" action="{% url 'logout' %}" class="inline m-0">{% csrf_token %}
+                <button class="btn btn-secondary btn-sm text-xs font-bold py-1.5 px-3 rounded-xl shadow-2xs">Sign out</button>
+              </form>
+            </div>
           {% else %}
-            <a class="nav-link" href="{% url 'home' %}" {% if request.resolver_match.url_name == 'home' %}aria-current="page"{% endif %}>My tests</a>
+            {% if request.resolver_match.url_name != 'login' and request.resolver_match.url_name != 'login_alias' %}
+              <a class="btn btn-primary btn-sm px-5 py-2 text-xs font-bold" href="{% url 'login' %}">
+                Sign in
+              </a>
+            {% endif %}
           {% endif %}
-          {% if user.is_staff %}
-            <a class="nav-link" href="{% url 'staff_settings' %}" {% if request.resolver_match.url_name == 'staff_settings' %}aria-current="page"{% endif %}>Settings</a>
-            <a class="nav-link" href="{% url 'staff_audit_log' %}" {% if request.resolver_match.url_name == 'staff_audit_log' %}aria-current="page"{% endif %}>Audit log</a>
-          {% endif %}
-          <span class="hidden text-slate-500 md:inline">{{ user.email|default:user.username }}</span>
-          <form method="post" action="{% url 'logout' %}" class="inline">{% csrf_token %}
-            <button class="btn btn-secondary btn-sm">Sign out</button>
-          </form>
-        {% else %}
-          <a class="btn btn-primary btn-sm" href="{% url 'login' %}">Sign in</a>
-        {% endif %}
-      </div>
-    </nav>
-  </header>
-  <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-white focus:px-4 focus:py-2 focus:shadow-lg">Skip to main content</a>
-  <main id="main-content" tabindex="-1" class="mx-auto max-w-5xl px-4 py-10">
-    {% if messages %}
-      <div class="mb-8 space-y-2" role="status">
+        </div>
+      </nav>
+    </header>
+    {% endblock header %}
+
+    <a href="#main-content"
+      class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-white focus:px-4 focus:py-2 focus:shadow-lg">Skip
+      to main content</a>
+
+    <main id="main-content" tabindex="-1" class="{% block main_class %}mx-auto max-w-6xl w-full px-4 sm:px-6 py-8 sm:py-10 flex-grow flex flex-col{% endblock %}">
+      {% block messages %}
+      {% if messages %}
+      <div class="mb-8 space-y-2.5" role="status">
         {% for message in messages %}
-          <div class="alert {% if message.tags == 'error' %}alert-bad{% elif message.tags == 'success' %}alert-ok{% elif message.tags == 'warning' %}alert-warn{% else %}alert-info{% endif %}">{{ message }}</div>
+        <div
+          class="alert {% if message.tags == 'error' %}alert-bad{% elif message.tags == 'success' %}alert-ok{% elif message.tags == 'warning' %}alert-warn{% else %}alert-info{% endif %} flex items-center gap-3">
+          {% if message.tags == 'success' %}
+          <svg class="w-5 h-5 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+          {% elif message.tags == 'error' %}
+          <svg class="w-5 h-5 text-rose-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          {% else %}
+          <svg class="w-5 h-5 text-blue-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          {% endif %}
+          <span>{{ message }}</span>
+        </div>
         {% endfor %}
       </div>
-    {% endif %}
-    {% block content %}{% endblock %}
-  </main>
+      {% endif %}
+      {% endblock messages %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+  {% block footer %}
+  <footer class="mt-auto border-t border-slate-200 bg-white py-5 {% block footer_class %}{% endblock %}">
+    <div class="mx-auto flex max-w-6xl items-center justify-between px-4 sm:px-6 text-xs text-slate-500 font-medium">
+      <span>&copy; {% now "Y" %} {{ site_settings.site_name|default:"TestShield" }}. All rights reserved.</span>
+      <span class="text-slate-400">Proctored Assessment Platform</span>
+    </div>
+  </footer>
+  {% endblock footer %}
+
+  {% block extra_scripts %}{% endblock %}
 </body>
+
 </html>

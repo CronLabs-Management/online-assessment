@@ -1,0 +1,147 @@
+<div id="q-card-{{ q.id }}" class="question-card rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-xs hover:border-slate-300 transition-all space-y-4 relative {% if q.is_reviewed or q.answered %}border-slate-300 bg-slate-50/30{% endif %}" data-qid="{{ q.id }}" data-difficulty="{{ q.difficulty }}" data-max-marks="{{ q.max_marks|default:10 }}" data-reviewed="{% if q.is_reviewed or q.answered %}true{% else %}false{% endif %}">
+  
+  <!-- Question Top Badge Row -->
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-slate-100">
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-[#0E2378] text-white font-black text-xs shadow-2xs">
+        Q{{ q.id }}
+      </span>
+
+      <!-- Keyword Basis Badge -->
+      <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-[#EEF2FF] text-[#0E2378] border border-indigo-100">
+        <svg class="w-3.5 h-3.5 text-[#2447F5]" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
+        <span>Resume Keyword:</span> <strong class="underline decoration-[#2447F5] decoration-2 ml-0.5">{{ q.keyword }}</strong>
+      </span>
+
+      <!-- Category -->
+      <span class="px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-700">
+        {{ q.category }}
+      </span>
+
+      <!-- Difficulty Badge -->
+      {% if q.difficulty == 'Hard' %}
+        <span class="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">Hard</span>
+      {% elif q.difficulty == 'Intermediate' %}
+        <span class="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">Intermediate</span>
+      {% else %}
+        <span class="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Easy</span>
+      {% endif %}
+    </div>
+
+    <!-- Review Status & Copy Question Tool -->
+    <div class="flex items-center gap-2.5 shrink-0">
+      <!-- Status Badge (Explicitly distinguishes Unscored vs 0 vs >0) -->
+      <span id="score-status-badge-{{ q.id }}" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all
+        {% if q.is_reviewed or q.answered %}
+          {% if q.marks_awarded == 0 %}bg-amber-50 text-amber-900 border border-amber-200
+          {% else %}bg-emerald-50 text-emerald-800 border border-emerald-200{% endif %}
+        {% else %}bg-slate-100 text-slate-500 border border-slate-200{% endif %}">
+        {% if q.is_reviewed or q.answered %}
+          <span class="w-1.5 h-1.5 rounded-full {% if q.marks_awarded == 0 %}bg-amber-500{% else %}bg-emerald-500{% endif %}"></span>
+          <span id="score-status-text-{{ q.id }}">Score: {{ q.marks_awarded|default:0 }}/{{ q.max_marks|default:10 }}</span>
+        {% else %}
+          <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+          <span id="score-status-text-{{ q.id }}">Unscored</span>
+        {% endif %}
+      </span>
+
+      <button type="button" onclick="copyQuestionText(this, 'q-text-{{ q.id }}');" class="btn btn-secondary text-xs !py-1 !px-2.5 font-medium text-slate-600 bg-white border-slate-200 hover:bg-slate-50 inline-flex items-center gap-1 rounded-lg" title="Copy question text to clipboard">
+        <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+        <span class="copy-label">Copy</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Resume Context Quote -->
+  {% if q.context_snippet %}
+    <div class="text-xs text-slate-600 bg-slate-50/80 rounded-xl px-3.5 py-2 border border-slate-200/70 flex items-start gap-2">
+      <span class="font-bold text-slate-400 uppercase tracking-wider text-[10px] shrink-0 mt-0.5">Resume Context:</span>
+      <span class="italic text-slate-700">"{{ q.context_snippet }}"</span>
+    </div>
+  {% endif %}
+
+  <!-- Face to Face Interview Question -->
+  <div class="space-y-1">
+    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Interview Question:</span>
+    <p id="q-text-{{ q.id }}" class="text-base sm:text-lg font-bold text-slate-900 leading-snug tracking-tight">
+      {{ q.question }}
+    </p>
+  </div>
+
+  <!-- Expected Answer Evaluation Guide (Collapsed by default for low clutter) -->
+  <details class="group rounded-xl border border-slate-200/90 bg-slate-50/50 overflow-hidden transition-all">
+    <summary class="flex items-center justify-between p-3 cursor-pointer select-none text-xs font-bold text-slate-700 hover:text-slate-900 hover:bg-slate-100/70 transition-colors">
+      <span class="inline-flex items-center gap-2">
+        <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+        <span>Evaluation Guide &bull; Expected Answer</span>
+      </span>
+      <span class="text-xs font-semibold text-[#0E2378] group-open:rotate-180 transition-transform">▾</span>
+    </summary>
+    <div class="p-3.5 pt-1 text-xs text-slate-800 space-y-2 border-t border-slate-200/60 bg-white">
+      <p class="leading-relaxed font-normal">
+        {{ q.expected_answer }}
+      </p>
+      {% if q.follow_up_hint %}
+        <div class="pt-2 border-t border-slate-100 text-xs text-slate-700 flex items-start gap-1.5">
+          <span class="font-bold text-emerald-800 shrink-0">💡 Suggested Follow-Up:</span>
+          <span class="italic">{{ q.follow_up_hint }}</span>
+        </div>
+      {% endif %}
+    </div>
+  </details>
+
+  <!-- 0 TO 10 INTERVIEWER SCORE CONTROL (FAST, NO TYPING, NO CANDIDATE-ANSWER TRANSCRIPTION) -->
+  <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2.5">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+      <div class="flex items-center gap-2">
+        <span class="font-bold text-slate-800 uppercase tracking-wider text-xs">Assign Marks (0–10):</span>
+        <span id="score-display-{{ q.id }}" class="text-sm font-black font-mono {% if q.is_reviewed or q.answered %}text-[#0E2378]{% else %}text-slate-400{% endif %}">
+          {% if q.is_reviewed or q.answered %}{{ q.marks_awarded|default:0 }} / {{ q.max_marks|default:10 }}{% else %}Not Scored{% endif %}
+        </span>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button type="button" onclick="clearQuestionScore({{ q.id }});" class="text-[11px] font-semibold text-slate-500 hover:text-rose-600 transition-colors">
+          Reset to Unscored
+        </button>
+        <button type="button" onclick="toggleQuestionNote({{ q.id }});" class="text-[11px] font-bold text-[#0E2378] hover:underline">
+          + Optional Note
+        </button>
+      </div>
+    </div>
+
+    <!-- Segmented 0 to 10 Score Button Group -->
+    <div class="grid grid-cols-11 gap-1 sm:gap-1.5" role="group" aria-label="Score from 0 to 10">
+      {% for val in "0123456789"|make_list %}
+        <button type="button" 
+          onclick="setQuestionScore({{ q.id }}, {{ forloop.counter0 }});" 
+          id="score-btn-{{ q.id }}-{{ forloop.counter0 }}" 
+          class="score-pill-btn h-9 rounded-lg font-bold text-xs sm:text-sm border transition-all flex items-center justify-center cursor-pointer
+          {% if q.is_reviewed or q.answered %}{% if q.marks_awarded == forloop.counter0 %}bg-[#0E2378] text-white border-[#0E2378] ring-2 ring-[#0E2378]/20 shadow-xs{% else %}bg-white text-slate-700 border-slate-200 hover:bg-slate-100{% endif %}{% else %}bg-white text-slate-700 border-slate-200 hover:bg-slate-100{% endif %}">
+          {{ forloop.counter0 }}
+        </button>
+      {% endfor %}
+      <!-- 10 Button -->
+      <button type="button" 
+        onclick="setQuestionScore({{ q.id }}, 10);" 
+        id="score-btn-{{ q.id }}-10" 
+        class="score-pill-btn h-9 rounded-lg font-bold text-xs sm:text-sm border transition-all flex items-center justify-center cursor-pointer
+        {% if q.is_reviewed or q.answered %}{% if q.marks_awarded == 10 %}bg-[#0E2378] text-white border-[#0E2378] ring-2 ring-[#0E2378]/20 shadow-xs{% else %}bg-white text-slate-700 border-slate-200 hover:bg-slate-100{% endif %}{% else %}bg-white text-slate-700 border-slate-200 hover:bg-slate-100{% endif %}">
+        10
+      </button>
+    </div>
+
+    <!-- Hidden native inputs for form submission & compatibility -->
+    <input type="hidden" id="marks-input-{{ q.id }}" class="question-score-input" value="{% if q.is_reviewed or q.answered %}{{ q.marks_awarded|default:0 }}{% endif %}">
+    <input type="checkbox" id="chk-ans-{{ q.id }}" class="question-answered-toggle hidden" {% if q.is_reviewed or q.answered %}checked{% endif %}>
+
+    <!-- Optional Collapsed Note Input (Never required!) -->
+    <div id="note-wrapper-{{ q.id }}" class="{% if not q.note %}hidden{% endif %} pt-2 border-t border-slate-200/70">
+      <label for="q-note-{{ q.id }}" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+        Interviewer Observation / Note (Optional):
+      </label>
+      <input type="text" id="q-note-{{ q.id }}" value="{{ q.note|default:'' }}" placeholder="e.g. Good depth on concurrency; needed prompting on index types..." class="w-full text-xs rounded-lg border border-slate-300 p-2 text-slate-800 placeholder:text-slate-400 focus:border-[#0E2378] focus:ring-1 focus:ring-[#0E2378]" onchange="updateQuestionNote({{ q.id }}, this.value);">
+    </div>
+  </div>
+
+</div>

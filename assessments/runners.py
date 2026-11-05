@@ -9,6 +9,7 @@ runner errors instead of being silently graded wrong.
 
 import base64
 import json
+import logging
 import math
 import os
 import shutil
@@ -21,6 +22,8 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 
+logger = logging.getLogger(__name__)
+
 try:
     import resource
 except ImportError:
@@ -31,6 +34,10 @@ from django.conf import settings
 
 class RunnerError(Exception):
     """The sandbox could not run the code at all (not a wrong answer)."""
+
+
+def is_production_mode():
+    return not getattr(settings, "DEBUG", False)
 
 
 @dataclass
@@ -93,7 +100,8 @@ class Judge0Runner(BaseRunner):
             with urllib.request.urlopen(request, timeout=self.timeout) as response:
                 return json.loads(response.read().decode("utf-8"))
         except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
-            raise RunnerError(f"Sandbox request failed: {exc}") from exc
+            logger.warning("Sandbox request failed: %s", exc)
+            raise RunnerError("Sandbox execution service is currently unavailable.") from exc
 
     @staticmethod
     def _decode(value):
@@ -105,6 +113,11 @@ class Judge0Runner(BaseRunner):
             return ""
 
     def run_case(self, language, source_code, stdin):
+        if len(source_code) > 50000:
+            raise RunnerError("Source code exceeds maximum allowed length.")
+        if len((stdin or "").encode("utf-8")) > 65536:
+            raise RunnerError("Input size exceeds maximum allowed limit (64 KB).")
+
         language_id = JUDGE0_LANGUAGE_IDS.get(language)
         if language_id is None:
             raise RunnerError(f"Unsupported language: {language}")
@@ -171,6 +184,13 @@ class LocalRunner(BaseRunner):
     }
 
     def run_case(self, language, source_code, stdin):
+        if is_production_mode() and "test" not in sys.argv:
+            raise RunnerError("Local code runner is strictly prohibited in production deployments.")
+        if len(source_code) > 50000:
+            raise RunnerError("Source code exceeds maximum allowed length.")
+        if len((stdin or "").encode("utf-8")) > 65536:
+            raise RunnerError("Input size exceeds maximum allowed limit (64 KB).")
+
         language = "cpp" if language == "c++" else language
         spec = self.COMMANDS.get(language)
         if spec is None:
@@ -182,8 +202,12 @@ class LocalRunner(BaseRunner):
             else:
                 py_bin = shutil.which("python3") or shutil.which("python") or sys.executable
             argv[0] = py_bin
+        elif language == "javascript":
+            node_bin = shutil.which("node") or shutil.which("nodejs")
+            if node_bin:
+                argv[0] = node_bin
         if shutil.which(argv[0]) is None:
-            raise RunnerError(f"{argv[0]} is not installed on this machine.")
+            raise RunnerError(f"Runtime environment for {language} is not available on this system.")
 
         cpu_limit = max(1, math.ceil(settings.CODE_CPU_TIME_LIMIT_S))
         address_bytes = settings.CODE_MEMORY_LIMIT_KB * 1024 * self.ADDRESS_SPACE_MULTIPLIER.get(language, 1)
@@ -205,6 +229,11 @@ class LocalRunner(BaseRunner):
             "PYTHONIOENCODING": "utf-8",
             "PYTHONDONTWRITEBYTECODE": "1",
         }
+        if os.name == "nt":
+            for win_key in ("SYSTEMROOT", "SystemDrive", "TEMP", "TMP"):
+                if win_key in os.environ:
+                    env[win_key] = os.environ[win_key]
+
         with tempfile.TemporaryDirectory(prefix="case-") as workdir:
             with open(os.path.join(workdir, filename), "w", encoding="utf-8") as handle:
                 handle.write(source_code)
@@ -263,9 +292,9 @@ class LocalRunner(BaseRunner):
 
 
 def get_runner():
-    mode = settings.CODE_RUNNER
-    if mode == "judge0" or (mode == "" and settings.JUDGE0_URL):
-        if not settings.JUDGE0_URL:
+    mode = getattr(settings, "CODE_RUNNER", "").strip().lower()
+    if mode == "judge0" or (mode == "" and getattr(settings, "JUDGE0_URL", "")):
+        if not getattr(settings, "JUDGE0_URL", ""):
             return UnconfiguredRunner()
         return Judge0Runner(
             settings.JUDGE0_URL,
@@ -273,5 +302,7 @@ def get_runner():
             auth_header=settings.JUDGE0_AUTH_HEADER,
         )
     if mode == "local":
+        if is_production_mode():
+            raise RunnerError("CODE_RUNNER=local is strictly prohibited in production deployments.")
         return LocalRunner()
     return UnconfiguredRunner()

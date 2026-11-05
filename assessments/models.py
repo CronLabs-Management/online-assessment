@@ -57,6 +57,11 @@ class Exam(models.Model):
     max_pause_minutes = models.PositiveIntegerField(
         default=5, help_text="Maximum cumulative time interruptions may add to one attempt."
     )
+    interview_rounds_count = models.PositiveIntegerField(
+        default=1,
+        validators=[MinValueValidator(1), MaxValueValidator(10)],
+        help_text="Total number of interview rounds configured for this assessment (staff-only).",
+    )
 
     is_published = models.BooleanField(
         default=False,
@@ -100,6 +105,26 @@ class Exam(models.Model):
             "closes_at": self.closes_at.isoformat(),
         }
 
+    def get_default_section(self):
+        """Returns or creates the default MCQ section for this exam."""
+        default_sec = self.sections.filter(is_default=True).first()
+        if default_sec:
+            return default_sec
+        first_mcq = self.sections.filter(kind=ExamSection.Kind.MCQ).order_by("order", "id").first()
+        if first_mcq:
+            first_mcq.is_default = True
+            first_mcq.save(update_fields=["is_default"])
+            return first_mcq
+        max_order = self.sections.aggregate(m=models.Max("order"))["m"] or 0
+        return self.sections.create(
+            title="Default Section",
+            kind=ExamSection.Kind.MCQ,
+            order=max_order + 1 if max_order else 1,
+            duration_minutes=self.duration_minutes,
+            question_count=0,
+            is_default=True,
+        )
+
 
 class ExamSection(models.Model):
     """A timed part of an exam. Sections run in order and cannot be reopened."""
@@ -110,7 +135,7 @@ class ExamSection(models.Model):
 
     exam = models.ForeignKey(Exam, on_delete=models.CASCADE, related_name="sections")
     title = models.CharField(max_length=200)
-    kind = models.CharField(max_length=10, choices=Kind.choices)
+    kind = models.CharField(max_length=10, choices=Kind.choices, default=Kind.MCQ)
     order = models.PositiveIntegerField(default=1)
     duration_minutes = models.PositiveIntegerField(
         validators=[MinValueValidator(1)],default=30)
@@ -122,6 +147,7 @@ class ExamSection(models.Model):
         validators=[MinValueValidator(1)],
         default=2, help_text="Coding sections: how many problems each candidate receives from the pool."
     )
+    is_default = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["order", "id"]
@@ -135,6 +161,14 @@ class ExamSection(models.Model):
 
 class MCQQuestion(models.Model):
     exam = models.ForeignKey(Exam, on_delete=models.CASCADE, related_name="mcq_questions")
+    section = models.ForeignKey(
+        ExamSection,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="questions",
+        help_text="The section this MCQ question belongs to. If not set, belongs to default section.",
+    )
     text = models.TextField()
     marks = models.PositiveIntegerField(default=1)
     order = models.PositiveIntegerField(default=1)
@@ -144,6 +178,15 @@ class MCQQuestion(models.Model):
 
     def __str__(self):
         return self.text[:80]
+
+    @property
+    def effective_section(self):
+        return self.section or self.exam.get_default_section()
+
+    def save(self, *args, **kwargs):
+        if not self.section_id and self.exam_id:
+            self.section = self.exam.get_default_section()
+        super().save(*args, **kwargs)
 
 
 class MCQOption(models.Model):
@@ -230,8 +273,22 @@ class Application(models.Model):
     resume = models.FileField(upload_to="resumes/", null=True, blank=True, max_length=255)
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.APPROVED)
     decision_reason = models.TextField(blank=True, help_text="Why access was revoked, if it was.")
+    plain_password = models.CharField(max_length=128, blank=True, default="", help_text="Last generated password for candidate login.")
     credentials_sent_at = models.DateTimeField(null=True, blank=True)
     details_confirmed_at = models.DateTimeField(null=True, blank=True)
+    pending_email = models.EmailField(blank=True, default="", help_text="Unverified new email address requested by candidate.")
+    email_verification_token = models.CharField(max_length=64, blank=True, default="", help_text="SHA-256 hash of token for verifying email change.")
+    email_verification_sent_at = models.DateTimeField(null=True, blank=True)
+    setup_token_hash = models.CharField(max_length=64, blank=True, default="", help_text="SHA-256 hash of single-use setup/login token.")
+    setup_token_expires_at = models.DateTimeField(null=True, blank=True)
+    setup_token_used_at = models.DateTimeField(null=True, blank=True)
+    ai_interview_questions = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="AI-generated face-to-face interview questions and expected answers based on candidate resume keywords.",
+    )
+    ai_questions_generated_at = models.DateTimeField(null=True, blank=True)
+    ai_questions_error = models.TextField(blank=True, default="")
     changed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -250,6 +307,22 @@ class Application(models.Model):
 
     def __str__(self):
         return f"{self.full_name} – {self.exam.title} ({self.get_status_display()})"
+
+    def ensure_password(self):
+        """Ensures this application has a visible plain password for admin."""
+        if not self.plain_password:
+            from . import notifications
+            pw = notifications.new_password()
+            self.plain_password = pw
+            if self.pk:
+                Application.objects.filter(pk=self.pk).update(plain_password=pw)
+        return self.plain_password
+
+    def save(self, *args, **kwargs):
+        if not self.plain_password:
+            from . import notifications
+            self.plain_password = notifications.new_password()
+        super().save(*args, **kwargs)
 
 
 # ---------------------------------------------------------------------------
@@ -285,6 +358,9 @@ class Attempt(models.Model):
     flagged_for_review = models.BooleanField(default=False)
     mcq_score = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
     coding_score = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True, default="")
+    device_info = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -299,6 +375,102 @@ class Attempt(models.Model):
     @property
     def is_final(self):
         return self.status in self.FINAL_STATUSES
+
+    @property
+    def total_score(self):
+        if self.mcq_score is not None or self.coding_score is not None:
+            return round(float(self.mcq_score or 0) + float(self.coding_score or 0), 2)
+        return None
+
+    @property
+    def interview_rounds_status(self):
+        """
+        Calculates completion status for each interview round configured on the exam.
+        Returns detailed summary and per-round list.
+        """
+        total_rounds = getattr(self.exam, "interview_rounds_count", 1) or 1
+        reviews = list(self.reviews.all().order_by("round_number", "-created_at"))
+        reviews_by_round = {}
+        for r in reviews:
+            if r.round_number not in reviews_by_round:
+                reviews_by_round[r.round_number] = r
+
+        rounds_list = []
+        has_rejection = False
+        all_passed = True
+        current_active_round = 1
+
+        for rnd in range(1, total_rounds + 1):
+            rev = reviews_by_round.get(rnd)
+            if rev:
+                is_done = True
+                if rev.decision == "recommended" or rev.selected_for_next_round:
+                    rnd_status = "selected"
+                    label = f"Round {rnd}: Done ✓ (Selected)"
+                elif rev.decision == "not_recommended":
+                    rnd_status = "rejected"
+                    label = f"Round {rnd}: Done ✕ (Rejected)"
+                    has_rejection = True
+                    all_passed = False
+                else:
+                    rnd_status = "on_hold"
+                    label = f"Round {rnd}: Done ⏳ (On Hold)"
+                    all_passed = False
+            else:
+                is_done = False
+                all_passed = False
+                if has_rejection:
+                    rnd_status = "skipped"
+                    label = f"Round {rnd}: Skipped"
+                elif rnd == 1 or (rnd > 1 and reviews_by_round.get(rnd - 1) and (reviews_by_round[rnd - 1].decision == "recommended" or reviews_by_round[rnd - 1].selected_for_next_round)):
+                    rnd_status = "pending"
+                    label = f"Round {rnd}: Pending ⏳"
+                    if current_active_round == 1 and reviews_by_round.get(1):
+                        current_active_round = rnd
+                else:
+                    rnd_status = "locked"
+                    label = f"Round {rnd}: Locked"
+
+            rounds_list.append({
+                "round_number": rnd,
+                "is_done": is_done,
+                "status": rnd_status,
+                "label": label,
+                "review": rev,
+                "interviewer_name": rev.interviewer_name if rev else "",
+            })
+
+        # Calculate next pending round
+        for r_info in rounds_list:
+            if not r_info["is_done"] and r_info["status"] == "pending":
+                current_active_round = r_info["round_number"]
+                break
+        else:
+            current_active_round = total_rounds
+
+        if has_rejection:
+            overall = "rejected"
+            overall_label = "Rejected ✕"
+        elif all_passed and len(reviews_by_round) >= total_rounds:
+            overall = "selected"
+            overall_label = "Selected (Hire) ★"
+        elif len(reviews_by_round) > 0:
+            overall = "in_progress"
+            overall_label = f"Round {current_active_round} Pending ⏳"
+        else:
+            overall = "not_started"
+            overall_label = "Round 1 Pending ⏳"
+
+        return {
+            "total_rounds": total_rounds,
+            "rounds": rounds_list,
+            "overall_status": overall,
+            "overall_label": overall_label,
+            "current_round": current_active_round,
+            "completed_rounds_count": len(reviews_by_round),
+            "latest_review": reviews[0] if reviews else None,
+        }
+
 
 
 class AttemptSection(models.Model):
@@ -426,6 +598,7 @@ class ProctoringEvent(models.Model):
         SESSION_CHANGED = "session_changed", "Tried to continue from another browser session"
         FULLSCREEN_EXIT = "fullscreen_exit", "Left full-screen mode"
         CLIPBOARD = "clipboard", "Copy, cut or paste used in the test"
+        DEVTOOLS_ATTEMPT = "devtools_attempt", "Developer tools shortcut attempted"
 
     attempt = models.ForeignKey(Attempt, on_delete=models.CASCADE, related_name="proctoring_events")
     kind = models.CharField(max_length=20, choices=Kind.choices)
@@ -510,6 +683,10 @@ class CodingSubmission(models.Model):
 
     class Meta:
         ordering = ["-version"]
+        indexes = [
+            models.Index(fields=["status", "submitted_at"]),
+            models.Index(fields=["attempt", "problem", "is_final"]),
+        ]
         constraints = [
             models.UniqueConstraint(fields=["attempt", "problem", "version"], name="unique_submission_version"),
         ]
@@ -545,23 +722,59 @@ class CodingTestResult(models.Model):
 
 class InterviewReview(models.Model):
     class Decision(models.TextChoices):
-        RECOMMENDED = "recommended", "Recommended"
-        NOT_RECOMMENDED = "not_recommended", "Not recommended"
-        FURTHER_REVIEW = "further_review", "Further review required"
+        RECOMMENDED = "recommended", "Selected / Advance to Next Round"
+        NOT_RECOMMENDED = "not_recommended", "Rejected"
+        FURTHER_REVIEW = "further_review", "Further Review / On Hold"
 
     attempt = models.ForeignKey(Attempt, on_delete=models.CASCADE, related_name="reviews")
+    round_number = models.PositiveIntegerField(default=1, help_text="Interview round number (1, 2, ...)")
     reviewer = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="interview_reviews"
     )
-    decision = models.CharField(max_length=20, choices=Decision.choices)
-    notes = models.TextField()
+    interviewer_name = models.CharField(
+        max_length=150,
+        blank=True,
+        default="",
+        help_text="Signature name of the interviewer who took this round.",
+    )
+    candidate_summary = models.TextField(
+        blank=True,
+        default="",
+        help_text="Short info about candidate background, communication, and demeanor.",
+    )
+    decision = models.CharField(max_length=20, choices=Decision.choices, default=Decision.RECOMMENDED)
+    selected_for_next_round = models.BooleanField(
+        default=False,
+        help_text="Whether candidate is selected for next round or final hire.",
+    )
+    interview_score = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Total marks scored in this round.",
+    )
+    max_interview_score = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Maximum possible marks for this round.",
+    )
+    notes = models.TextField(blank=True, default="", help_text="Detailed feedback and notes from interviewer.")
+    questions_data = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Saved state of interview questions (answered/unanswered, marks).",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["-created_at"]
+        ordering = ["round_number", "-created_at"]
 
     def __str__(self):
-        return f"{self.get_decision_display()} by {self.reviewer}"
+        name = self.interviewer_name or (self.reviewer.username if self.reviewer else "Staff")
+        return f"Round {self.round_number} ({self.get_decision_display()}) by {name}"
 
 
 class AuditLog(models.Model):
@@ -597,6 +810,30 @@ class SiteSettings(models.Model):
         default=60,
         validators=[MinValueValidator(1), MaxValueValidator(365)],
         help_text="Evidence images older than this many days are deleted by the daily purge.",
+    )
+    footer_copyright = models.CharField(
+        max_length=255,
+        default="© 2026 Assessments. All rights reserved.",
+        blank=True,
+        help_text="Copyright notice displayed on the left of the footer.",
+    )
+    footer_text = models.CharField(
+        max_length=255,
+        default="Secure Online Assessment Platform",
+        blank=True,
+        help_text="Custom platform text or tagline displayed in the footer.",
+    )
+    gemini_api_key = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        help_text="Google Gemini API Key for generating face-to-face interview questions from candidate resumes.",
+    )
+    gemini_model = models.CharField(
+        max_length=64,
+        default="gemini-1.5-flash",
+        blank=True,
+        help_text="Gemini model identifier (e.g., gemini-1.5-flash, gemini-1.5-pro).",
     )
 
     class Meta:

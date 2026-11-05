@@ -96,13 +96,15 @@ def _send_via_fallback(subject, body, recipient, html_body=None):
     if settings.EMAIL_BACKEND != "django.core.mail.backends.smtp.EmailBackend":
         return False
 
-    loopback_ssl_context = None
+    secure_ssl_context = None
     try:
-        loopback_ssl_context = ssl.create_default_context()
-        loopback_ssl_context.check_hostname = False
-        loopback_ssl_context.verify_mode = ssl.CERT_NONE
-    except Exception:
-        pass
+        secure_ssl_context = ssl.create_default_context()
+        # Normal certificate chain and hostname verification are strictly enforced.
+        cafile = getattr(settings, "EMAIL_SSL_CAFILE", None)
+        if cafile and os.path.isfile(cafile):
+            secure_ssl_context.load_verify_locations(cafile=cafile)
+    except Exception as exc:
+        logger.warning("Could not initialize secure default SSL context: %s", exc)
 
     for cfg in _get_prioritized_fallbacks():
         if cfg["host"] == settings.EMAIL_HOST and cfg["port"] == settings.EMAIL_PORT:
@@ -120,8 +122,8 @@ def _send_via_fallback(subject, body, recipient, html_body=None):
 
             conn = get_connection(**conn_kwargs)
             # Explicitly set ssl_context on the connection instance to override Django's cached property
-            if (cfg["use_ssl"] or cfg["use_tls"]) and loopback_ssl_context:
-                conn.ssl_context = loopback_ssl_context
+            if (cfg["use_ssl"] or cfg["use_tls"]) and secure_ssl_context:
+                conn.ssl_context = secure_ssl_context
 
             msg = EmailMultiAlternatives(
                 subject=subject,

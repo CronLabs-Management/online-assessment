@@ -1,32 +1,263 @@
 {% extends "base.html" %}
-{% block title %}Add candidates | {{ exam.title }}{% endblock %}
+{% block title %}Add Candidates | {{ exam.title }}{% endblock %}
 {% block content %}
-<a href="{% url 'staff_exam_candidates' exam.pk %}" class="crumb">Candidates</a>
-<div class="grid gap-10 lg:grid-cols-[1fr_300px]">
+<div class="space-y-6 max-w-[1200px] mx-auto text-left">
+  <!-- Breadcrumb -->
   <div>
-    <h1 class="text-3xl">Add candidates</h1>
-    <p class="mt-2 text-slate-600">Paste the mailing list for <span class="font-medium text-slate-800">{{ exam.title }}</span>. Candidates are added as approved. Adding them does not send an email.</p>
-
-    <form method="post" class="mt-8">
-      {% csrf_token %}
-      <label for="{{ form.candidates.id_for_label }}" class="label">One candidate per line</label>
-      <textarea id="{{ form.candidates.id_for_label }}" name="candidates" rows="12" class="font-mono text-sm" placeholder="asha@example.com, Asha Rao, 9876543210">{{ form.candidates.value|default:"" }}</textarea>
-      <p class="helptext">Format: email, full name, phone. Name and phone are optional. Commas and tabs both work, so you can paste from a spreadsheet.</p>
-      {{ form.candidates.errors }}
-      <div class="mt-6 flex items-center gap-3">
-        <button class="btn btn-primary">Add to this test</button>
-        <a href="{% url 'staff_exam_candidates' exam.pk %}" class="btn btn-secondary">Cancel</a>
-      </div>
-    </form>
+    <a href="{% url 'staff_exam_candidates' exam.pk %}" class="crumb inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 transition-colors font-medium">
+      <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
+      <span>Back to Candidates ({{ exam.title }})</span>
+    </a>
   </div>
 
-  <aside class="alert alert-info h-fit">
-    <p class="font-medium">What happens next</p>
-    <ol class="mt-3 list-decimal space-y-2 pl-5 leading-relaxed">
-      <li>Candidates appear on the list as approved.</li>
-      <li>Press <em>Send login details</em> on the Candidates page.</li>
-      <li>Each candidate receives a password by email, then confirms their details at first sign-in.</li>
-    </ol>
-  </aside>
+  <div class="grid gap-8 lg:grid-cols-[1fr_340px] items-start">
+    <div class="space-y-6">
+      <div>
+        <div class="flex items-center gap-2 mb-1.5 flex-wrap">
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-[#EEF1FE] text-[#1E3AC8] border border-blue-200">Candidate Registration</span>
+          <span class="text-xs text-slate-300">•</span>
+          <span class="text-xs text-slate-500 font-semibold">{{ exam.title }}</span>
+          <span class="text-xs text-slate-300">•</span>
+          <span class="text-xs text-slate-500 font-semibold">{{ enrolled_candidates|length }} currently enrolled</span>
+        </div>
+        <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Add Candidates</h1>
+        <p class="mt-1 text-xs sm:text-sm text-slate-500">
+          Register candidates individually or batch-paste multiple records from spreadsheets. Duplicate entries are automatically checked.
+        </p>
+      </div>
+
+      <form method="post" id="add-candidates-form" class="space-y-6">
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+          <div class="alert alert-bad p-4 rounded-xl text-xs font-semibold">{{ form.non_field_errors }}</div>
+        {% endif %}
+
+        <!-- Option A: Structured Single Candidate Entry -->
+        <div class="card p-6 border-l-4 border-l-[#2447F5] space-y-4 shadow-2xs">
+          <div>
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider bg-[#EEF1FE] text-[#1E3AC8] border border-blue-200">Direct Entry</span>
+            <h2 class="text-base font-extrabold text-slate-900 mt-1">Single Candidate Record</h2>
+            <p class="text-xs text-slate-500">Add an individual candidate with structured fields.</p>
+          </div>
+
+          <div class="grid gap-4 sm:grid-cols-3">
+            <div>
+              <label for="{{ form.single_full_name.id_for_label }}" class="label text-xs font-bold text-slate-700">Candidate Full Name</label>
+              {{ form.single_full_name }}
+              {% for error in form.single_full_name.errors %}<p class="errorlist text-xs text-rose-600 mt-1">{{ error }}</p>{% endfor %}
+            </div>
+            <div>
+              <label for="{{ form.single_email.id_for_label }}" class="label text-xs font-bold text-slate-700">Email Address (Login ID)</label>
+              {{ form.single_email }}
+              {% for error in form.single_email.errors %}<p class="errorlist text-xs text-rose-600 mt-1">{{ error }}</p>{% endfor %}
+            </div>
+            <div>
+              <label for="{{ form.single_phone.id_for_label }}" class="label text-xs font-bold text-slate-700">Mobile Number</label>
+              {{ form.single_phone }}
+              {% for error in form.single_phone.errors %}<p class="errorlist text-xs text-rose-600 mt-1">{{ error }}</p>{% endfor %}
+            </div>
+          </div>
+
+          <!-- Real-Time Duplicate Warning for Single Entry -->
+          <div id="single-duplicate-warning" class="hidden p-3.5 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-900 flex items-start gap-2.5 shadow-2xs">
+            <span class="text-amber-600 font-bold text-base leading-none">⚠️</span>
+            <div class="flex-1">
+              <strong class="font-bold">Candidate Already Registered:</strong>
+              <span id="single-duplicate-text" class="ml-1 font-semibold text-amber-950"></span>
+              <p class="text-[11px] text-amber-800 mt-1">
+                This email address is already enrolled in <strong>{{ exam.title }}</strong>. If submitted, this entry will be skipped to prevent duplicate records.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Option B: Bulk Paste from Spreadsheet / CSV -->
+        <details class="card p-6 bg-slate-50/50 border border-slate-200 rounded-xl" {% if form.candidates.value %}open{% endif %}>
+          <summary class="cursor-pointer font-bold text-slate-800 text-sm hover:text-[#2447F5] flex items-center justify-between select-none">
+            <div class="flex items-center gap-2">
+              <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+              <span>Or Batch Paste Multiple Candidates (CSV / Spreadsheet)</span>
+            </div>
+            <span class="text-xs text-slate-400 font-normal">Click to expand</span>
+          </summary>
+          <div class="mt-4 space-y-3">
+            <div class="flex items-center justify-between flex-wrap gap-2">
+              <label for="{{ form.candidates.id_for_label }}" class="label text-xs font-bold text-slate-700">One candidate per line</label>
+              <a href="{% url 'staff_candidates_sample_csv' exam.pk %}" class="inline-flex items-center gap-1 text-xs font-bold text-[#2447F5] hover:text-[#1E3AC8] bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200">
+                <svg class="w-3.5 h-3.5 text-[#2447F5]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                Download Sample CSV Template
+              </a>
+            </div>
+            {{ form.candidates }}
+            <p class="text-xs text-slate-500 font-mono">Format: email@domain.com, Full Name, +1234567890 (Commas or tab-separated)</p>
+            {% for error in form.candidates.errors %}<p class="errorlist text-xs text-rose-600 mt-1">{{ error }}</p>{% endfor %}
+
+            <!-- Real-Time Duplicate Warning for Bulk Paste -->
+            <div id="bulk-duplicate-warning" class="hidden p-3.5 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-900 space-y-2 shadow-2xs">
+              <div class="flex items-center gap-2">
+                <span class="text-amber-600 font-bold text-base leading-none">⚠️</span>
+                <strong class="font-bold"><span id="bulk-dup-count">0</span> Duplicate Candidate(s) Detected in Text:</strong>
+              </div>
+              <ul id="bulk-dup-list" class="list-disc list-inside text-[11px] text-amber-800 space-y-1 max-h-36 overflow-y-auto pl-1 font-mono"></ul>
+              <p class="text-[11px] text-amber-700">
+                These candidates are already enrolled or repeated within your pasted text. When submitted, they will be safely skipped.
+              </p>
+            </div>
+          </div>
+        </details>
+
+        <div class="flex items-center gap-3 pt-2">
+          <button type="submit" class="btn btn-primary text-xs font-bold py-2.5 px-6 rounded-lg bg-[#335eea] hover:bg-[#254bd0] text-white shadow-2xs">
+            Add Candidates to Assessment
+          </button>
+          <a href="{% url 'staff_exam_candidates' exam.pk %}" class="btn btn-secondary text-xs font-semibold py-2.5 px-4 rounded-lg border-slate-200">
+            Cancel
+          </a>
+        </div>
+      </form>
+    </div>
+
+    <!-- Aside Workflow & Enrolled Candidates Directory -->
+    <aside class="space-y-4">
+      <!-- Enrolled Directory -->
+      <div class="card p-5 space-y-3 bg-white border border-slate-200 rounded-xl shadow-2xs">
+        <div class="flex items-center justify-between">
+          <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider">Already Enrolled ({{ enrolled_candidates|length }})</h3>
+          <span class="text-[10px] bg-slate-100 text-slate-600 font-extrabold px-2 py-0.5 rounded-full">Database</span>
+        </div>
+        <p class="text-[11px] text-slate-500">
+          Search existing candidates to verify whether an invite was already created:
+        </p>
+        <input type="text" id="filter-enrolled-input" placeholder="Filter by name or email..." class="w-full text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50/50 focus:border-[#335eea] focus:ring-1 focus:ring-[#335eea]">
+        <div id="enrolled-candidates-list" class="max-h-56 overflow-y-auto divide-y divide-slate-100 text-xs">
+          {% for c in enrolled_candidates %}
+            <div class="py-2 enrolled-item" data-search="{{ c.name|lower }} {{ c.email|lower }}">
+              <p class="font-bold text-slate-800 text-[11px] truncate">{{ c.name }}</p>
+              <p class="text-[10px] text-slate-400 font-mono truncate">{{ c.email }}</p>
+            </div>
+          {% empty %}
+            <p class="text-[11px] text-slate-400 italic py-2">No candidates enrolled yet.</p>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Candidate Lifecycle Guide -->
+      <div class="card p-5 border-l-4 border-l-emerald-600 space-y-3 shadow-2xs bg-white rounded-xl">
+        <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider">Candidate Lifecycle</h3>
+        <ol class="space-y-2 text-xs text-slate-600 list-decimal pl-4 leading-relaxed">
+          <li>Candidates are added and approved for the assessment.</li>
+          <li>From Candidates page, click <strong>Batch Credentials</strong> to email passwords.</li>
+          <li>A secure random password is generated and emailed to each candidate.</li>
+          <li>Staff can inspect and copy passwords anytime from the candidate table.</li>
+        </ol>
+      </div>
+    </aside>
+  </div>
 </div>
+
+<!-- Enrolled Candidates JSON Data for Real-time Duplication Detection -->
+{{ enrolled_candidates|json_script:"enrolled-candidates-data" }}
+
+<script>
+(function() {
+  const dataEl = document.getElementById('enrolled-candidates-data');
+  const enrolledList = dataEl ? JSON.parse(dataEl.textContent || '[]') : [];
+  const enrolledMap = new Map();
+  enrolledList.forEach(c => {
+    if (c.email) {
+      enrolledMap.set(c.email.trim().toLowerCase(), c.name || c.email);
+    }
+  });
+
+  // Single candidate check
+  const singleEmailInput = document.getElementById('id_single_email');
+  const singleWarning = document.getElementById('single-duplicate-warning');
+  const singleWarningText = document.getElementById('single-duplicate-text');
+
+  if (singleEmailInput && singleWarning && singleWarningText) {
+    function checkSingle() {
+      const email = (singleEmailInput.value || '').trim().toLowerCase();
+      if (email && enrolledMap.has(email)) {
+        const name = enrolledMap.get(email);
+        singleWarningText.textContent = `${name} (${email})`;
+        singleWarning.classList.remove('hidden');
+      } else {
+        singleWarning.classList.add('hidden');
+      }
+    }
+    singleEmailInput.addEventListener('input', checkSingle);
+    singleEmailInput.addEventListener('blur', checkSingle);
+    checkSingle();
+  }
+
+  // Bulk candidates check
+  const bulkTextarea = document.getElementById('id_candidates');
+  const bulkWarning = document.getElementById('bulk-duplicate-warning');
+  const bulkCount = document.getElementById('bulk-dup-count');
+  const bulkList = document.getElementById('bulk-dup-list');
+
+  if (bulkTextarea && bulkWarning && bulkCount && bulkList) {
+    function checkBulk() {
+      const text = bulkTextarea.value || '';
+      const lines = text.split(/\r?\n/);
+      const detected = [];
+      const seenInBulk = new Set();
+
+      lines.forEach((line, idx) => {
+        const trimmed = line.trim();
+        if (!trimmed) return;
+        const parts = trimmed.split(/[\t,]/);
+        const email = (parts[0] || '').trim().toLowerCase();
+        if (!email || !email.includes('@')) return;
+
+        if (enrolledMap.has(email)) {
+          detected.push({
+            type: 'Already Enrolled',
+            email: email,
+            name: enrolledMap.get(email)
+          });
+        } else if (seenInBulk.has(email)) {
+          detected.push({
+            type: 'Repeated in Input',
+            email: email,
+            name: (parts[1] || '').trim() || email
+          });
+        }
+        seenInBulk.add(email);
+      });
+
+      if (detected.length > 0) {
+        bulkCount.textContent = detected.length;
+        bulkList.innerHTML = detected.map(d =>
+          `<li><strong>${d.email}</strong> — ${d.name} <span class="text-amber-600 font-bold">(${d.type})</span></li>`
+        ).join('');
+        bulkWarning.classList.remove('hidden');
+      } else {
+        bulkWarning.classList.add('hidden');
+      }
+    }
+
+    bulkTextarea.addEventListener('input', checkBulk);
+    bulkTextarea.addEventListener('change', checkBulk);
+    checkBulk();
+  }
+
+  // Filter Enrolled List
+  const filterInput = document.getElementById('filter-enrolled-input');
+  if (filterInput) {
+    filterInput.addEventListener('input', function() {
+      const q = (this.value || '').trim().toLowerCase();
+      const items = document.querySelectorAll('.enrolled-item');
+      items.forEach(el => {
+        const search = el.getAttribute('data-search') || '';
+        if (!q || search.includes(q)) {
+          el.style.display = '';
+        } else {
+          el.style.display = 'none';
+        }
+      });
+    });
+  }
+})();
+</script>
 {% endblock %}

@@ -1,56 +1,190 @@
 {% extends "base.html" %}
-{% block title %}Candidate Details & Resume{% endblock %}
-{% block content %}
-<a href="{% url 'exam_detail' exam.pk %}" class="crumb">Back to the test</a>
-<div class="mx-auto max-w-lg">
-  <h1 class="text-3xl">Candidate Details</h1>
-  <p class="mt-2 text-slate-600">Please provide your contact information and upload your resume before starting the assessment.</p>
+{% block title %}Verify Candidate Details | {{ exam.title }}{% endblock %}
 
-  <div class="mt-6 rounded-md bg-slate-100 px-4 py-3 text-sm">
-    <span class="text-slate-700">Account login:</span>
-    <span class="ml-1 font-medium">{{ application.candidate.email|default:application.candidate.username }}</span>
+{% block content %}
+<div class="mx-auto max-w-2xl py-6 sm:py-10 space-y-8">
+  
+  <!-- Stepper & Top Navigation -->
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
+    <a href="{% url 'home' %}" class="inline-flex items-center gap-2 text-xs sm:text-sm font-bold text-slate-600 hover:text-slate-900 transition-colors">
+      <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M15 19l-7-7 7-7"/>
+      </svg>
+      <span>Back to Dashboard</span>
+    </a>
+
+    <!-- 3-Step Progress Tracker -->
+    <ol class="flex items-center gap-3 sm:gap-5 text-xs sm:text-sm font-bold list-none p-0 m-0 select-none">
+      <li class="flex items-center gap-2 text-[#2447F5]">
+        <span class="w-7 h-7 rounded-full bg-[#2447F5] text-white flex items-center justify-center font-extrabold text-xs shadow-xs ring-4 ring-blue-100">1</span>
+        <span class="font-extrabold">Verification</span>
+      </li>
+      <span class="text-slate-300">&bull;</span>
+      <li class="flex items-center gap-2 text-slate-400">
+        <span class="w-7 h-7 rounded-full bg-slate-100 border-2 border-slate-300 text-slate-400 flex items-center justify-center font-extrabold text-xs">2</span>
+        <span>System Check</span>
+      </li>
+      <span class="text-slate-300">&bull;</span>
+      <li class="flex items-center gap-2 text-slate-400">
+        <span class="w-7 h-7 rounded-full bg-slate-100 border-2 border-slate-300 text-slate-400 flex items-center justify-center font-extrabold text-xs">3</span>
+        <span>Start Test</span>
+      </li>
+    </ol>
   </div>
 
-  <form method="post" enctype="multipart/form-data" class="mt-8 space-y-5">
-    {% csrf_token %}
+  <!-- Verification Card -->
+  <div class="bg-white border-[1.5px] border-slate-200 rounded-3xl p-7 sm:p-10 shadow-card">
     
-    <div>
-      <label for="{{ form.full_name.id_for_label }}" class="label">Full Legal Name <span class="text-red-700" aria-hidden="true">*</span></label>
-      {{ form.full_name }}
-      {{ form.full_name.errors }}
-    </div>
+    <!-- Card Header Banner -->
+    <div class="border-b border-slate-100 pb-6 mb-7">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-2.5">
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-[#EEF1FE] text-[#2447F5] border border-blue-200">
+          <span class="w-1.5 h-1.5 rounded-full bg-[#2447F5]"></span>
+          Step 1 of 3: Identity Verification
+        </span>
+        <span class="text-xs text-slate-500 font-bold bg-slate-100 px-3 py-1 rounded-full border border-slate-200">{{ exam.title }}</span>
+      </div>
+      <h1 class="text-2xl sm:text-3xl font-extrabold text-[#0F172A] tracking-tight">Verify Your Information</h1>
+      <p class="mt-2 text-sm text-slate-600 leading-relaxed font-medium">
+        Please review your candidate credentials and confirm your resume before proceeding to the live hardware and proctoring check.
+      </p>
 
-    <div>
-      <label for="{{ form.email.id_for_label }}" class="label">Email Address <span class="text-red-700" aria-hidden="true">*</span></label>
-      {{ form.email }}
-      {{ form.email.errors }}
-    </div>
-
-    <div>
-      <label for="{{ form.phone.id_for_label }}" class="label">Mobile Number <span class="text-red-700" aria-hidden="true">*</span></label>
-      {{ form.phone }}
-      {{ form.phone.errors }}
-    </div>
-
-    <div class="rounded-lg border border-slate-200 bg-slate-50/50 p-4">
-      <label for="{{ form.resume.id_for_label }}" class="label flex items-center justify-between">
-        <span>Upload Resume {% if form.resume.field.required %}<span class="text-red-700" aria-hidden="true">*</span>{% endif %}</span>
-        <span class="text-xs font-normal text-slate-500">PDF, DOC, DOCX (Max 10 MB)</span>
-      </label>
-      {% if application.resume %}
-        <div class="mb-3 flex items-center justify-between rounded bg-green-50 px-3 py-2 text-xs text-green-900 border border-green-200">
-          <span>✓ Resume already uploaded</span>
-          <span class="text-slate-500">Upload new file below to replace</span>
+      <!-- Trust & Security Banner -->
+      <div class="mt-4 flex items-center gap-3 rounded-2xl bg-[#EEF1FE]/70 border border-blue-200/80 px-4 py-3 text-xs text-slate-700">
+        <div class="w-7 h-7 rounded-lg bg-blue-100 text-[#2447F5] flex items-center justify-center shrink-0">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+          </svg>
         </div>
-      {% endif %}
-      {{ form.resume }}
-      {% if form.resume.help_text %}
-        <p class="mt-1.5 text-xs text-slate-500">{{ form.resume.help_text }}</p>
-      {% endif %}
-      {{ form.resume.errors }}
+        <span class="leading-relaxed">
+          Your details are encrypted and securely authenticated. If your name or phone number has changed, update them below.
+        </span>
+      </div>
     </div>
 
-    <button class="btn btn-primary w-full py-2.5 text-base">Save details & continue to test</button>
-  </form>
+    <!-- Form -->
+    <form method="post" enctype="multipart/form-data" class="space-y-6">
+      {% csrf_token %}
+
+      <!-- Section: Personal Details -->
+      <div class="space-y-4">
+        <h2 class="text-xs font-extrabold uppercase tracking-wider text-slate-400">Personal Information</h2>
+        
+        <!-- Full Legal Name -->
+        <div class="space-y-1.5">
+          <label for="{{ form.full_name.id_for_label }}" class="text-sm font-bold text-[#0F172A] flex items-center justify-between">
+            <span>Full Legal Name <span class="text-rose-600" aria-hidden="true">*</span></span>
+            <span class="text-[11px] font-semibold text-slate-400">As shown on Photo ID</span>
+          </label>
+          <div class="relative rounded-xl">
+            {{ form.full_name }}
+          </div>
+          {% if form.full_name.errors %}
+            <div class="text-xs font-semibold text-rose-600 mt-1">{{ form.full_name.errors }}</div>
+          {% endif %}
+          <p class="text-xs text-slate-500 font-medium">Must match the legal name on your government-issued ID card.</p>
+        </div>
+
+        <!-- Phone Number -->
+        <div class="space-y-1.5">
+          <label for="{{ form.phone.id_for_label }}" class="text-sm font-bold text-[#0F172A] flex items-center justify-between">
+            <span>Mobile Phone Number <span class="text-rose-600" aria-hidden="true">*</span></span>
+            <span class="text-[11px] font-semibold text-slate-400">With Country Code</span>
+          </label>
+          <div class="relative rounded-xl">
+            {{ form.phone }}
+          </div>
+          {% if form.phone.errors %}
+            <div class="text-xs font-semibold text-rose-600 mt-1">{{ form.phone.errors }}</div>
+          {% endif %}
+          <p class="text-xs text-slate-500 font-medium">Include your country calling code (e.g., +1 for US/CA, +91 for India).</p>
+        </div>
+
+        <!-- Registered Email (Locked) -->
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-between">
+            <label for="{{ form.email.id_for_label }}" class="text-sm font-bold text-[#0F172A] flex items-center gap-1.5">
+              <span>Account Email Address</span>
+              <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+            </label>
+            <span class="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+              🔒 Locked &amp; Verified
+            </span>
+          </div>
+          <div class="relative rounded-xl opacity-90">
+            {{ form.email }}
+          </div>
+          <p class="text-xs text-slate-500 font-medium">This email is permanently bound to your candidate login credentials.</p>
+        </div>
+      </div>
+
+      <!-- Section: Resume Upload & Management -->
+      <div class="space-y-3 pt-2">
+        <h2 class="text-xs font-extrabold uppercase tracking-wider text-slate-400">Curriculum Vitae / Resume</h2>
+        
+        <div class="rounded-2xl border-[1.5px] border-slate-200 bg-[#F4F6FB] p-5 sm:p-6 space-y-4">
+          <div class="flex items-center justify-between">
+            <label for="{{ form.resume.id_for_label }}" class="text-sm font-bold text-[#0F172A] block">
+              Resume Document {% if form.resume.field.required %}<span class="text-rose-600" aria-hidden="true">*</span>{% endif %}
+            </label>
+            <span class="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">PDF, DOC, DOCX (Max 10 MB)</span>
+          </div>
+
+          {% if application.resume %}
+            <!-- Existing Resume Verified Box -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl bg-[#E3F5EC] p-3.5 border border-emerald-200 text-xs sm:text-sm text-[#0B6B43]">
+              <div class="flex items-center gap-2.5 font-bold">
+                <div class="w-8 h-8 rounded-lg bg-emerald-100 text-[#0B6B43] flex items-center justify-center shrink-0">
+                  <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                </div>
+                <div>
+                  <div class="font-extrabold">Resume Currently on File</div>
+                  <div class="text-[11px] text-emerald-800 font-medium">Uploaded and verified for recruitment evaluation</div>
+                </div>
+              </div>
+              <a href="{% url 'candidate_resume' exam.pk %}" target="_blank" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-[#0B6B43] border border-emerald-300 font-extrabold text-xs shadow-2xs hover:bg-emerald-50 transition-colors shrink-0">
+                <span>View current resume</span>
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+              </a>
+            </div>
+
+            <div class="pt-1">
+              <span class="text-xs text-slate-600 font-bold block mb-1.5">Need to update your resume? Select a replacement file below:</span>
+              <div class="bg-white rounded-xl p-3 border-[1.5px] border-slate-200">
+                {{ form.resume }}
+              </div>
+            </div>
+          {% else %}
+            <!-- No Resume Warning & Upload Box -->
+            <div class="flex items-center gap-3 rounded-xl bg-amber-50 p-3.5 border border-amber-200 text-xs sm:text-sm text-amber-900 font-bold">
+              <svg class="w-5 h-5 text-amber-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+              <span>Please upload your CV or resume before unlocking the system check.</span>
+            </div>
+            <div class="bg-white rounded-xl p-3 border-[1.5px] border-slate-200">
+              {{ form.resume }}
+            </div>
+          {% endif %}
+
+          {% if form.resume.errors %}
+            <div class="text-xs font-semibold text-rose-600 mt-1">{{ form.resume.errors }}</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Action Button -->
+      <div class="pt-4 border-t border-slate-100 space-y-2">
+        <button type="submit" class="btn btn-primary h-[58px] w-full text-base font-extrabold shadow-cta flex items-center justify-center gap-2">
+          <span>Save Details &amp; Proceed to System Check</span>
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+          </svg>
+        </button>
+        <p class="text-center text-xs text-slate-500 font-medium">
+          Next step: Live webcam, geolocation, and network latency check.
+        </p>
+      </div>
+
+    </form>
+  </div>
 </div>
 {% endblock %}

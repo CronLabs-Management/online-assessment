@@ -40,15 +40,15 @@ echo "==> [5/7] Installing / upgrading dependencies..."
 pip install --upgrade pip
 pip install -r requirements.txt
 
-echo "==> [6/7] Applying database migrations & collecting static files..."
+echo "==> [6/8] Applying database migrations & collecting static files..."
 python manage.py migrate --noinput
 python manage.py collectstatic --noinput
 
-echo "==> [7/7] Restarting Passenger application..."
-touch "$APP_DIR/tmp/restart.txt"
+echo "==> [7/8] Running Django deployment and security checks (fail-closed)..."
+python manage.py check --deploy --fail-level ERROR
 
-echo "==> Running Django deployment check..."
-python manage.py check --deploy || true
+echo "==> [8/8] Restarting Passenger application..."
+touch "$APP_DIR/tmp/restart.txt"
 
 echo "=============================================================================="
 echo "Deployment completed successfully! Website: https://scrambler.in"

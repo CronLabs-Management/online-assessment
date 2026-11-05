@@ -1,51 +1,1686 @@
 {% extends "base.html" %}
-{% block title %}{% if problem %}Edit coding problem{% else %}New coding problem{% endif %}{% endblock %}
+{% block title %}{% if problem %}Edit Coding Challenge | {{ exam.title }}{% else %}New Coding Challenge | {{ exam.title }}{% endif %}{% endblock %}
 {% block content %}
-<a href="{% url 'staff_exam_detail' exam.pk %}" class="crumb">Back to {{ exam.title }}</a>
-<h1 class="text-3xl">{% if problem %}Edit coding problem{% else %}New coding problem{% endif %}</h1>
-<p class="mt-2 text-slate-600">Public cases are shown to candidates. Hidden cases are used only for grading and are never sent to a candidate's browser.</p>
+<style>
+  /* Base Authoring Card */
+  .coding-card {
+    background: #ffffff;
+    border: 1px solid #E2E8F0;
+    border-radius: 16px;
+    padding: 22px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  }
+  .coding-card-header {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid #F1F5F9;
+    margin-bottom: 18px;
+  }
+  @media (min-width: 640px) {
+    .coding-card-header {
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+    }
+  }
+  .coding-card-title {
+    font-size: 15px;
+    font-weight: 800;
+    color: #0F172A;
+    letter-spacing: -0.01em;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .coding-card-desc {
+    font-size: 12px;
+    color: #64748B;
+    margin-top: 2px;
+    line-height: 1.4;
+  }
+  .form-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    color: #334155;
+    margin-bottom: 6px;
+  }
+  .form-hint {
+    font-size: 11px;
+    color: #64748B;
+    margin-top: 4px;
+    line-height: 1.4;
+  }
 
-<form method="post" class="mt-8 max-w-3xl space-y-10">
-  {% csrf_token %}
-  <div class="space-y-5">
-    {% for field in problem_form %}
-      <div>
-        <label class="label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-        {{ field }}
-        {% if field.help_text %}<p class="helptext">{{ field.help_text }}</p>{% endif %}
-        {% for error in field.errors %}<p class="errorlist">{{ error }}</p>{% endfor %}
+  /* Form Inputs Styling */
+  .coding-form-input,
+  .coding-card input[type="text"],
+  .coding-card input[type="number"] {
+    width: 100%;
+    font-size: 14px;
+    font-weight: 500;
+    color: #0F172A;
+    background: #FFFFFF;
+    border: 1.5px solid #CBD5E1;
+    border-radius: 10px;
+    padding: 10px 14px;
+    outline: none;
+    transition: all 0.15s ease;
+  }
+  .coding-form-input:focus,
+  .coding-card input[type="text"]:focus,
+  .coding-card input[type="number"]:focus {
+    border-color: #0E2378;
+    box-shadow: 0 0 0 3px rgba(14, 35, 120, 0.12);
+  }
+
+  .coding-form-textarea,
+  .coding-card textarea {
+    width: 100%;
+    font-size: 13px;
+    color: #0F172A;
+    background: #FFFFFF;
+    border: 1.5px solid #CBD5E1;
+    border-radius: 10px;
+    padding: 10px 14px;
+    outline: none;
+    transition: all 0.15s ease;
+    line-height: 1.5;
+  }
+  .coding-form-textarea:focus,
+  .coding-card textarea:focus {
+    border-color: #0E2378;
+    box-shadow: 0 0 0 3px rgba(14, 35, 120, 0.12);
+  }
+
+  /* Markdown Editor & Toolbar */
+  .editor-tabs {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: #F1F5F9;
+    padding: 3px;
+    border-radius: 8px;
+    border: 1px solid #E2E8F0;
+  }
+  .editor-tab-btn {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: #64748B;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .editor-tab-btn.active {
+    background: #FFFFFF;
+    color: #0F172A;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  }
+  .md-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 8px;
+    background: #F8FAFC;
+    border: 1.5px solid #CBD5E1;
+    border-bottom: none;
+    border-radius: 10px 10px 0 0;
+  }
+  .md-btn {
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #475569;
+    padding: 3px 8px;
+    cursor: pointer;
+    transition: all 0.12s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    user-select: none;
+  }
+  .md-btn:hover {
+    background: #F1F5F9;
+    color: #0F172A;
+    border-color: #CBD5E1;
+  }
+  .md-textarea-attached {
+    border-top-left-radius: 0 !important;
+    border-top-right-radius: 0 !important;
+  }
+
+  /* Live Markdown Preview Container */
+  .md-preview-container {
+    background: #FAFAFA;
+    border: 1.5px solid #CBD5E1;
+    border-radius: 10px;
+    padding: 16px 20px;
+    min-height: 180px;
+    font-size: 13px;
+    color: #1E293B;
+    line-height: 1.6;
+  }
+  .md-preview-container h1, .md-preview-container h2, .md-preview-container h3 {
+    font-weight: 800;
+    color: #0F172A;
+    margin-top: 14px;
+    margin-bottom: 6px;
+  }
+  .md-preview-container h3 { font-size: 14px; }
+  .md-preview-container h2 { font-size: 16px; }
+  .md-preview-container h1 { font-size: 18px; }
+  .md-preview-container p { margin-bottom: 8px; }
+  .md-preview-container code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    background: #E2E8F0;
+    color: #0F172A;
+    padding: 2px 5px;
+    border-radius: 4px;
+    font-size: 12px;
+  }
+  .md-preview-container pre {
+    background: #0F172A;
+    color: #F8FAFC;
+    padding: 12px 14px;
+    border-radius: 8px;
+    overflow-x: auto;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 12px;
+    margin-bottom: 10px;
+  }
+  .md-preview-container ul { list-style-type: disc; padding-left: 20px; margin-bottom: 8px; }
+  .md-preview-container ol { list-style-type: decimal; padding-left: 20px; margin-bottom: 8px; }
+  .md-preview-container blockquote {
+    border-left: 3px solid #0E2378;
+    padding-left: 10px;
+    color: #475569;
+    font-style: italic;
+    margin: 8px 0;
+  }
+
+  /* Quick Suggestion Chips */
+  .quick-chip {
+    font-size: 11px;
+    font-weight: 600;
+    color: #475569;
+    background: #F1F5F9;
+    border: 1px solid #E2E8F0;
+    padding: 3px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.12s ease;
+    user-select: none;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+  .quick-chip:hover {
+    background: #E2E8F0;
+    color: #0F172A;
+    border-color: #CBD5E1;
+  }
+
+  /* Dark Terminal IDE Style for Starter Code */
+  .ide-window {
+    border-radius: 12px;
+    overflow: hidden;
+    background: #0B1329;
+    border: 1px solid #1E293B;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
+  }
+  .ide-titlebar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: #0F172A;
+    border-bottom: 1px solid #1E293B;
+  }
+  .ide-dots {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .ide-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+  .ide-tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #94A3B8;
+    background: #1E293B;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid #334155;
+  }
+  .ide-textarea {
+    width: 100% !important;
+    background: #0B1329 !important;
+    color: #E2E8F0 !important;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+    font-size: 12.5px !important;
+    line-height: 1.6 !important;
+    border: none !important;
+    padding: 14px 16px !important;
+    outline: none !important;
+    box-shadow: none !important;
+    resize: vertical;
+    min-height: 150px;
+  }
+  .ide-textarea:focus {
+    background: #070D1F !important;
+    box-shadow: none !important;
+    border-color: transparent !important;
+  }
+
+  /* Test Case Modular Card */
+  .testcase-item-card {
+    border: 1.5px solid #E2E8F0;
+    border-radius: 14px;
+    background: #FFFFFF;
+    padding: 16px;
+    transition: all 0.18s ease;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.02);
+  }
+  .testcase-item-card:hover {
+    border-color: #CBD5E1;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+  }
+  .testcase-item-card.is-public {
+    border-left: 4px solid #0284C7;
+  }
+  .testcase-item-card.is-hidden-case {
+    border-left: 4px solid #6366F1;
+  }
+  .testcase-item-card.is-marked-deleted {
+    border-color: #FECDD3 !important;
+    background: #FFF1F2 !important;
+    border-left-color: #F43F5E !important;
+    opacity: 0.65;
+  }
+  .testcase-item-card.is-marked-deleted textarea {
+    text-decoration: line-through;
+    pointer-events: none;
+    color: #94A3B8;
+  }
+
+  .testcase-card-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid #F1F5F9;
+  }
+
+  .testcase-num-badge {
+    font-size: 11px;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: #0F172A;
+    color: #FFFFFF;
+    letter-spacing: 0.02em;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+
+  /* Public vs Hidden Segmented Switch */
+  .visibility-toggle-group {
+    display: inline-flex;
+    align-items: center;
+    background: #F1F5F9;
+    border: 1px solid #E2E8F0;
+    border-radius: 8px;
+    padding: 2px;
+    gap: 2px;
+  }
+  .btn-visibility-pill {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    background: transparent;
+    color: #64748B;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    user-select: none;
+  }
+  .btn-visibility-pill.active-public {
+    background: #0284C7;
+    color: #FFFFFF;
+    box-shadow: 0 1px 2px rgba(2, 132, 199, 0.25);
+  }
+  .btn-visibility-pill.active-hidden {
+    background: #6366F1;
+    color: #FFFFFF;
+    box-shadow: 0 1px 2px rgba(99, 102, 241, 0.25);
+  }
+
+  /* Terminal I/O Input Containers */
+  .console-wrapper {
+    background: #F8FAFC;
+    border: 1.5px solid #CBD5E1;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .console-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    background: #F1F5F9;
+    border-bottom: 1px solid #E2E8F0;
+  }
+  .console-header-label {
+    font-size: 11px;
+    font-weight: 800;
+    color: #334155;
+    letter-spacing: 0.03em;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .console-textarea {
+    width: 100%;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 12px;
+    color: #0F172A;
+    background: #FFFFFF;
+    border: none;
+    padding: 8px 12px;
+    outline: none;
+    resize: vertical;
+    min-height: 65px;
+    line-height: 1.45;
+  }
+  .console-textarea:focus {
+    background: #F8FAFC;
+  }
+
+  /* Interactive Language Chips */
+  .lang-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  .lang-chip-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    border-radius: 10px;
+    border: 1.5px solid #E2E8F0;
+    background: #F8FAFC;
+    color: #334155;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+  }
+  .lang-chip-btn:hover {
+    background: #F1F5F9;
+    border-color: #CBD5E1;
+  }
+  .lang-chip-btn.active {
+    border-color: #0E2378;
+    background: #EFF6FF;
+    color: #0E2378;
+    box-shadow: 0 1px 3px rgba(14, 35, 120, 0.1);
+  }
+  .lang-tag-pill {
+    font-size: 10px;
+    font-weight: 800;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: #E2E8F0;
+    color: #475569;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+  .lang-chip-btn.active .lang-tag-pill {
+    background: #0E2378;
+    color: #FFFFFF;
+  }
+
+  /* Header & Action Buttons */
+  .btn-submit-main {
+    background: #0E2378;
+    color: #ffffff !important;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 10px 20px;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(14, 35, 120, 0.15);
+    transition: all 0.15s ease;
+    text-decoration: none !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .btn-submit-main:hover {
+    background: #1E3AC8;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(14, 35, 120, 0.2);
+  }
+  .btn-cancel-main {
+    background: #FFFFFF;
+    color: #475569;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 9px 18px;
+    border-radius: 10px;
+    border: 1px solid #CBD5E1;
+    text-decoration: none !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+  }
+  .btn-cancel-main:hover {
+    background: #F8FAFC;
+    color: #0F172A;
+    border-color: #94A3B8;
+  }
+  .btn-add-dashed {
+    width: 100%;
+    padding: 12px;
+    border: 2px dashed #CBD5E1;
+    border-radius: 12px;
+    background: #F8FAFC;
+    color: #0E2378;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.15s ease;
+  }
+  .btn-add-dashed:hover {
+    background: #EFF6FF;
+    border-color: #0E2378;
+    color: #1E3AC8;
+  }
+  .btn-del-action {
+    background: #FFF1F2;
+    border: 1px solid #FECDD3;
+    color: #E11D48;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.12s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .btn-del-action:hover {
+    background: #FFE4E6;
+    border-color: #FDA4AF;
+    color: #BE123C;
+  }
+  .btn-del-action.is-undo {
+    background: #F1F5F9;
+    border-color: #CBD5E1;
+    color: #475569;
+  }
+  .btn-del-action.is-undo:hover {
+    background: #E2E8F0;
+    color: #0F172A;
+  }
+
+  /* Checklist Pill */
+  .chk-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #475569;
+  }
+  .chk-icon {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 800;
+    flex-shrink: 0;
+  }
+  .chk-icon.pass {
+    background: #DCFCE7;
+    color: #15803D;
+  }
+  .chk-icon.warn {
+    background: #FEF3C7;
+    color: #B45309;
+  }
+</style>
+
+<div class="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+  <!-- Top Navigation & Action Header -->
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200">
+    <div>
+      <a href="{% url 'staff_exam_detail' exam.pk %}" class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-900 transition-colors mb-2">
+        <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        Back to Assessment Overview
+      </a>
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-indigo-50 text-indigo-800 border border-indigo-200">
+          Coding Problem Authoring
+        </span>
+        <span class="text-xs text-slate-400">&bull;</span>
+        <span class="text-xs text-slate-600 font-medium">Exam: {{ exam.title }}</span>
+        <span class="text-xs text-slate-400">&bull;</span>
+        <span class="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+          <span>&#9881;</span> Auto Sandbox Judge
+        </span>
       </div>
-    {% endfor %}
+      <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mt-1">
+        {% if problem %}Edit coding problem{% else %}Create coding problem{% endif %}
+      </h1>
+      <p class="text-xs sm:text-sm text-slate-500 mt-1">
+        Configure problem description, I/O stream specifications, starter boilerplate, and automated evaluation test cases.
+      </p>
+    </div>
+
+    <!-- Quick Actions in Header -->
+    <div class="flex items-center gap-3">
+      <a href="{% url 'staff_exam_detail' exam.pk %}" class="btn-cancel-main">
+        Cancel
+      </a>
+      <button type="submit" form="coding-form" class="btn-submit-main">
+        <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+        </svg>
+        {% if problem %}Save Changes{% else %}Save Challenge{% endif %}
+      </button>
+    </div>
   </div>
 
-  <section>
-    <h2 class="text-xl">Test cases</h2>
-    {{ case_formset.management_form }}
-    {% if case_formset.non_form_errors %}<div class="alert alert-bad mb-4">{{ case_formset.non_form_errors }}</div>{% endif %}
-    <div class="mt-4 space-y-4">
-      {% for form in case_formset %}
-        <div class="panel grid gap-4 p-5 md:grid-cols-2">
-          {{ form.id }}
-          <div><label class="label" for="{{ form.input_data.id_for_label }}">Input</label>{{ form.input_data }}</div>
-          <div><label class="label" for="{{ form.expected_output.id_for_label }}">Expected output</label>{{ form.expected_output }}</div>
-          <div class="flex items-center justify-between md:col-span-2 pt-1 border-t border-slate-100">
-            <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-              {{ form.is_hidden }} <span class="font-medium text-slate-600">Hidden from candidates (grading only)</span>
+  <form method="post" id="coding-form" class="space-y-6">
+    {% csrf_token %}
+    {% if problem_form.non_field_errors %}
+      <div class="p-4 rounded-xl bg-rose-50 border border-rose-200 text-sm font-semibold text-rose-800 shadow-sm">
+        {{ problem_form.non_field_errors }}
+      </div>
+    {% endif %}
+
+    <!-- 2-Column Space-Efficient Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+      <!-- LEFT MAIN WORKSPACE (8 cols) -->
+      <div class="lg:col-span-8 space-y-6">
+
+        <!-- Card 1: Problem Title & Statement -->
+        <div class="coding-card space-y-4">
+          <div class="coding-card-header">
+            <div>
+              <h2 class="coding-card-title">
+                <span class="w-6 h-6 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-700 flex items-center justify-center text-xs font-extrabold">1</span>
+                Problem Specification
+              </h2>
+              <p class="coding-card-desc">Title and detailed problem context displayed in candidate's workspace.</p>
+            </div>
+            <!-- Editor Mode Switcher -->
+            <div class="editor-tabs">
+              <button type="button" class="editor-tab-btn active" id="btn-tab-write" onclick="switchStatementTab('write')">
+                Write Markdown
+              </button>
+              <button type="button" class="editor-tab-btn" id="btn-tab-preview" onclick="switchStatementTab('preview')">
+                Live Preview
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label class="form-label" for="{{ problem_form.title.id_for_label }}">
+              {{ problem_form.title.label }} <span class="text-rose-600 font-bold">*</span>
             </label>
-            {% if form.instance.pk %}
-              <label class="flex items-center gap-1.5 text-xs font-medium text-red-600 cursor-pointer">
-                {{ form.DELETE }} Delete this test case
+            {{ problem_form.title }}
+            {% for error in problem_form.title.errors %}
+              <p class="text-xs text-rose-600 font-semibold mt-1">{{ error }}</p>
+            {% endfor %}
+            <p class="form-hint">A clear, descriptive name (e.g. <em>Longest Substring Without Repeating Characters</em> or <em>Merge K Sorted Lists</em>).</p>
+          </div>
+
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="form-label mb-0" for="{{ problem_form.statement.id_for_label }}">
+                {{ problem_form.statement.label }} <span class="text-rose-600 font-bold">*</span>
               </label>
-            {% endif %}
+              <span class="text-[11px] font-semibold text-slate-500">Supports standard Markdown &amp; code blocks</span>
+            </div>
+
+            <!-- Markdown Toolbar -->
+            <div class="md-toolbar" id="statement-toolbar">
+              <button type="button" class="md-btn" onclick="insertMd('**', '**', 'bold text')" title="Bold"><strong>B</strong></button>
+              <button type="button" class="md-btn" onclick="insertMd('*', '*', 'italic text')" title="Italic"><em>I</em></button>
+              <button type="button" class="md-btn" onclick="insertMd('`', '`', 'code')" title="Inline code">&lt;/&gt;</button>
+              <button type="button" class="md-btn" onclick="insertMd('```\n', '\n```', 'code block')" title="Code block">Block</button>
+              <button type="button" class="md-btn" onclick="insertMd('- ', '', 'List item')" title="Bullet List">&bull; List</button>
+              <button type="button" class="md-btn" onclick="insertMd('1. ', '', 'Numbered item')" title="Numbered List">1. List</button>
+              <button type="button" class="md-btn" onclick="insertMd('> ', '', 'Important note or note block')" title="Quote">&ldquo; Quote</button>
+              <button type="button" class="md-btn" onclick="insertExampleTemplate()" title="Insert Example Template">+ Example Block</button>
+            </div>
+
+            <!-- Statement Textarea -->
+            <div id="statement-write-container">
+              {{ problem_form.statement }}
+            </div>
+
+            <!-- Markdown Live Preview Container -->
+            <div id="statement-preview-container" class="md-preview-container hidden">
+              <!-- Dynamically populated via JS -->
+            </div>
+
+            {% for error in problem_form.statement.errors %}
+              <p class="text-xs text-rose-600 font-semibold mt-1">{{ error }}</p>
+            {% endfor %}
+            <p class="form-hint">Clearly specify the background story, computational objective, and edge cases.</p>
           </div>
         </div>
-      {% endfor %}
-    </div>
-  </section>
 
-  <div class="flex items-center gap-3">
-    <button class="btn btn-primary">{% if problem %}Save changes{% else %}Save coding problem{% endif %}</button>
-    <a href="{% url 'staff_exam_detail' exam.pk %}" class="btn btn-secondary">Cancel</a>
-  </div>
-</form>
+        <!-- Card 2: I/O Specifications & Technical Constraints -->
+        <div class="coding-card space-y-4">
+          <div class="coding-card-header">
+            <div>
+              <h2 class="coding-card-title">
+                <span class="w-6 h-6 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-700 flex items-center justify-center text-xs font-extrabold">2</span>
+                I/O Format &amp; Complexity Bounds
+              </h2>
+              <p class="coding-card-desc">Define standard input stream expectations and algorithm complexity ranges.</p>
+            </div>
+          </div>
+
+          <div class="grid gap-4 sm:grid-cols-2">
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <label class="form-label mb-0" for="{{ problem_form.input_spec.id_for_label }}">
+                  {{ problem_form.input_spec.label }}
+                </label>
+                <span class="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 font-mono">stdin</span>
+              </div>
+              {{ problem_form.input_spec }}
+              {% for error in problem_form.input_spec.errors %}
+                <p class="text-xs text-rose-600 font-semibold mt-1">{{ error }}</p>
+              {% endfor %}
+              <p class="form-hint">e.g. First line contains <code>T</code> testcases. Then <code>N</code> space-separated integers follow.</p>
+            </div>
+
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <label class="form-label mb-0" for="{{ problem_form.output_spec.id_for_label }}">
+                  {{ problem_form.output_spec.label }}
+                </label>
+                <span class="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 font-mono">stdout</span>
+              </div>
+              {{ problem_form.output_spec }}
+              {% for error in problem_form.output_spec.errors %}
+                <p class="text-xs text-rose-600 font-semibold mt-1">{{ error }}</p>
+              {% endfor %}
+              <p class="form-hint">e.g. Print a single integer representing the maximum subarray sum.</p>
+            </div>
+          </div>
+
+          <div>
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+              <label class="form-label mb-0" for="{{ problem_form.constraints.id_for_label }}">
+                {{ problem_form.constraints.label }}
+              </label>
+              <!-- Constraint Quick Chips -->
+              <div class="flex flex-wrap items-center gap-1.5">
+                <span class="text-[10px] font-bold text-slate-400">Quick inserts:</span>
+                <button type="button" class="quick-chip" onclick="insertConstraint('1 ≤ N ≤ 10⁵')">1 ≤ N ≤ 10⁵</button>
+                <button type="button" class="quick-chip" onclick="insertConstraint('-10⁹ ≤ A[i] ≤ 10⁹')">-10⁹ ≤ A[i] ≤ 10⁹</button>
+                <button type="button" class="quick-chip" onclick="insertConstraint('Time Limit: 2.0s')">Time: 2.0s</button>
+                <button type="button" class="quick-chip" onclick="insertConstraint('Memory Limit: 256MB')">Mem: 256MB</button>
+              </div>
+            </div>
+            {{ problem_form.constraints }}
+            {% for error in problem_form.constraints.errors %}
+              <p class="text-xs text-rose-600 font-semibold mt-1">{{ error }}</p>
+            {% endfor %}
+            <p class="form-hint">Define input ranges, edge condition bounds, and expected runtime complexities.</p>
+          </div>
+        </div>
+
+        <!-- Card 3: Starter Code Editor (Candidate Boilerplate) -->
+        <div class="coding-card space-y-4">
+          <div class="coding-card-header">
+            <div>
+              <h2 class="coding-card-title">
+                <span class="w-6 h-6 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-700 flex items-center justify-center text-xs font-extrabold">3</span>
+                Starter Code Template (Optional Boilerplate)
+              </h2>
+              <p class="coding-card-desc">Code preloaded inside candidate's IDE when they open this challenge.</p>
+            </div>
+            <!-- Template Presets -->
+            <div class="flex items-center gap-1.5">
+              <button type="button" class="quick-chip" onclick="loadStarterTemplate('python')">+ Python</button>
+              <button type="button" class="quick-chip" onclick="loadStarterTemplate('java')">+ Java</button>
+              <button type="button" class="quick-chip" onclick="loadStarterTemplate('cpp')">+ C++</button>
+              <button type="button" class="quick-chip text-rose-600 hover:text-rose-800" onclick="clearStarterCode()">Clear</button>
+            </div>
+          </div>
+
+          <!-- Dark Terminal IDE Container -->
+          <div class="ide-window">
+            <div class="ide-titlebar">
+              <div class="ide-dots">
+                <span class="ide-dot bg-rose-500"></span>
+                <span class="ide-dot bg-amber-500"></span>
+                <span class="ide-dot bg-emerald-500"></span>
+              </div>
+              <div class="ide-tab">
+                <svg style="width: 12px; height: 12px; color: #38BDF8;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+                </svg>
+                <span id="ide-filename">solution_template</span>
+              </div>
+              <div class="text-[10px] text-slate-400 font-mono">
+                Tab indent enabled (4 spaces)
+              </div>
+            </div>
+
+            <div>
+              <label class="sr-only" for="{{ problem_form.starter_code.id_for_label }}">Starter code template</label>
+              {{ problem_form.starter_code }}
+            </div>
+          </div>
+
+          {% for error in problem_form.starter_code.errors %}
+            <p class="text-xs text-rose-600 font-semibold mt-1">{{ error }}</p>
+          {% endfor %}
+          <p class="form-hint">Providing basic imports and function signatures saves candidates valuable setup time during assessments.</p>
+        </div>
+
+        <!-- Card 4: Evaluation Test Cases Builder -->
+        <div class="coding-card space-y-4">
+          <div class="coding-card-header">
+            <div>
+              <h2 class="coding-card-title">
+                <span class="w-6 h-6 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-700 flex items-center justify-center text-xs font-extrabold">4</span>
+                Automated Evaluation Test Cases
+              </h2>
+              <p class="coding-card-desc">Candidate code is executed in an isolated sandbox and graded against these inputs and outputs.</p>
+            </div>
+            <!-- Testcase Summary Live Pills -->
+            <div class="flex flex-wrap items-center gap-2">
+              <span id="badge-total-cases" class="text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200">
+                0 Cases
+              </span>
+              <span id="badge-public-cases" class="text-xs font-bold text-sky-700 bg-sky-50 px-2.5 py-1 rounded-md border border-sky-200">
+                0 Public
+              </span>
+              <span id="badge-hidden-cases" class="text-xs font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-md border border-indigo-200">
+                0 Hidden
+              </span>
+              <button type="button" onclick="addNewTestCase()" class="btn-submit-main py-1.5 px-3 text-xs">
+                + Add Test Case
+              </button>
+            </div>
+          </div>
+
+          {{ case_formset.management_form }}
+          {% if case_formset.non_form_errors %}
+            <div class="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs font-bold text-rose-800 shadow-sm flex items-center gap-2">
+              <svg style="width: 16px; height: 16px; flex-shrink: 0;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+              </svg>
+              <span>{{ case_formset.non_form_errors }}</span>
+            </div>
+          {% endif %}
+
+          <!-- Test Cases Stack -->
+          <div id="testcase-stack" class="space-y-4">
+            {% for form in case_formset %}
+              <div class="testcase-item-card space-y-3" id="testcase-card-{{ forloop.counter0 }}" data-index="{{ forloop.counter0 }}">
+                {{ form.id }}
+
+                <!-- Header of each test case -->
+                <div class="testcase-card-header">
+                  <div class="flex items-center gap-2">
+                    <span class="testcase-num-badge">#{{ forloop.counter }}</span>
+                    <span class="text-xs font-bold text-slate-700" id="case-title-{{ forloop.counter0 }}">Test Case {{ forloop.counter }}</span>
+                  </div>
+
+                  <!-- Public vs Hidden Segmented Switch -->
+                  <div class="flex items-center gap-3">
+                    <div class="visibility-toggle-group">
+                      <button type="button" class="btn-visibility-pill" id="btn-public-{{ forloop.counter0 }}" onclick="setVisibility({{ forloop.counter0 }}, false)">
+                        <svg style="width: 13px; height: 13px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                        </svg>
+                        Public Sample
+                      </button>
+                      <button type="button" class="btn-visibility-pill" id="btn-hidden-{{ forloop.counter0 }}" onclick="setVisibility({{ forloop.counter0 }}, true)">
+                        <svg style="width: 13px; height: 13px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                        </svg>
+                        Hidden Evaluation
+                      </button>
+                    </div>
+
+                    <!-- Hidden underlying checkbox -->
+                    <div class="hidden">
+                      {{ form.is_hidden }}
+                    </div>
+
+                    <!-- Delete button -->
+                    {% if form.instance.pk %}
+                      <div class="hidden">
+                        {{ form.DELETE }}
+                      </div>
+                      <button type="button" class="btn-del-action" id="btn-del-{{ forloop.counter0 }}" onclick="toggleDeleteExisting({{ forloop.counter0 }})">
+                        <svg style="width: 13px; height: 13px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        <span>Delete</span>
+                      </button>
+                    {% else %}
+                      <button type="button" class="btn-del-action" onclick="removeNewTestCase({{ forloop.counter0 }})">
+                        <svg style="width: 13px; height: 13px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        <span>Remove</span>
+                      </button>
+                    {% endif %}
+                  </div>
+                </div>
+
+                <!-- Side-by-side terminal consoles -->
+                <div class="grid gap-3 sm:grid-cols-2">
+                  <!-- stdin -->
+                  <div class="console-wrapper">
+                    <div class="console-header">
+                      <span class="console-header-label">
+                        <span class="text-sky-600 font-bold">$</span> Standard Input (stdin)
+                      </span>
+                      <button type="button" class="text-[10px] text-slate-500 hover:text-slate-900 font-semibold" onclick="clearConsole('{{ form.input_data.id_for_label }}')">
+                        Clear
+                      </button>
+                    </div>
+                    {{ form.input_data }}
+                    {% for error in form.input_data.errors %}
+                      <p class="text-xs text-rose-600 font-semibold p-2 bg-rose-50 border-t border-rose-100">{{ error }}</p>
+                    {% endfor %}
+                  </div>
+
+                  <!-- stdout -->
+                  <div class="console-wrapper">
+                    <div class="console-header">
+                      <span class="console-header-label">
+                        <span class="text-emerald-600 font-bold">&#10003;</span> Expected Output (stdout) <span class="text-rose-500">*</span>
+                      </span>
+                      <button type="button" class="text-[10px] text-slate-500 hover:text-slate-900 font-semibold" onclick="clearConsole('{{ form.expected_output.id_for_label }}')">
+                        Clear
+                      </button>
+                    </div>
+                    {{ form.expected_output }}
+                    {% for error in form.expected_output.errors %}
+                      <p class="text-xs text-rose-600 font-semibold p-2 bg-rose-50 border-t border-rose-100">{{ error }}</p>
+                    {% endfor %}
+                  </div>
+                </div>
+
+                <div class="text-[11px] text-slate-500 flex items-center justify-between pt-1">
+                  <span id="case-status-desc-{{ forloop.counter0 }}">
+                    <!-- Populated dynamically -->
+                  </span>
+                  <span class="text-[10px] text-slate-400 font-mono">Whitespace &amp; newlines strictly matched</span>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+
+          <!-- Bottom Full-Width Add Button -->
+          <button type="button" onclick="addNewTestCase()" class="btn-add-dashed">
+            <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            <span>Add Another Test Case</span>
+          </button>
+        </div>
+
+      </div>
+
+      <!-- RIGHT SIDEBAR (4 cols, sticky) -->
+      <div class="lg:col-span-4 space-y-6 lg:sticky lg:top-6">
+
+        <!-- Card: Supported Languages -->
+        <div class="coding-card space-y-4">
+          <div class="pb-3 border-b border-slate-100">
+            <h3 class="coding-card-title">
+              <svg style="width: 18px; height: 18px; color: #0E2378;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+              </svg>
+              Supported Languages
+            </h3>
+            <p class="coding-card-desc">Select which language compilers are unlocked for candidates.</p>
+          </div>
+
+          <!-- Interactive Language Chips -->
+          <div class="lang-grid">
+            <button type="button" class="lang-chip-btn" id="lang-btn-python" onclick="toggleLanguage('python')">
+              <span>Python</span>
+              <span class="lang-tag-pill">3.10</span>
+            </button>
+            <button type="button" class="lang-chip-btn" id="lang-btn-java" onclick="toggleLanguage('java')">
+              <span>Java</span>
+              <span class="lang-tag-pill">17</span>
+            </button>
+            <button type="button" class="lang-chip-btn" id="lang-btn-cpp" onclick="toggleLanguage('cpp')">
+              <span>C++</span>
+              <span class="lang-tag-pill">17</span>
+            </button>
+            <button type="button" class="lang-chip-btn" id="lang-btn-c" onclick="toggleLanguage('c')">
+              <span>C</span>
+              <span class="lang-tag-pill">11</span>
+            </button>
+            <button type="button" class="lang-chip-btn col-span-2" id="lang-btn-javascript" onclick="toggleLanguage('javascript')">
+              <span>JavaScript</span>
+              <span class="lang-tag-pill">Node 18</span>
+            </button>
+          </div>
+
+          <!-- Quick presets -->
+          <div class="flex items-center gap-1.5 pt-1">
+            <span class="text-[10px] font-bold text-slate-400">Presets:</span>
+            <button type="button" class="quick-chip" onclick="setLangPreset(['python', 'java', 'cpp', 'c', 'javascript'])">All</button>
+            <button type="button" class="quick-chip" onclick="setLangPreset(['python', 'java'])">Python + Java</button>
+            <button type="button" class="quick-chip" onclick="setLangPreset(['python'])">Python only</button>
+          </div>
+
+          <div>
+            <label class="form-label" for="{{ problem_form.languages.id_for_label }}">
+              {{ problem_form.languages.label }}
+            </label>
+            {{ problem_form.languages }}
+            {% if problem_form.languages.help_text %}
+              <p class="form-hint">{{ problem_form.languages.help_text }}</p>
+            {% endif %}
+            {% for error in problem_form.languages.errors %}
+              <p class="text-xs text-rose-600 font-semibold mt-1">{{ error }}</p>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Card: Marks & Sequence Order -->
+        <div class="coding-card space-y-4">
+          <div class="pb-3 border-b border-slate-100">
+            <h3 class="coding-card-title">
+              <svg style="width: 18px; height: 18px; color: #0E2378;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+              </svg>
+              Scoring &amp; Sequencing
+            </h3>
+            <p class="coding-card-desc">Marks rewarded and question sequence in direct pool.</p>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="form-label" for="{{ problem_form.marks.id_for_label }}">{{ problem_form.marks.label }}</label>
+              {{ problem_form.marks }}
+              <!-- Quick marks chips -->
+              <div class="flex flex-wrap gap-1 mt-2">
+                <button type="button" class="quick-chip" onclick="setMarks(10)">10</button>
+                <button type="button" class="quick-chip" onclick="setMarks(20)">20</button>
+                <button type="button" class="quick-chip" onclick="setMarks(50)">50</button>
+                <button type="button" class="quick-chip" onclick="setMarks(100)">100</button>
+              </div>
+              {% for error in problem_form.marks.errors %}
+                <p class="text-xs text-rose-600 font-semibold mt-1">{{ error }}</p>
+              {% endfor %}
+            </div>
+
+            <div>
+              <label class="form-label" for="{{ problem_form.order.id_for_label }}">{{ problem_form.order.label }}</label>
+              {{ problem_form.order }}
+              <p class="form-hint mt-2">Display order</p>
+              {% for error in problem_form.order.errors %}
+                <p class="text-xs text-rose-600 font-semibold mt-1">{{ error }}</p>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <!-- Card: Save & Pre-flight Checklist -->
+        <div class="coding-card space-y-4">
+          <button type="submit" class="btn-submit-main w-full py-2.5 text-sm">
+            <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+            {% if problem %}Save Changes{% else %}Save Coding Challenge{% endif %}
+          </button>
+          <a href="{% url 'staff_exam_detail' exam.pk %}" class="btn-cancel-main w-full py-2 text-xs">
+            Cancel &amp; Discard
+          </a>
+
+          <!-- Pre-flight Validation Checklist -->
+          <div class="pt-3 border-t border-slate-100 space-y-2">
+            <div class="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Pre-flight Checklist</div>
+            <div class="chk-item">
+              <span id="chk-title" class="chk-icon warn">&#8226;</span>
+              <span id="chk-title-text">Problem title entered</span>
+            </div>
+            <div class="chk-item">
+              <span id="chk-statement" class="chk-icon warn">&#8226;</span>
+              <span id="chk-statement-text">Statement written</span>
+            </div>
+            <div class="chk-item">
+              <span id="chk-testcase" class="chk-icon warn">&#8226;</span>
+              <span id="chk-testcase-text">At least 1 test case with output</span>
+            </div>
+            <div class="chk-item">
+              <span id="chk-langs" class="chk-icon warn">&#8226;</span>
+              <span id="chk-langs-text">At least 1 language enabled</span>
+            </div>
+          </div>
+
+          <!-- Sandbox Security Card -->
+          <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 space-y-2">
+            <div class="font-bold text-slate-800 flex items-center gap-1.5">
+              <span>&#128737;</span> Isolated Sandbox Environment
+            </div>
+            <div class="flex items-center gap-1.5 text-[11px]">
+              <span class="text-emerald-600 font-bold">&#10003;</span>
+              <span>Public cases visible for debugging in browser</span>
+            </div>
+            <div class="flex items-center gap-1.5 text-[11px]">
+              <span class="text-indigo-600 font-bold">&#10003;</span>
+              <span>Hidden cases protected against hardcoded cheats</span>
+            </div>
+            <div class="flex items-center gap-1.5 text-[11px]">
+              <span class="text-blue-600 font-bold">&#10003;</span>
+              <span>Strict 2.0s timeout &amp; 256MB memory jail</span>
+            </div>
+          </div>
+
+          <!-- Danger Zone: Only when editing existing problem -->
+          {% if problem %}
+            <div class="pt-3 border-t border-slate-200/80">
+              <button type="button" onclick="document.getElementById('delete-problem-form').submit();" class="text-xs text-rose-600 hover:text-rose-800 font-semibold flex items-center justify-center gap-1.5 w-full py-1.5">
+                <svg style="width: 14px; height: 14px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                Delete this Coding Problem
+              </button>
+            </div>
+          {% endif %}
+        </div>
+
+      </div>
+
+    </div>
+  </form>
+
+  <!-- Separate Hidden Form for Problem Deletion -->
+  {% if problem %}
+    <form id="delete-problem-form" method="post" action="{% url 'staff_coding_delete' problem.pk %}" onsubmit="return confirm('Are you sure you want to permanently delete this coding challenge and all candidate submissions for it?');" class="hidden">
+      {% csrf_token %}
+    </form>
+  {% endif %}
+</div>
+
+<script>
+  /* ========================================================================= */
+  /* TAB & MARKDOWN PREVIEW ENGINE                                             */
+  /* ========================================================================= */
+  function switchStatementTab(tab) {
+    const writeBtn = document.getElementById('btn-tab-write');
+    const previewBtn = document.getElementById('btn-tab-preview');
+    const toolbar = document.getElementById('statement-toolbar');
+    const writeContainer = document.getElementById('statement-write-container');
+    const previewContainer = document.getElementById('statement-preview-container');
+    const statementTextarea = document.querySelector('[name="{{ problem_form.statement.name }}"]');
+
+    if (tab === 'write') {
+      writeBtn.classList.add('active');
+      previewBtn.classList.remove('active');
+      toolbar.classList.remove('hidden');
+      writeContainer.classList.remove('hidden');
+      previewContainer.classList.add('hidden');
+    } else {
+      writeBtn.classList.remove('active');
+      previewBtn.classList.add('active');
+      toolbar.classList.add('hidden');
+      writeContainer.classList.add('hidden');
+      previewContainer.classList.remove('hidden');
+
+      // Render markdown into preview
+      previewContainer.innerHTML = renderMarkdown(statementTextarea.value);
+    }
+  }
+
+  function renderMarkdown(text) {
+    if (!text || !text.trim()) {
+      return '<div class="text-slate-400 italic">No problem statement written yet. Type your description in the Write tab.</div>';
+    }
+
+    // Escape HTML
+    let html = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+
+    // Fenced code blocks ```lang\ncode\n```
+    html = html.replace(/```([a-z0-9_-]*)\n([\s\S]*?)```/gm, function(match, lang, code) {
+      return '<pre><code>' + code.trim() + '</code></pre>';
+    });
+
+    // Inline code `code`
+    html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+    // Headings
+    html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+    html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
+    html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+
+    // Bold & Italic
+    html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+
+    // Blockquotes
+    html = html.replace(/^\> (.*$)/gim, '<blockquote>$1</blockquote>');
+
+    // Bullet lists
+    html = html.replace(/^\- (.*$)/gim, '<li>$1</li>');
+    html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+
+    // Numbered lists
+    html = html.replace(/^[0-9]+\. (.*$)/gim, '<li>$1</li>');
+
+    // Line breaks to <p>
+    const paragraphs = html.split(/\n{2,}/);
+    return paragraphs.map(p => {
+      p = p.trim();
+      if (!p) return '';
+      if (p.startsWith('<h') || p.startsWith('<pre') || p.startsWith('<ul') || p.startsWith('<blockquote')) {
+        return p;
+      }
+      return '<p>' + p.replace(/\n/g, '<br>') + '</p>';
+    }).join('');
+  }
+
+  function insertMd(prefix, suffix, placeholder) {
+    const textarea = document.querySelector('[name="{{ problem_form.statement.name }}"]');
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selected = textarea.value.substring(start, end) || placeholder;
+    const replacement = prefix + selected + suffix;
+
+    textarea.value = textarea.value.substring(0, start) + replacement + textarea.value.substring(end);
+    textarea.focus();
+    textarea.setSelectionRange(start + prefix.length, start + prefix.length + selected.length);
+    updatePreflight();
+  }
+
+  function insertExampleTemplate() {
+    const template = `\n\n### Example 1:\n**Input:**\n\`\`\`\nnums = [2,7,11,15], target = 9\n\`\`\`\n**Output:**\n\`\`\`\n[0,1]\n\`\`\`\n**Explanation:** Because nums[0] + nums[1] == 9, we return [0, 1].\n`;
+    const textarea = document.querySelector('[name="{{ problem_form.statement.name }}"]');
+    if (!textarea) return;
+    textarea.value += template;
+    textarea.focus();
+    updatePreflight();
+  }
+
+  function insertConstraint(text) {
+    const textarea = document.querySelector('[name="{{ problem_form.constraints.name }}"]');
+    if (!textarea) return;
+    if (textarea.value.trim().length > 0) {
+      textarea.value += '\n' + text;
+    } else {
+      textarea.value = text;
+    }
+    textarea.focus();
+  }
+
+  /* ========================================================================= */
+  /* STARTER CODE IDE TEMPLATES                                                */
+  /* ========================================================================= */
+  const STARTER_TEMPLATES = {
+    python: `import sys\n\ndef solve():\n    # Read standard input\n    input_data = sys.stdin.read().split()\n    if not input_data:\n        return\n    \n    # Write your solution here:\n    pass\n\nif __name__ == '__main__':\n    solve()\n`,
+    java: `import java.io.*;\nimport java.util.*;\n\npublic class Solution {\n    public static void main(String[] args) throws Exception {\n        Scanner scanner = new Scanner(System.in);\n        if (!scanner.hasNext()) return;\n        \n        // Write your solution here:\n        \n    }\n}\n`,
+    cpp: `#include <iostream>\n#include <vector>\n#include <string>\n#include <algorithm>\n\nusing namespace std;\n\nint main() {\n    // Optimize standard I/O operations\n    ios_base::sync_with_stdio(false);\n    cin.tie(NULL);\n    \n    // Write your solution here:\n    \n    return 0;\n}\n`
+  };
+
+  function loadStarterTemplate(lang) {
+    const textarea = document.querySelector('[name="{{ problem_form.starter_code.name }}"]');
+    if (!textarea) return;
+    if (textarea.value.trim().length > 0 && !confirm('Replace current starter code with the ' + lang.toUpperCase() + ' template?')) {
+      return;
+    }
+    textarea.value = STARTER_TEMPLATES[lang] || '';
+    document.getElementById('ide-filename').textContent = 'solution.' + (lang === 'python' ? 'py' : (lang === 'java' ? 'java' : 'cpp'));
+    textarea.focus();
+  }
+
+  function clearStarterCode() {
+    const textarea = document.querySelector('[name="{{ problem_form.starter_code.name }}"]');
+    if (textarea && confirm('Clear starter code?')) {
+      textarea.value = '';
+      document.getElementById('ide-filename').textContent = 'solution_template';
+    }
+  }
+
+  // Support Tab key in starter code textarea
+  document.addEventListener('DOMContentLoaded', function() {
+    const starterTextarea = document.querySelector('[name="{{ problem_form.starter_code.name }}"]');
+    if (starterTextarea) {
+      starterTextarea.classList.add('ide-textarea');
+      starterTextarea.addEventListener('keydown', function(e) {
+        if (e.key === 'Tab') {
+          e.preventDefault();
+          const start = this.selectionStart;
+          const end = this.selectionEnd;
+          this.value = this.value.substring(0, start) + '    ' + this.value.substring(end);
+          this.selectionStart = this.selectionEnd = start + 4;
+        }
+      });
+    }
+  });
+
+  /* ========================================================================= */
+  /* LANGUAGE SELECTION & SYNC                                                 */
+  /* ========================================================================= */
+  const ALL_SUPPORTED_LANGUAGES = ['python', 'java', 'cpp', 'c', 'javascript'];
+
+  function getSelectedLanguages() {
+    const langInput = document.querySelector('[name="{{ problem_form.languages.name }}"]');
+    if (!langInput || !langInput.value) return ['python', 'java', 'cpp', 'c'];
+    return langInput.value.split(',')
+      .map(s => s.trim().toLowerCase())
+      .map(s => s === 'c++' ? 'cpp' : s)
+      .filter(s => ALL_SUPPORTED_LANGUAGES.includes(s));
+  }
+
+  function syncLanguagePills() {
+    const current = getSelectedLanguages();
+    ALL_SUPPORTED_LANGUAGES.forEach(lang => {
+      const btn = document.getElementById('lang-btn-' + lang);
+      if (btn) {
+        if (current.includes(lang)) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
+        }
+      }
+    });
+    updatePreflight();
+  }
+
+  function toggleLanguage(lang) {
+    let current = getSelectedLanguages();
+    if (current.includes(lang)) {
+      if (current.length === 1) {
+        alert('You must enable at least one programming language.');
+        return;
+      }
+      current = current.filter(l => l !== lang);
+    } else {
+      current.push(lang);
+    }
+    const langInput = document.querySelector('[name="{{ problem_form.languages.name }}"]');
+    if (langInput) {
+      langInput.value = current.join(', ');
+    }
+    syncLanguagePills();
+  }
+
+  function setLangPreset(langs) {
+    const langInput = document.querySelector('[name="{{ problem_form.languages.name }}"]');
+    if (langInput) {
+      langInput.value = langs.join(', ');
+    }
+    syncLanguagePills();
+  }
+
+  /* ========================================================================= */
+  /* SCORING QUICK CHIPS                                                       */
+  /* ========================================================================= */
+  function setMarks(val) {
+    const marksInput = document.querySelector('[name="{{ problem_form.marks.name }}"]');
+    if (marksInput) {
+      marksInput.value = val;
+      updatePreflight();
+    }
+  }
+
+  /* ========================================================================= */
+  /* TEST CASES BUILDER MANAGEMENT                                             */
+  /* ========================================================================= */
+  function clearConsole(fieldId) {
+    const el = document.getElementById(fieldId);
+    if (el) {
+      el.value = '';
+      el.focus();
+      updateTestCaseSummary();
+    }
+  }
+
+  function setVisibility(index, isHidden) {
+    const card = document.getElementById('testcase-card-' + index);
+    const hiddenCheckbox = card ? card.querySelector('input[type="checkbox"][name$="-is_hidden"]') : null;
+    const btnPublic = document.getElementById('btn-public-' + index);
+    const btnHidden = document.getElementById('btn-hidden-' + index);
+    const statusDesc = document.getElementById('case-status-desc-' + index);
+
+    if (hiddenCheckbox) {
+      hiddenCheckbox.checked = isHidden;
+    }
+
+    if (isHidden) {
+      card.classList.remove('is-public');
+      card.classList.add('is-hidden-case');
+      if (btnPublic) btnPublic.classList.remove('active-public');
+      if (btnHidden) btnHidden.classList.add('active-hidden');
+      if (statusDesc) {
+        statusDesc.innerHTML = '<span class="text-indigo-600 font-bold">&#128274; Hidden Evaluation Case</span> &mdash; Hidden from candidates during the exam.';
+      }
+    } else {
+      card.classList.remove('is-hidden-case');
+      card.classList.add('is-public');
+      if (btnPublic) btnPublic.classList.add('active-public');
+      if (btnHidden) btnHidden.classList.remove('active-hidden');
+      if (statusDesc) {
+        statusDesc.innerHTML = '<span class="text-sky-600 font-bold">&#128065; Public Sample Case</span> &mdash; Shown to candidates in problem statement as an example.';
+      }
+    }
+
+    updateTestCaseSummary();
+  }
+
+  function toggleDeleteExisting(index) {
+    const card = document.getElementById('testcase-card-' + index);
+    const delCheckbox = card ? card.querySelector('input[type="checkbox"][name$="-DELETE"]') : null;
+    const delBtn = document.getElementById('btn-del-' + index);
+
+    if (!delCheckbox || !card || !delBtn) return;
+
+    if (!delCheckbox.checked) {
+      delCheckbox.checked = true;
+      card.classList.add('is-marked-deleted');
+      delBtn.classList.add('is-undo');
+      delBtn.innerHTML = '<span>&#8634; Undo Delete</span>';
+    } else {
+      delCheckbox.checked = false;
+      card.classList.remove('is-marked-deleted');
+      delBtn.classList.remove('is-undo');
+      delBtn.innerHTML = '<svg style="width: 13px; height: 13px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg><span>Delete</span>';
+    }
+
+    updateTestCaseSummary();
+  }
+
+  function removeNewTestCase(index) {
+    const card = document.getElementById('testcase-card-' + index);
+    if (!card) return;
+
+    const visibleCards = Array.from(document.querySelectorAll('.testcase-item-card')).filter(c => c.style.display !== 'none');
+    if (visibleCards.length <= 1) {
+      alert('You must have at least one testcase.');
+      return;
+    }
+
+    // Clear values
+    const textareas = card.querySelectorAll('textarea');
+    textareas.forEach(t => t.value = '');
+
+    // Hide card
+    card.style.display = 'none';
+    card.classList.add('is-removed-new');
+
+    renumberTestCases();
+    updateTestCaseSummary();
+  }
+
+  function addNewTestCase() {
+    const stack = document.getElementById('testcase-stack');
+    const totalFormsInput = document.getElementById('id_cases-TOTAL_FORMS');
+    if (!stack || !totalFormsInput) return;
+
+    // First check if there is an existing hidden reserve card
+    const hiddenReserve = Array.from(stack.querySelectorAll('.testcase-item-card')).find(c => c.style.display === 'none' && !c.querySelector('input[type="checkbox"][name$="-DELETE"]'));
+    if (hiddenReserve) {
+      hiddenReserve.style.display = '';
+      hiddenReserve.classList.remove('is-removed-new');
+      renumberTestCases();
+      updateTestCaseSummary();
+      const firstInput = hiddenReserve.querySelector('textarea');
+      if (firstInput) firstInput.focus();
+      return;
+    }
+
+    // Otherwise clone the last card and increment TOTAL_FORMS
+    const existingCards = stack.querySelectorAll('.testcase-item-card');
+    const lastCard = existingCards[existingCards.length - 1];
+    if (!lastCard) return;
+
+    const currentTotal = parseInt(totalFormsInput.value, 10);
+    const newIndex = currentTotal;
+
+    const newCard = lastCard.cloneNode(true);
+    newCard.id = 'testcase-card-' + newIndex;
+    newCard.setAttribute('data-index', newIndex);
+    newCard.style.display = '';
+    newCard.classList.remove('is-marked-deleted', 'is-removed-new');
+
+    // Remove any hidden ID or DELETE checkboxes from clone
+    const existingId = newCard.querySelector('input[type="hidden"][name$="-id"]');
+    if (existingId) existingId.remove();
+    const existingDelete = newCard.querySelector('input[type="checkbox"][name$="-DELETE"]');
+    if (existingDelete) existingDelete.parentElement.remove();
+
+    // Update names, IDs, and placeholders
+    newCard.innerHTML = newCard.innerHTML.replace(new RegExp(`cases-\\d+-`, 'g'), `cases-${newIndex}-`);
+
+    // Reset values in new clone
+    const textareas = newCard.querySelectorAll('textarea');
+    textareas.forEach(t => {
+      t.value = '';
+    });
+
+    stack.appendChild(newCard);
+    totalFormsInput.value = newIndex + 1;
+
+    // By default, set new cases as Hidden Evaluation
+    setVisibility(newIndex, true);
+    renumberTestCases();
+    updateTestCaseSummary();
+
+    const firstInput = newCard.querySelector('textarea');
+    if (firstInput) firstInput.focus();
+  }
+
+  function renumberTestCases() {
+    const cards = Array.from(document.querySelectorAll('.testcase-item-card')).filter(c => c.style.display !== 'none');
+    cards.forEach((card, i) => {
+      const numBadge = card.querySelector('.testcase-num-badge');
+      if (numBadge) numBadge.textContent = '#' + (i + 1);
+
+      const title = card.querySelector('[id^="case-title-"]');
+      if (title) title.textContent = 'Test Case ' + (i + 1);
+    });
+  }
+
+  function updateTestCaseSummary() {
+    const cards = Array.from(document.querySelectorAll('.testcase-item-card')).filter(c => {
+      if (c.style.display === 'none') return false;
+      const delCheck = c.querySelector('input[type="checkbox"][name$="-DELETE"]');
+      if (delCheck && delCheck.checked) return false;
+      return true;
+    });
+
+    let publicCount = 0;
+    let hiddenCount = 0;
+    let validOutputsCount = 0;
+
+    cards.forEach(card => {
+      const hiddenCheck = card.querySelector('input[type="checkbox"][name$="-is_hidden"]');
+      if (hiddenCheck && hiddenCheck.checked) {
+        hiddenCount++;
+      } else {
+        publicCount++;
+      }
+
+      const outputTextarea = card.querySelector('textarea[name$="-expected_output"]');
+      if (outputTextarea && outputTextarea.value.trim().length > 0) {
+        validOutputsCount++;
+      }
+    });
+
+    const totalBadge = document.getElementById('badge-total-cases');
+    const publicBadge = document.getElementById('badge-public-cases');
+    const hiddenBadge = document.getElementById('badge-hidden-cases');
+
+    if (totalBadge) totalBadge.textContent = cards.length + ' ' + (cards.length === 1 ? 'Case' : 'Cases');
+    if (publicBadge) publicBadge.textContent = publicCount + ' Public';
+    if (hiddenBadge) hiddenBadge.textContent = hiddenCount + ' Hidden';
+
+    updatePreflight(validOutputsCount);
+  }
+
+  /* ========================================================================= */
+  /* PRE-FLIGHT CHECKLIST REAL-TIME STATUS                                     */
+  /* ========================================================================= */
+  function updatePreflight(validOutputsCount) {
+    const titleInput = document.querySelector('[name="{{ problem_form.title.name }}"]');
+    const stmtInput = document.querySelector('[name="{{ problem_form.statement.name }}"]');
+    const langs = getSelectedLanguages();
+
+    // Title Check
+    const titlePass = titleInput && titleInput.value.trim().length > 0;
+    const chkTitle = document.getElementById('chk-title');
+    if (chkTitle) {
+      chkTitle.className = 'chk-icon ' + (titlePass ? 'pass' : 'warn');
+      chkTitle.innerHTML = titlePass ? '&#10003;' : '&#8226;';
+    }
+
+    // Statement Check
+    const stmtPass = stmtInput && stmtInput.value.trim().length > 0;
+    const chkStmt = document.getElementById('chk-statement');
+    if (chkStmt) {
+      chkStmt.className = 'chk-icon ' + (stmtPass ? 'pass' : 'warn');
+      chkStmt.innerHTML = stmtPass ? '&#10003;' : '&#8226;';
+    }
+
+    // Languages Check
+    const langPass = langs.length > 0;
+    const chkLang = document.getElementById('chk-langs');
+    if (chkLang) {
+      chkLang.className = 'chk-icon ' + (langPass ? 'pass' : 'warn');
+      chkLang.innerHTML = langPass ? '&#10003;' : '&#8226;';
+    }
+
+    // Testcases Check
+    if (validOutputsCount === undefined) {
+      const cards = Array.from(document.querySelectorAll('.testcase-item-card')).filter(c => {
+        if (c.style.display === 'none') return false;
+        const delCheck = c.querySelector('input[type="checkbox"][name$="-DELETE"]');
+        if (delCheck && delCheck.checked) return false;
+        return true;
+      });
+      validOutputsCount = cards.filter(c => {
+        const out = c.querySelector('textarea[name$="-expected_output"]');
+        return out && out.value.trim().length > 0;
+      }).length;
+    }
+    const testPass = validOutputsCount > 0;
+    const chkTest = document.getElementById('chk-testcase');
+    if (chkTest) {
+      chkTest.className = 'chk-icon ' + (testPass ? 'pass' : 'warn');
+      chkTest.innerHTML = testPass ? '&#10003;' : '&#8226;';
+    }
+  }
+
+  /* ========================================================================= */
+  /* INITIALIZATION ON DOM READY                                               */
+  /* ========================================================================= */
+  document.addEventListener('DOMContentLoaded', function() {
+    // 1. Sync Language Pills
+    syncLanguagePills();
+
+    // Also sync if user types manually in languages input
+    const langInput = document.querySelector('[name="{{ problem_form.languages.name }}"]');
+    if (langInput) {
+      langInput.addEventListener('input', syncLanguagePills);
+    }
+
+    // 2. Initialize all test case cards
+    const cards = Array.from(document.querySelectorAll('.testcase-item-card'));
+    let activeSeen = 0;
+
+    cards.forEach((card, i) => {
+      const hiddenCheckbox = card.querySelector('input[type="checkbox"][name$="-is_hidden"]');
+      const isHidden = hiddenCheckbox ? hiddenCheckbox.checked : false;
+
+      const inputVal = card.querySelector('textarea[name$="-input_data"]')?.value.trim() || '';
+      const outputVal = card.querySelector('textarea[name$="-expected_output"]')?.value.trim() || '';
+      const hasPk = !!card.querySelector('input[type="hidden"][name$="-id"]')?.value;
+
+      // When creating brand new problem (no pk), show first 2 forms (1 public, 1 hidden) and hide remaining 3 empty extras
+      {% if not problem %}
+        if (i < 2) {
+          card.style.display = '';
+          setVisibility(i, i === 1); // 0 is public, 1 is hidden
+          activeSeen++;
+        } else if (inputVal || outputVal) {
+          card.style.display = '';
+          setVisibility(i, isHidden);
+          activeSeen++;
+        } else {
+          card.style.display = 'none';
+        }
+      {% else %}
+        // In edit mode: show cards that have pk or data, or at least first one
+        if (hasPk || inputVal || outputVal || i === 0) {
+          card.style.display = '';
+          setVisibility(i, isHidden);
+          activeSeen++;
+        } else {
+          card.style.display = 'none';
+        }
+      {% endif %}
+
+      // Add input listener to expected_output for live preflight
+      const outTextarea = card.querySelector('textarea[name$="-expected_output"]');
+      if (outTextarea) {
+        outTextarea.addEventListener('input', updateTestCaseSummary);
+      }
+    });
+
+    // 3. Attach listeners to Title & Statement
+    const titleInput = document.querySelector('[name="{{ problem_form.title.name }}"]');
+    if (titleInput) titleInput.addEventListener('input', () => updatePreflight());
+
+    const stmtInput = document.querySelector('[name="{{ problem_form.statement.name }}"]');
+    if (stmtInput) stmtInput.addEventListener('input', () => updatePreflight());
+
+    renumberTestCases();
+    updateTestCaseSummary();
+  });
+</script>
 {% endblock %}

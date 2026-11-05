@@ -4,15 +4,23 @@ import json
 import math
 from functools import wraps
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from . import services
-from .models import Application, Attempt, Exam, ProctoringEvent
+from .models import Application, Attempt, CodingSubmission, Exam, ProctoringEvent
 from .services import AttemptError
+
+
+def _is_reviewer(user):
+    return user.is_authenticated and (
+        user.is_staff or user.groups.filter(name=getattr(settings, "REVIEWER_GROUP", "Reviewers")).exists()
+    )
 
 ERROR_STATUS = {
     "not_found": 404,
@@ -33,13 +41,37 @@ ERROR_STATUS = {
 }
 
 
+def _client_ip(request):
+    forwarded = request.META.get("HTTP_X_FORWARDED_FOR")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.META.get("REMOTE_ADDR") or None
+
+
 def _perform(request, pk, action):
     """Runs a candidate action bound to the browser session that made the request."""
     if not request.session.session_key:
         request.session.save()
-    return services.perform(
+    result = services.perform(
         request.user, pk, action, session_key=request.session.session_key
     )
+    try:
+        att = Attempt.objects.filter(pk=pk).only("ip_address", "user_agent").first()
+        if att and (not att.ip_address or not att.user_agent):
+            update_fields = []
+            if not att.ip_address:
+                att.ip_address = _client_ip(request)
+                if att.ip_address:
+                    update_fields.append("ip_address")
+            if not att.user_agent:
+                att.user_agent = request.META.get("HTTP_USER_AGENT", "")[:1000]
+                if att.user_agent:
+                    update_fields.append("user_agent")
+            if update_fields:
+                att.save(update_fields=update_fields)
+    except Exception:
+        pass
+    return result
 
 
 def api_view(view):
@@ -118,11 +150,40 @@ def start_attempt_view(request, pk):
         return redirect("home")
     exam = get_object_or_404(Exam, pk=pk, is_published=True)
     application = Application.objects.filter(candidate=request.user, exam=exam).first()
-    if application is not None and application.details_confirmed_at is None:
-        messages.info(request, "Please confirm your details before you start.")
+    if application is None:
+        messages.error(request, "You are not registered or invited for this assessment.")
+        return redirect("home")
+    if application.status != Application.Status.APPROVED:
+        messages.error(request, "Your application has not been approved for this assessment.")
+        return redirect("home")
+    if application.details_confirmed_at is None:
+        messages.info(request, "Please verify your candidate details and upload your resume before starting the assessment.")
         return redirect("confirm_details", pk=exam.pk)
     try:
         attempt = services.start_attempt(request.user, exam)
+        if attempt.readiness_confirmed_at is None:
+            services.record_readiness(attempt, timezone.now(), snapshot_consent=exam.snapshots_enabled)
+        loc_raw = request.POST.get("location")
+        net_raw = request.POST.get("network")
+        if loc_raw or net_raw:
+            dev = dict(attempt.device_info or {})
+            if loc_raw:
+                try:
+                    dev["location"] = json.loads(loc_raw)
+                except Exception:
+                    pass
+            if net_raw:
+                try:
+                    dev["network"] = json.loads(net_raw)
+                except Exception:
+                    pass
+            update_fields = ["device_info"]
+            attempt.device_info = dev
+            if not attempt.ip_address:
+                attempt.ip_address = _client_ip(request)
+                if attempt.ip_address:
+                    update_fields.append("ip_address")
+            attempt.save(update_fields=update_fields)
     except AttemptError as exc:
         messages.error(request, str(exc))
         return redirect("exam_detail", pk=exam.pk)
@@ -149,7 +210,11 @@ def attempt_result(request, pk):
     if not attempt.is_final:
         return redirect("attempt_page", pk=attempt.pk)
     summary = services._result_summary(attempt)
-    return render(request, "assessments/attempt_result.html", {"attempt": attempt, "exam": attempt.exam, "summary": summary})
+    return render(
+        request,
+        "assessments/attempt_result.html",
+        {"attempt": attempt, "exam": attempt.exam, "summary": summary, "user": request.user},
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -167,9 +232,45 @@ def api_state(request, pk):
 @api_view
 @require_POST
 def api_readiness(request, pk):
-    consent = _body(request).get("snapshot_consent") is True
-    attempt = _perform(request, pk, lambda a, now: services.record_readiness(a, now, snapshot_consent=consent)
+    data = _body(request)
+    consent = data.get("snapshot_consent") is True
+    device = data.get("device")
+    location = data.get("location")
+    network = data.get("network")
+    attempt = _perform(
+        request, pk, lambda a, now: services.record_readiness(a, now, snapshot_consent=consent)
     )
+    clean_dev = {}
+    if isinstance(device, dict):
+        clean_dev.update({
+            k: device[k]
+            for k in ("screen", "viewport", "platform", "language", "pixelRatio", "colorDepth")
+            if k in device
+        })
+    if isinstance(location, dict):
+        clean_dev["location"] = {
+            k: location[k]
+            for k in ("latitude", "longitude", "accuracy", "altitude", "timestamp")
+            if k in location and isinstance(location[k], (int, float, str))
+        }
+    if isinstance(network, dict):
+        clean_dev["network"] = {
+            k: network[k]
+            for k in ("type", "effectiveType", "downlink", "rtt", "saveData", "connectionType")
+            if k in network and isinstance(network[k], (int, float, str, bool))
+        }
+    if clean_dev:
+        att = Attempt.objects.filter(pk=attempt.pk).first()
+        if att:
+            merged = dict(att.device_info or {})
+            merged.update(clean_dev)
+            att.device_info = merged
+            update_fields = ["device_info"]
+            if not att.ip_address:
+                att.ip_address = _client_ip(request)
+                if att.ip_address:
+                    update_fields.append("ip_address")
+            att.save(update_fields=update_fields)
     return JsonResponse({"ok": True, "readiness_confirmed_at": attempt.readiness_confirmed_at.isoformat()})
 
 
@@ -213,9 +314,50 @@ def api_code_submit(request, pk):
     problem_id = _int(data, "problem_id")
     language = str(data.get("language", ""))[:20]
     code = str(data.get("code", ""))
-    submission = _perform(request, pk, lambda a, now: services.submit_code(a, now, problem_id, language, code))
-    submission = services.grade_submission(submission)
-    return JsonResponse({"ok": True, "submission": services._public_submission_summary(submission)})
+    try:
+        submission = _perform(request, pk, lambda a, now: services.submit_code(a, now, problem_id, language, code))
+        services.dispatch_grading(submission.pk)
+    except services.AttemptError as err:
+        if err.code == "locked":
+            attempt = get_object_or_404(Attempt, pk=pk, candidate=request.user)
+            submission = attempt.coding_submissions.filter(problem_id=problem_id, is_final=True).order_by("-version").first()
+            if submission:
+                if submission.status == CodingSubmission.Status.QUEUED:
+                    services.dispatch_grading(submission.pk)
+                return JsonResponse({
+                    "ok": True,
+                    "submission_id": submission.pk,
+                    "status": submission.status,
+                    "submission": services._public_submission_summary(submission),
+                })
+        raise
+    return JsonResponse({
+        "ok": True,
+        "submission_id": submission.pk,
+        "status": submission.status,
+        "submission": services._public_submission_summary(submission),
+    })
+
+
+@api_view
+@require_GET
+def api_submission_status(request, pk, submission_id):
+    """
+    Authenticated, ownership-checked endpoint to check background grading status.
+    Returns status: queued, completed, runner_error.
+    Never exposes hidden test details, outputs, or marks to the candidate.
+    """
+    attempt = get_object_or_404(Attempt, pk=pk)
+    if attempt.candidate_id != request.user.pk and not (request.user.is_staff or _is_reviewer(request.user)):
+        return JsonResponse({"ok": False, "error": "Permission denied.", "code": "forbidden"}, status=403)
+    submission = get_object_or_404(CodingSubmission, pk=submission_id, attempt=attempt)
+    return JsonResponse({
+        "ok": True,
+        "submission_id": submission.pk,
+        "status": submission.status,
+        "submitted_at": submission.submitted_at.isoformat(),
+        "final": submission.is_final,
+    })
 
 
 @api_view
@@ -241,6 +383,21 @@ def api_submit_section(request, pk):
     return JsonResponse({"ok": True})
 
 
+CLIENT_ALLOWED_EVENT_KINDS = {
+    ProctoringEvent.Kind.TAB_HIDDEN,
+    ProctoringEvent.Kind.WINDOW_BLUR,
+    ProctoringEvent.Kind.FACE_MISSING,
+    ProctoringEvent.Kind.MULTIPLE_FACES,
+    ProctoringEvent.Kind.HEAD_TURN,
+    ProctoringEvent.Kind.CAMERA_LOST,
+    ProctoringEvent.Kind.CAMERA_REVOKED,
+    ProctoringEvent.Kind.AI_UNAVAILABLE,
+    ProctoringEvent.Kind.FULLSCREEN_EXIT,
+    ProctoringEvent.Kind.CLIPBOARD,
+    ProctoringEvent.Kind.DEVTOOLS_ATTEMPT,
+}
+
+
 @api_view
 @require_POST
 def api_event(request, pk):
@@ -249,8 +406,8 @@ def api_event(request, pk):
         raise AttemptError("Too many events. Slow down.", "rate_limited")
     data = _body(request)
     kind = data.get("kind")
-    if kind not in ProctoringEvent.Kind.values:
-        raise AttemptError("Unknown event kind.", "bad_request")
+    if kind not in CLIENT_ALLOWED_EVENT_KINDS:
+        raise AttemptError("Unknown or forbidden client event kind.", "bad_request")
     duration_ms = data.get("duration_ms", 0)
     if isinstance(duration_ms, bool) or not isinstance(duration_ms, (int, float)):
         raise AttemptError("'duration_ms' must be a number.", "bad_request")
@@ -262,7 +419,20 @@ def api_event(request, pk):
     event = _perform(request, pk,
         lambda a, now: services.record_event(a, now, kind, client_at, duration_ms, context),
     )
-    return JsonResponse({"ok": True, "event_id": event.pk, "over_threshold": event.over_threshold})
+    attempt = Attempt.objects.get(pk=pk)
+    switches = attempt.proctoring_events.filter(kind__in=services.SWITCH_KINDS).count()
+    missing_count = attempt.proctoring_events.filter(kind=ProctoringEvent.Kind.FACE_MISSING).count()
+    return JsonResponse({
+        "ok": True,
+        "event_id": event.pk,
+        "over_threshold": event.over_threshold,
+        "kind": kind,
+        "switch_count": switches,
+        "switch_limit": attempt.policy_snapshot.get("tab_switch_threshold", 3),
+        "missing_count": missing_count,
+        "missing_limit_seconds": attempt.policy_snapshot.get("missing_face_seconds", 5),
+        "flagged": attempt.flagged_for_review,
+    })
 
 
 @api_view

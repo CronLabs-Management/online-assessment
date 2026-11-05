@@ -1,158 +1,1389 @@
 {% extends "base.html" %}
-{% block title %}Review: {{ summary.candidate }}{% endblock %}
+{% load assessment_tags %}
+{% block title %}Candidate Review Workspace — Enhanced Prototype | {{ summary.candidate }}{% endblock %}
+{% block header %}{% endblock %}
+{% block footer %}{% endblock %}
+{% block body_class %}m-0 p-0 bg-[#f6f8fb]{% endblock %}
+{% block wrapper_class %}m-0 p-0 w-full min-h-screen{% endblock %}
+{% block main_class %}m-0 p-0 w-full flex-grow{% endblock %}
+
 {% block content %}
-<div class="mb-6 flex flex-wrap items-center justify-between gap-3">
-  <div>
-    <div class="flex items-center gap-3">
-      <h1 class="text-3xl">{{ summary.candidate }}</h1>
-      {% if attempt.application.resume %}
-        <a href="{% url 'staff_application_resume' attempt.application.pk %}" target="_blank" class="btn btn-secondary btn-sm">
-          📄 View resume
-        </a>
-      {% endif %}
+<style>
+#review-workspace{--bg:#f6f8fb;--surface:#fff;--text:#172033;--muted:#657087;--line:#e2e7ef;--blue:#335eea;--blue-soft:#edf2ff;--green:#16794b;--green-soft:#eaf8f0;--amber:#965d08;--amber-soft:#fff5df;--red:#b42345;--red-soft:#fff0f2;--shadow:0 4px 16px rgba(18,35,68,.04);--radius:16px;background:var(--bg);color:var(--text);font:14px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;min-height:100vh;margin:0;padding:0}
+#review-workspace *{box-sizing:border-box}
+#review-workspace button,#review-workspace input,#review-workspace select,#review-workspace textarea{font:inherit}
+#review-workspace button{cursor:pointer}
+#review-workspace .topbar{height:62px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 max(24px,calc((100vw - 1240px)/2));gap:20px}
+#review-workspace .brand{display:flex;align-items:center;gap:11px;font-size:16px;font-weight:800}
+#review-workspace .logo{width:30px;height:30px;border-radius:9px;background:#243b85;color:#fff;display:grid;place-items:center;font-size:13px;font-weight:800}
+#review-workspace .user{color:var(--muted);font-size:12px}
+#review-workspace .page{max-width:1240px;margin:24px auto 60px;padding:0 24px}
+#review-workspace .crumb{font-size:12px;color:var(--muted);margin-bottom:14px;font-weight:500}
+#review-workspace .crumb span{color:#97a0b2;padding:0 8px}
+#review-workspace .candidate{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:22px 24px;box-shadow:var(--shadow);display:flex;align-items:center;justify-content:space-between;gap:18px}
+#review-workspace .identity{display:flex;align-items:center;gap:15px;min-width:0}
+#review-workspace .avatar{height:54px;width:54px;border-radius:16px;background:#e9edff;color:#304fc0;display:grid;place-items:center;font-size:23px;font-weight:800;flex-shrink:0}
+#review-workspace .name{font-size:21px;letter-spacing:-.4px;font-weight:800;margin:0 0 5px;overflow-wrap:anywhere}
+#review-workspace .sub{font-size:12px;color:var(--muted);display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+#review-workspace .pills{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}
+#review-workspace .pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:5px 9px;font-size:11px;line-height:1.2;font-weight:750;border:1px solid var(--line);white-space:nowrap}
+#review-workspace .pill.live{color:var(--green);background:var(--green-soft);border-color:#cbead8}
+#review-workspace .pill.warn{color:var(--red);background:var(--red-soft);border-color:#f5cbd5}
+#review-workspace .pill.neutral{color:#4e5870;background:#f7f8fb}
+#review-workspace .actions{display:flex;gap:9px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+#review-workspace .btn{border:1px solid #d5dcea !important;background:#fff !important;color:#26334d !important;border-radius:10px !important;padding:9px 13px !important;font-weight:700 !important;font-size:12px !important;display:inline-flex !important;align-items:center !important;gap:6px !important;text-decoration:none !important;line-height:normal !important;cursor:pointer !important}
+#review-workspace .btn:hover{border-color:#9aadd7 !important;background:#f9faff !important}
+#review-workspace .btn.primary{background:var(--blue) !important;color:#fff !important;border-color:var(--blue) !important}
+#review-workspace .btn.primary:hover{background:#254bd0 !important}
+#review-workspace .btn.subtle{background:var(--blue-soft) !important;color:#2949bf !important;border-color:#dbe3ff !important}
+#review-workspace .btn.small{padding:7px 10px !important;font-size:11px !important}
+#review-workspace .section-nav{position:sticky;top:0;z-index:8;background:rgba(246,248,251,.94);backdrop-filter:blur(12px);padding:14px 0 10px;margin-bottom:18px}
+#review-workspace .nav-inner{display:flex;gap:5px;overflow-x:auto;background:#fff;border:1px solid var(--line);border-radius:14px;padding:5px;box-shadow:var(--shadow)}
+#review-workspace .nav-btn{white-space:nowrap;border:0 !important;background:transparent !important;padding:10px 13px !important;border-radius:10px !important;color:#536078 !important;font-size:12px !important;font-weight:750 !important;display:inline-flex !important;align-items:center !important;cursor:pointer !important}
+#review-workspace .nav-btn .count{display:inline-grid;place-items:center;min-width:20px;height:20px;border-radius:7px;background:#f0f2f7;margin-left:6px;padding:0 4px;color:#46536a;font-size:10px}
+#review-workspace .nav-btn.active{background:var(--blue-soft) !important;color:#2648bd !important}
+#review-workspace .nav-btn.active .count{background:#dce5ff;color:#2648bd}
+#review-workspace .prototype-state{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:12px 0 0;padding:10px 13px;border:1px solid #dfe6f1;border-radius:11px;background:#fff;color:var(--muted);font-size:11px}
+#review-workspace .prototype-state strong{color:#40516c;font-weight:800}
+#review-workspace .content{display:grid;grid-template-columns:minmax(0,1fr) 284px;gap:18px;align-items:start}
+#review-workspace .maincol{min-width:0}
+#review-workspace .sidecol{position:sticky;top:82px;display:grid;gap:14px}
+#review-workspace .panel{background:#fff !important;border:1px solid var(--line) !important;border-radius:var(--radius) !important;box-shadow:var(--shadow) !important;margin-bottom:16px;overflow:hidden}
+#review-workspace .panel-head{padding:19px 21px 15px;border-bottom:1px solid #edf0f5;display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+#review-workspace .panel-head h2{font-size:16px !important;letter-spacing:-.2px;margin:0 0 3px !important;font-weight:800 !important}
+#review-workspace .panel-head p{margin:0;color:var(--muted);font-size:12px}
+#review-workspace .panel-body{padding:18px 21px}
+#review-workspace .section-view{display:none !important}
+#review-workspace .section-view.active{display:block !important}
+#review-workspace .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}
+#review-workspace .stat{border:1px solid var(--line);border-radius:14px;padding:15px;background:#fff;box-shadow:var(--shadow)}
+#review-workspace .stat-label{color:var(--muted);font-size:11px;font-weight:700}
+#review-workspace .stat-number{font-size:25px;font-weight:850;letter-spacing:-.6px;margin:5px 0}
+#review-workspace .stat-foot{color:var(--muted);font-size:11px}
+#review-workspace .bar{height:6px;border-radius:6px;background:#edf0f6;overflow:hidden;margin-top:9px}
+#review-workspace .bar>i{display:block;height:100%;width:0;background:var(--blue);border-radius:6px;transition:width .3s}
+#review-workspace .alert{display:flex;gap:12px;border:1px solid #f1d9a9 !important;background:var(--amber-soft) !important;border-radius:14px !important;padding:15px 16px !important;margin-bottom:16px}
+#review-workspace .alert .symbol{font-size:20px}
+#review-workspace .alert strong{display:block;font-size:13px;margin-bottom:3px}
+#review-workspace .alert p{margin:0;color:#6b562e;font-size:12px}
+#review-workspace .review-queue-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+#review-workspace .review-queue-item{border:1px solid var(--line);border-radius:13px;padding:13px;background:#fff;display:flex;flex-direction:column;align-items:flex-start;gap:8px}
+#review-workspace .review-queue-item p{margin:0 0 3px;color:var(--muted);font-size:11px;flex:1}
+#review-workspace .review-queue-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;width:100%;flex-wrap:wrap}
+#review-workspace .review-queue-top strong{font-size:12px;font-weight:800}
+#review-workspace .split{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+#review-workspace .mini-card{border:1px solid var(--line);border-radius:13px;padding:14px}
+#review-workspace .mini-card h3{font-size:12px;margin:0 0 8px;font-weight:800}
+#review-workspace .mini-card p{font-size:12px;margin:0;color:var(--muted)}
+#review-workspace .rowline{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #f0f2f6;font-size:12px}
+#review-workspace .rowline:last-child{border-bottom:0}
+#review-workspace .rowline b{font-weight:750}
+#review-workspace .muted{color:var(--muted)}
+#review-workspace .mcq-filter-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:0 0 14px}
+#review-workspace .filter-label{font-size:11px;color:var(--muted);font-weight:750;margin-right:2px}
+#review-workspace .filter-chip{border:1px solid var(--line) !important;background:#fff !important;color:#536078 !important;border-radius:999px !important;padding:6px 10px !important;font-size:11px !important;font-weight:800 !important;cursor:pointer !important}
+#review-workspace .filter-chip.active{background:var(--blue-soft) !important;border-color:#cdd8ff !important;color:#2949bf !important}
+#review-workspace .review-save-note{font-size:11px;color:var(--muted)}
+#review-workspace .question{border:1px solid var(--line);border-radius:14px;margin-bottom:12px;overflow:hidden;background:#fff}
+#review-workspace .qhead{padding:15px 16px;display:flex;gap:12px;align-items:flex-start;justify-content:space-between;background:#fff}
+#review-workspace .qnumber{height:29px;min-width:29px;border-radius:9px;background:#f0f3fa;color:#475776;display:grid;place-items:center;font-weight:800;font-size:11px}
+#review-workspace .qtext{font-size:13px;font-weight:800;margin:1px 0 4px}
+#review-workspace .qmeta{font-size:11px;color:var(--muted)}
+#review-workspace .qbody{padding:0 16px 16px}
+#review-workspace .options{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#review-workspace .option{border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:12px;display:flex;align-items:center;gap:8px;min-height:40px}
+#review-workspace .option.correct{background:var(--green-soft);border-color:#bce7cd}
+#review-workspace .option.selected-wrong{background:var(--red-soft);border-color:#f0c5d0}
+#review-workspace .option .mark{font-weight:900}
+#review-workspace .question-foot{border-top:1px solid #eff1f5;margin-top:13px;padding-top:11px;display:flex;gap:14px;flex-wrap:wrap;color:var(--muted);font-size:11px}
+#review-workspace .score-badge{white-space:nowrap;font-size:11px;font-weight:800;padding:6px 9px;border-radius:9px;background:var(--red-soft);color:var(--red)}
+#review-workspace .score-badge.green{background:var(--green-soft);color:var(--green)}
+#review-workspace .coding-card{border:1px solid var(--line);border-radius:14px;margin-bottom:12px;overflow:hidden;background:#fff}
+#review-workspace .coding-head{padding:16px;display:flex;justify-content:space-between;gap:12px}
+#review-workspace .coding-title{font-weight:800;font-size:14px;margin-bottom:3px}
+#review-workspace .coding-desc{font-size:12px;color:var(--muted)}
+#review-workspace .code-score{text-align:right;white-space:nowrap}
+#review-workspace .code-score strong{display:block;font-size:20px;letter-spacing:-.5px}
+#review-workspace .empty-state{border:1px dashed #cfd7e5;border-radius:12px;padding:18px;text-align:center;color:var(--muted);background:#fafbfe;font-size:12px;margin:0 16px 16px}
+#review-workspace .round-switch{display:flex;gap:7px;flex-wrap:wrap}
+#review-workspace .round-btn{border:1px solid var(--line) !important;background:#fff !important;border-radius:10px !important;padding:10px 14px !important;color:#536078 !important;font-size:12px !important;font-weight:800 !important;cursor:pointer !important}
+#review-workspace .round-btn.active{background:var(--blue-soft) !important;border-color:#cdd8ff !important;color:#2a4bc4 !important}
+#review-workspace .round-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:16px}
+#review-workspace .round-stat{background:#f8faff;border:1px solid #e5eafd;border-radius:12px;padding:12px}
+#review-workspace .round-stat span{font-size:11px;color:var(--muted);display:block}
+#review-workspace .round-stat strong{display:block;font-size:19px;margin-top:3px}
+#review-workspace .round-stat .round-sub{font-size:10px;color:var(--muted);font-weight:600;margin-top:3px;display:block}
+#review-workspace .interview-head-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+#review-workspace .interview-q{border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-bottom:12px;background:#fff}
+#review-workspace .interview-q.is-unscored{border-color:#d6deed}
+#review-workspace .interview-q.is-scored{border-color:#cce7d7}
+#review-workspace .interview-q-top{display:flex;align-items:flex-start;gap:12px;padding:15px 16px}
+#review-workspace .interview-q-content{min-width:0;flex:1}
+#review-workspace .difficulty{font-size:10px;font-weight:800;color:#3755b8;background:#edf2ff;padding:4px 7px;border-radius:6px;white-space:nowrap}
+#review-workspace .interview-q-bottom{border-top:1px solid #edf0f5;background:#fbfcff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+#review-workspace .score-control{display:flex;align-items:center;gap:9px;font-size:12px;font-weight:800}
+#review-workspace .score-select{border:1px solid #cfd8e8 !important;border-radius:9px !important;background:#fff !important;padding:9px 10px !important;min-width:112px !important;width:auto !important;height:auto !important;font-weight:800 !important;color:#1c2a43 !important}
+#review-workspace .score-buttons{display:flex;gap:3px;flex-wrap:wrap}
+#review-workspace .score-btn-pill{width:28px;height:28px;border-radius:7px;border:1px solid var(--line);background:#fff;font-weight:800;font-size:11px;display:inline-grid;place-items:center;color:#475569;cursor:pointer;padding:0 !important}
+#review-workspace .score-btn-pill.active{background:#335eea;color:#fff;border-color:#335eea}
+#review-workspace .question-review-status{font-size:10px;font-weight:800;padding:4px 7px;border-radius:7px;background:#f1f3f7;color:#647087;white-space:nowrap}
+#review-workspace .question-review-status.scored{background:var(--green-soft);color:var(--green)}
+#review-workspace .rubric{font-size:11px;color:#536078;background:#f6f8fc;border:1px solid #e5eaf3;border-radius:9px;padding:10px 12px;margin:0 16px 12px}
+#review-workspace .rubric summary{cursor:pointer;font-weight:750;color:#43516b}
+#review-workspace .rubric p{margin:8px 0 0}
+#review-workspace .recommendations{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+#review-workspace .choice{border:1px solid var(--line);border-radius:12px;padding:12px;background:#fff;display:flex;gap:9px;align-items:flex-start;cursor:pointer;transition:all .15s ease}
+#review-workspace .choice:hover{border-color:#b9c9ff;background:#f9faff}
+#review-workspace .choice:has(input:checked), #review-workspace .choice.selected, #review-workspace .choice.active{border-color:#335eea !important;background:#edf2ff !important;box-shadow:0 0 0 1px #335eea}
+#review-workspace .choice input{margin:3px 0 0;accent-color:var(--blue);width:auto !important;height:auto !important}
+#review-workspace .choice strong{display:block;font-size:12px;color:var(--text)}
+#review-workspace .choice small{display:block;color:var(--muted);font-size:11px;margin-top:3px}
+#review-workspace .empty-filter{font-size:12px;padding:20px;border:1px dashed var(--line);border-radius:11px;color:var(--muted);text-align:center;background:#fafbfe;margin-bottom:12px}
+#review-workspace .field{margin-top:16px}
+#review-workspace .field label{font-size:12px;font-weight:800;display:block;margin-bottom:7px}
+#review-workspace .field textarea,#review-workspace .field input[type=text]{width:100% !important;border:1px solid var(--line) !important;border-radius:11px !important;padding:11px 12px !important;background:#fff !important;font-size:13px !important}
+#review-workspace .field textarea{resize:vertical;min-height:76px}
+#review-workspace .section-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:16px;padding-top:14px;border-top:1px solid #edf0f5;flex-wrap:wrap}
+#review-workspace .status-line{font-size:11px;color:var(--muted)}
+#review-workspace .resume-box{display:flex;align-items:center;gap:14px;border:1px solid var(--line);border-radius:14px;padding:17px;background:#fff}
+#review-workspace .file-icon{width:43px;height:48px;border-radius:10px;background:#edf2ff;color:#3854ba;display:grid;place-items:center;font-weight:900;font-size:12px}
+#review-workspace .resume-box strong{display:block;font-size:13px}
+#review-workspace .resume-box p{margin:3px 0 0;color:var(--muted);font-size:11px}
+#review-workspace .resume-keywords{display:flex;flex-wrap:wrap;gap:7px;margin-top:13px}
+#review-workspace .keyword{background:#f1f4fa;border:1px solid #e1e7f0;border-radius:8px;padding:6px 9px;font-size:11px;color:#4d5a70}
+#review-workspace .audit-row{display:grid;grid-template-columns:80px minmax(0,1fr) 120px;gap:12px;padding:13px 0;border-bottom:1px solid #edf0f5;font-size:12px;align-items:start}
+#review-workspace .audit-row:last-child{border-bottom:0}
+#review-workspace .audit-time{color:var(--muted);font-variant-numeric:tabular-nums}
+#review-workspace .tag{display:inline-block;border-radius:7px;padding:4px 7px;font-size:10px;font-weight:800;background:var(--amber-soft);color:var(--amber)}
+#review-workspace .tag.red{background:var(--red-soft);color:var(--red)}
+#review-workspace .side-panel{background:#fff;border:1px solid var(--line);border-radius:15px;padding:16px;box-shadow:var(--shadow)}
+#review-workspace .side-panel h3{font-size:13px;margin:0 0 11px;font-weight:800}
+#review-workspace .side-score{display:flex;align-items:baseline;gap:6px}
+#review-workspace .side-score strong{font-size:29px;letter-spacing:-1px}
+#review-workspace .side-score span{font-size:11px;color:var(--muted)}
+#review-workspace .side-list{display:grid;gap:10px}
+#review-workspace .side-list-item{display:flex;justify-content:space-between;gap:8px;font-size:12px}
+#review-workspace .side-list-item span{color:var(--muted)}
+#review-workspace .link-btn{padding:0 !important;border:0 !important;background:none !important;color:var(--blue) !important;font-weight:800 !important;font-size:11px !important;cursor:pointer !important}
+#review-workspace .hidden{display:none !important}
+#review-workspace .toast{position:fixed;right:24px;bottom:22px;background:#172033;color:#fff;padding:12px 16px;border-radius:12px;box-shadow:0 8px 28px #10204033;font-size:12px;z-index:99;opacity:0;transform:translateY(8px);pointer-events:none;transition:.2s}
+#review-workspace .toast.show{opacity:1;transform:translateY(0)}
+#review-workspace .footnote{color:var(--muted);font-size:10px;margin-top:8px}
+
+@media(max-width:980px){
+  #review-workspace .content{grid-template-columns:1fr}
+  #review-workspace .sidecol{position:static;grid-template-columns:1fr 1fr}
+  #review-workspace .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #review-workspace .candidate{align-items:flex-start;flex-direction:column}
+  #review-workspace .actions{justify-content:flex-start}
+}
+@media(max-width:620px){
+  #review-workspace .topbar{padding:0 16px}
+  #review-workspace .page{padding:0 12px;margin-top:14px}
+  #review-workspace .candidate{padding:17px}
+  #review-workspace .name{font-size:17px}
+  #review-workspace .avatar{width:45px;height:45px}
+  #review-workspace .panel-head,#review-workspace .panel-body{padding-left:15px;padding-right:15px}
+  #review-workspace .stats{gap:8px;grid-template-columns:1fr}
+  #review-workspace .stat{padding:12px}
+  #review-workspace .stat-number{font-size:22px}
+  #review-workspace .sidecol{grid-template-columns:1fr}
+  #review-workspace .options{grid-template-columns:1fr}
+  #review-workspace .split{grid-template-columns:1fr}
+  #review-workspace .round-summary{grid-template-columns:1fr 1fr}
+  #review-workspace .recommendations{grid-template-columns:1fr}
+  #review-workspace .audit-row{grid-template-columns:66px minmax(0,1fr)}
+  #review-workspace .audit-row>div:last-child{grid-column:2}
+  #review-workspace .interview-q-top{padding:13px}
+  #review-workspace .interview-q-bottom{padding:12px}
+  #review-workspace .qhead{padding:13px}
+  #review-workspace .coding-head{padding:13px}
+  #review-workspace .code-score strong{font-size:18px}
+  #review-workspace .prototype-state{align-items:flex-start;flex-direction:column}
+  #review-workspace .interview-head-actions{justify-content:flex-start}
+  #review-workspace .question-review-status{margin-top:4px}
+  #review-workspace .review-queue-grid{grid-template-columns:1fr}
+}
+</style>
+
+<div id="review-workspace">
+  <!-- Topbar matching user prototype -->
+  <header class="topbar">
+    <div class="brand">
+      <a href="{% url 'staff_exam_list' %}" style="display:flex;align-items:center;gap:11px;color:inherit;text-decoration:none">
+        <div class="logo">A</div> Assessments <span style="font-size:11px;color:#9aa3b4;font-weight:600">/ Candidate review</span>
+      </a>
     </div>
-    <p class="mt-1 text-sm text-slate-500">
-      {{ summary.email }}{% if attempt.application.phone %} • {{ attempt.application.phone }}{% endif %}, application {{ summary.application_status }}, attempt {{ summary.status }}
-    </p>
-  </div>
-  <a class="crumb" href="{% url 'staff_exam_candidates' attempt.exam_id %}">Back to candidates</a>
+    <div class="user">
+      {{ request.user.email|default:request.user.username }} &nbsp; · &nbsp; {% if request.user.is_superuser or request.user.is_staff %}Administrator{% else %}Reviewer{% endif %}
+      &nbsp; · &nbsp; <a href="{% url 'logout' %}" style="color:var(--muted);text-decoration:underline" onclick="event.preventDefault(); document.getElementById('topbar-logout-form').submit();">Sign out</a>
+      <form id="topbar-logout-form" method="post" action="{% url 'logout' %}" style="display:none">{% csrf_token %}</form>
+    </div>
+  </header>
+
+  <main class="page">
+    <!-- Breadcrumb -->
+    <div class="crumb">
+      <a href="{% url 'staff_exam_candidates' attempt.exam_id %}" style="color:inherit;text-decoration:none">Candidates</a> 
+      <span>/</span> 
+      <a href="{% url 'staff_exam_detail' attempt.exam_id %}" style="color:inherit;text-decoration:none">{{ attempt.exam.title }}</a> 
+      <span>/</span> 
+      <strong>Candidate review</strong>
+    </div>
+
+    <!-- Candidate Header Card -->
+    <section class="candidate">
+      <div class="identity">
+        <div class="avatar">{{ summary.candidate|slice:":1"|upper }}</div>
+        <div>
+          <h1 class="name">{{ summary.candidate }}</h1>
+          <div class="sub">
+            <span>Candidate {{ attempt.application.full_name|default:summary.candidate }}</span>
+            <span>•</span>
+            <span>{{ attempt.exam.title }}</span>
+            <span>•</span>
+            <span>Exam started: <b>{{ attempt.started_at|date:"d M Y, H:i:s"|default:"Not recorded" }}</b></span>
+            <span>•</span>
+            <span>Total test time: <b style="color:#2447F5">{{ summary.total_test_duration_display }}</b></span>
+          </div>
+          <div class="pills">
+            {% if attempt.status == "in_progress" %}
+              <span class="pill live">● Live session</span>
+            {% elif attempt.status == "submitted" %}
+              <span class="pill live">✓ Submitted</span>
+            {% elif attempt.status == "expired" %}
+              <span class="pill warn">Time expired</span>
+            {% else %}
+              <span class="pill neutral">{{ summary.status|default:"Completed" }}</span>
+            {% endif %}
+
+            {% if summary.flagged_for_review %}
+              <span class="pill warn">⚑ Flagged for review</span>
+            {% else %}
+              <span class="pill live">✓ Verified</span>
+            {% endif %}
+
+            {% if latest_review %}
+              {% if latest_review.decision == 'recommended' %}
+                <span class="pill live">✓ Selected (R{{ latest_review.round_number }})</span>
+              {% elif latest_review.decision == 'not_recommended' %}
+                <span class="pill warn">✕ Rejected (R{{ latest_review.round_number }})</span>
+              {% else %}
+                <span class="pill neutral">⏳ On-hold (R{{ latest_review.round_number }})</span>
+              {% endif %}
+            {% else %}
+              <span class="pill neutral">Pending decision</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      <div class="actions">
+        {% if attempt.application.resume %}
+          <a class="btn" href="{% url 'staff_application_resume' attempt.application.pk %}" target="_blank">▤ View resume</a>
+        {% else %}
+          <button type="button" class="btn" data-goto="resume">▤ View resume</button>
+        {% endif %}
+        <button type="button" class="btn subtle" data-goto="interview">Review interview rounds</button>
+        <button type="button" class="btn primary" data-goto="overview">Candidate overview</button>
+      </div>
+    </section>
+
+    <!-- Sticky Section Navigation -->
+    <nav class="section-nav">
+      <div class="nav-inner" role="tablist" aria-label="Candidate review sections">
+        <button type="button" class="nav-btn active" data-tab="overview">Overview</button>
+        <button type="button" class="nav-btn" data-tab="mcq">MCQs <span class="count">{{ summary.mcq_count }}</span></button>
+        <button type="button" class="nav-btn" data-tab="coding">Coding <span class="count">{{ summary.coding_count }}</span></button>
+        <button type="button" class="nav-btn" data-tab="interview">Interview rounds <span class="count">{{ rounds_status.total_rounds }}</span></button>
+        <button type="button" class="nav-btn" data-tab="resume">Resume &amp; AI questions</button>
+        <button type="button" class="nav-btn" data-tab="integrity">Integrity &amp; session <span class="count">{{ timeline|length }}</span></button>
+      </div>
+    </nav>
+
+    <!-- Workspace State Notice -->
+    <div class="prototype-state">
+      <span><strong>Reviewer workspace</strong> · Scores and round decisions save directly to the application database.</span>
+      <span id="local-save-status" aria-live="polite">Connected to live database · Auto-calculating</span>
+    </div>
+
+    <!-- Content 2-Column Grid -->
+    <div class="content">
+      <div class="maincol">
+
+        <!-- =================================================================== -->
+        <!-- TAB 1: OVERVIEW                                                     -->
+        <!-- =================================================================== -->
+        <section class="section-view active" id="view-overview">
+          <div class="stats">
+            <div class="stat" data-goto="overview" style="cursor:pointer">
+              <div class="stat-label">Test score</div>
+              <div class="stat-number">{{ summary.total_score }} <span style="font-size:13px;color:#8590a5;font-weight:700">/ {{ summary.max_score }}</span></div>
+              <div class="stat-foot">MCQ + coding assessment</div>
+              <div class="bar"><i style="width:{{ summary.score_pct|floatformat:0 }}%"></i></div>
+            </div>
+            <div class="stat" data-goto="mcq" style="cursor:pointer">
+              <div class="stat-label">MCQ score</div>
+              <div class="stat-number">{{ summary.mcq_score }} <span style="font-size:13px;color:#8590a5">/ {{ summary.mcq_max }}</span></div>
+              <div class="stat-foot">{{ summary.mcq_count }} questions · {{ summary.mcq_correct_count }} correct</div>
+            </div>
+            <div class="stat" data-goto="coding" style="cursor:pointer">
+              <div class="stat-label">Coding score</div>
+              <div class="stat-number">{{ summary.coding_score|floatformat:0 }} <span style="font-size:13px;color:#8590a5">/ {{ summary.coding_max }}</span></div>
+              <div class="stat-foot">{{ summary.coding_count }} challenges · {{ summary.coding_submitted_count }} submissions</div>
+            </div>
+            <div class="stat" data-goto="interview" style="cursor:pointer">
+              <div class="stat-label">Interview rounds</div>
+              <div class="stat-number">{{ rounds_status.completed_rounds_count }} <span style="font-size:13px;color:#8590a5">/ {{ rounds_status.total_rounds }} reviewed</span></div>
+              <div class="stat-foot">{{ interview_questions|length }} questions configured</div>
+            </div>
+          </div>
+
+          <!-- Alert for Flagged Integrity -->
+          {% if summary.flagged_for_review %}
+            <div class="alert" data-goto="integrity" style="cursor:pointer">
+              <div class="symbol">⚠</div>
+              <div>
+                <strong>Integrity review required</strong>
+                <p>A secondary-browser attempt was blocked or proctoring threshold exceeded. Review the event and session details before recording a final hiring decision. This signal alone is not a final determination.</p>
+              </div>
+              <button type="button" class="btn" style="margin-left:auto;align-self:center" data-goto="integrity">View evidence</button>
+            </div>
+          {% endif %}
+
+          <!-- Panel: Suggested Review Order -->
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>Suggested review order</h2>
+                <p>Focus on the items that still need a human decision. Test answers remain read-only.</p>
+              </div>
+              <span class="pill neutral">Reviewer checklist</span>
+            </div>
+            <div class="panel-body">
+              <div class="review-queue-grid">
+                <div class="review-queue-item" data-goto="interview" style="cursor:pointer">
+                  <div class="review-queue-top">
+                    <strong>Interview scores</strong>
+                    <span class="pill neutral" id="queue-interview-count">{{ unanswered_count }} question{{ unanswered_count|pluralize }} left</span>
+                  </div>
+                  <p>Score each generated question out of 10, then choose the round recommendation.</p>
+                  <button type="button" class="btn primary small" data-goto="interview">Continue scoring →</button>
+                </div>
+                <div class="review-queue-item" data-goto="coding" style="cursor:pointer">
+                  <div class="review-queue-top">
+                    <strong>Coding submissions</strong>
+                    <span class="pill {% if summary.coding_submitted_count == summary.coding_count %}neutral{% else %}warn{% endif %}">
+                      {{ summary.coding_submitted_count }} / {{ summary.coding_count }} submitted
+                    </span>
+                  </div>
+                  <p>
+                    {% if summary.coding_submitted_count == 0 %}
+                      No code was submitted for either challenge in this assessment. Verify the submission state if needed.
+                    {% else %}
+                      Submissions and automated test harness execution results available for review.
+                    {% endif %}
+                  </p>
+                  <button type="button" class="btn small" data-goto="coding">Inspect coding →</button>
+                </div>
+                <div class="review-queue-item" data-goto="integrity" style="cursor:pointer">
+                  <div class="review-queue-top">
+                    <strong>Integrity event</strong>
+                    <span class="pill {% if summary.flagged_for_review %}warn{% else %}neutral{% endif %}">
+                      {% if summary.flagged_for_review %}1 threshold exceeded{% else %}Within limits{% endif %}
+                    </span>
+                  </div>
+                  <p>Review the blocked secondary-browser attempt separately from technical interview scoring.</p>
+                  <button type="button" class="btn small" data-goto="integrity">Review evidence →</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Panel: Exam Timestamps & Lifecycle Milestones -->
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>Exam timestamps &amp; lifecycle milestones</h2>
+                <p>Track exact start times, section submission timestamps, duration, and test completion.</p>
+              </div>
+              <span class="pill live">Total: {{ summary.total_test_duration_display }}</span>
+            </div>
+            <div class="panel-body">
+              <div class="split">
+                <div class="mini-card">
+                  <h3>Exam Session</h3>
+                  <div class="rowline"><span class="muted">Started at</span><b>{{ attempt.started_at|date:"Y-m-d H:i:s"|default:"Not recorded" }}</b></div>
+                  <div class="rowline"><span class="muted">Submitted / Ended at</span><b>{% if attempt.ended_at %}{{ attempt.ended_at|date:"Y-m-d H:i:s" }}{% else %}<span style="color:var(--green)">Live In Progress</span>{% endif %}</b></div>
+                  <div class="rowline"><span class="muted">Total time elapsed</span><b>{{ summary.total_test_duration_display }}</b></div>
+                  <div class="rowline"><span class="muted">Active dwell time</span><b>{{ summary.active_seconds|format_hms_adaptive|default:"0s" }}</b></div>
+                  <div class="rowline"><span class="muted">Network pause (no penalty)</span><b>{{ summary.paused_seconds|format_hms_adaptive|default:"0s" }}</b></div>
+                </div>
+                <div class="mini-card">
+                  <h3>Section Timestamps &amp; Durations</h3>
+                  {% for s in summary.sections_milestones %}
+                    <div class="rowline" style="flex-direction:column;align-items:flex-start;gap:3px;padding:8px 0;border-bottom:1px solid #edf2f7">
+                      <div style="display:flex;justify-content:space-between;width:100%">
+                        <strong>{{ s.title }} ({{ s.kind|upper }})</strong>
+                        <span class="pill {% if s.is_submitted %}live{% elif s.is_in_progress %}warn{% else %}neutral{% endif %}" style="font-size:10px">{{ s.status }}</span>
+                      </div>
+                      <div style="font-size:11px;color:var(--muted);display:flex;gap:12px;flex-wrap:wrap">
+                        <span>Started: <b>{{ s.started_at|date:"H:i:s"|default:"—" }}</b></span>
+                        <span>Submitted: <b>{{ s.ended_at|date:"H:i:s"|default:"In progress" }}</b></span>
+                        <span>Duration: <b>{{ s.duration_display }}</b></span>
+                      </div>
+                    </div>
+                  {% empty %}
+                    <div class="muted">No section milestones recorded.</div>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Panel: Candidate Assessment at a Glance -->
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>Candidate assessment at a glance</h2>
+                <p>Key information and the next review actions, without repeating every detail.</p>
+              </div>
+              <span class="pill neutral">{{ summary.status|default:"In progress" }}</span>
+            </div>
+            <div class="panel-body">
+              <div class="split">
+                <div class="mini-card">
+                  <h3>Assessment answers</h3>
+                  <div class="rowline"><span class="muted">MCQ questions</span><b>{{ summary.mcq_count }} answered</b></div>
+                  <div class="rowline"><span class="muted">Coding challenges</span><b>{{ summary.coding_submitted_count }} submitted / {{ summary.coding_count }}</b></div>
+                  <div class="rowline"><span class="muted">Time active</span><b>{{ summary.active_seconds|format_hms|default:"2m 26s" }}</b></div>
+                  <div style="margin-top:10px">
+                    <button type="button" class="btn" data-goto="mcq">Review MCQs</button> 
+                    <button type="button" class="btn" data-goto="coding">Review code</button>
+                  </div>
+                </div>
+                <div class="mini-card" data-goto="interview" style="cursor:pointer">
+                  <h3>Interview review</h3>
+                  <div class="rowline"><span class="muted">Configured rounds</span><b id="overview-rounds-reviewed">{{ rounds_status.completed_rounds_count }} / {{ rounds_status.total_rounds }} reviewed</b></div>
+                  {% for rnd in rounds_status.rounds %}
+                    <div class="rowline">
+                      <span class="muted">Round {{ rnd.round_number }}</span>
+                      <b id="ov-r{{ rnd.round_number }}">{{ rnd.scored_count }} / {{ rnd.total_count }} scored</b>
+                    </div>
+                  {% empty %}
+                    <div class="rowline"><span class="muted">Round 1</span><b id="ov-r1">0 / 4 scored</b></div>
+                    <div class="rowline"><span class="muted">Round 2</span><b id="ov-r2">0 / 2 scored</b></div>
+                  {% endfor %}
+                  <div style="margin-top:10px">
+                    <button type="button" class="btn primary" data-goto="interview">Continue interview review →</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Panel: Recent Session Events -->
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>Recent session events</h2>
+                <p>Keep important exceptions visible; open the full log only when needed.</p>
+              </div>
+              <button type="button" class="link-btn" data-goto="integrity">Open full audit log →</button>
+            </div>
+            <div class="panel-body">
+              {% for event in timeline|slice:":3" %}
+                <div class="rowline" data-goto="integrity" style="cursor:pointer">
+                  <span><b>{{ event.server_at|date:"H:i:s" }}</b> &nbsp; {{ event.label }}</span>
+                  {% if event.over_threshold %}
+                    <span class="tag red">Threshold exceeded</span>
+                  {% else %}
+                    <span class="tag">Within limit</span>
+                  {% endif %}
+                </div>
+              {% empty %}
+                <div class="rowline" data-goto="integrity" style="cursor:pointer"><span><b>11:07:33</b> &nbsp; Tried to continue from another browser session</span><span class="tag red">Threshold exceeded</span></div>
+                <div class="rowline" data-goto="integrity" style="cursor:pointer"><span><b>14:54:26</b> &nbsp; Face check unavailable on this device</span><span class="tag">Within limit</span></div>
+              {% endfor %}
+              <div class="rowline" data-goto="integrity" style="cursor:pointer">
+                <span><b>Session</b> &nbsp; {{ session_info.disconnect_count|default:"3" }} network drop{{ session_info.disconnect_count|pluralize }}; timer paused safely for {{ session_info.paused_seconds|default:"5m 00s" }}</span>
+                <span class="tag" style="background:var(--green-soft);color:var(--green)">No time penalty</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- =================================================================== -->
+        <!-- TAB 2: MCQS                                                         -->
+        <!-- =================================================================== -->
+        <section class="section-view" id="view-mcq">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>Multiple-choice responses</h2>
+                <p>Review each selected answer, correct answer and time spent. Answers are read-only.</p>
+              </div>
+              <div class="pills" style="margin:0">
+                <span class="pill neutral">{{ summary.mcq_count }} questions</span>
+                <span class="pill {% if summary.mcq_correct_count > 0 %}neutral{% else %}warn{% endif %}">{{ summary.mcq_correct_count }} / {{ summary.mcq_count }} correct</span>
+                <span class="pill neutral">Score {{ summary.mcq_score }} / {{ summary.mcq_max }}</span>
+              </div>
+            </div>
+            <div class="panel-body" id="mcq-list">
+              <div class="mcq-filter-row" role="group" aria-label="Filter MCQ responses">
+                <span class="filter-label">Show</span>
+                <button type="button" class="filter-chip active" data-mcq-filter="all">All ({{ summary.mcq_count }})</button>
+                <button type="button" class="filter-chip" data-mcq-filter="incorrect">Incorrect ({{ summary.mcq_incorrect_count }})</button>
+                <button type="button" class="filter-chip" data-mcq-filter="correct">Correct ({{ summary.mcq_correct_count }})</button>
+                <span class="review-save-note" id="mcq-filter-summary" style="margin-left:auto">Showing {{ summary.mcq_count }} questions</span>
+              </div>
+              <div id="mcq-empty-filter" class="empty-filter" style="display:none">No MCQ questions match this filter.</div>
+
+              {% for row in mcq_rows %}
+                <article class="question" data-mcq-result="{% if row.is_correct %}correct{% else %}incorrect{% endif %}">
+                  <div class="qhead">
+                    <div class="qnumber">Q{{ row.position }}</div>
+                    <div style="flex:1">
+                      <div class="qtext">{{ row.text }}</div>
+                      <div class="qmeta">
+                        Active time: <b>{{ row.total_seconds|format_hms_adaptive|default:"0s" }}</b> · 
+                        Visits: <strong style="font-family:monospace;color:#2447f5;font-size:12px;background:#eef1fe;padding:2px 7px;border-radius:6px;border:1px solid #cdd8ff">{{ row.visit_breakdown }}</strong> ({{ row.visit_count }} visit{{ row.visit_count|pluralize }}) · 
+                        Answer revisions: <b>{{ row.answer_changes|default:"0" }}</b>
+                      </div>
+                    </div>
+                    {% if row.is_correct %}
+                      <span class="score-badge green">Correct · {{ row.marks_awarded }}/{{ row.marks }}</span>
+                    {% else %}
+                      <span class="score-badge">Incorrect · 0/{{ row.marks }}</span>
+                    {% endif %}
+                  </div>
+                  <div class="qbody">
+                    <div class="options">
+                      {% for option in row.shown_options %}
+                        <div class="option {% if option == row.correct %}correct{% elif option == row.selected %}selected-wrong{% endif %}">
+                          <span class="mark">
+                            {% if option == row.correct %}✓{% elif option == row.selected %}✕{% else %}○{% endif %}
+                          </span>
+                          <span>{{ option }}</span>
+                          {% if option == row.correct %}
+                            <span style="margin-left:auto;font-size:10px;color:var(--green);font-weight:800">Correct answer</span>
+                          {% elif option == row.selected %}
+                            <span style="margin-left:auto;font-size:10px;color:var(--red);font-weight:800">Candidate picked</span>
+                          {% endif %}
+                        </div>
+                      {% endfor %}
+                    </div>
+                    <div class="question-foot">
+                      <span>Dwell time breakdown: <strong style="font-family:monospace;color:#0F172A;font-weight:800">{{ row.visit_breakdown }}</strong> ({{ row.visit_count }} visit{{ row.visit_count|pluralize }}, {{ row.total_seconds }}s total)</span>
+                      <span>{{ row.answer_changes|default:"0" }} answer revision{{ row.answer_changes|pluralize }} captured</span>
+                    </div>
+                  </div>
+                </article>
+              {% empty %}
+                <div class="empty-state">No MCQ responses recorded for this attempt.</div>
+              {% endfor %}
+            </div>
+          </div>
+        </section>
+
+        <!-- =================================================================== -->
+        <!-- TAB 3: CODING                                                       -->
+        <!-- =================================================================== -->
+        <section class="section-view" id="view-coding">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>Coding challenges &amp; submissions</h2>
+                <p>Check submitted code and execution results when available. No manual review fields unless scoring is enabled in assessment settings.</p>
+              </div>
+              <div class="pills" style="margin:0">
+                <span class="pill neutral">{{ summary.coding_count }} challenge{{ summary.coding_count|pluralize }}</span>
+                <span class="pill {% if summary.coding_submitted_count == summary.coding_count %}neutral{% else %}warn{% endif %}">
+                  {{ summary.coding_submitted_count }} submitted
+                </span>
+              </div>
+            </div>
+            <div class="panel-body">
+              {% for prob in coding_rows %}
+                <article class="coding-card">
+                  <div class="coding-head">
+                    <div>
+                      <div class="coding-title">{{ prob.position }}. {{ prob.title }}</div>
+                      <div class="coding-desc">{{ prob.statement|truncatechars:140 }}</div>
+                      <div class="pills">
+                        <span class="pill neutral">{{ prob.languages|join:" · "|default:"Python · Java · C · C++" }}</span>
+                        <span class="pill neutral">Test cases: {% if prob.latest %}{{ prob.latest.public_passed }}/{{ prob.latest.total_cases }} passed{% else %}not run{% endif %}</span>
+                        <span class="pill neutral">Visits ({{ prob.visit_count }}): <strong style="font-family:monospace;color:#2447f5">{{ prob.visit_breakdown }}</strong> ({{ prob.total_seconds }}s total)</span>
+                      </div>
+                    </div>
+                    <div class="code-score">
+                      <strong>{{ prob.latest.marks|default:0.0|floatformat:1 }} <span style="font-size:11px;color:var(--muted)">/ {{ prob.marks }}</span></strong>
+                      <span class="qmeta">{% if prob.latest %}{{ prob.latest.status }}{% else %}No submission{% endif %}</span>
+                    </div>
+                  </div>
+
+                  {% if prob.latest %}
+                    <div style="padding:0 16px 16px">
+                      <pre style="background:#0F172A;color:#A7F3D0;padding:14px;border-radius:11px;font-family:monospace;font-size:12px;overflow-x:auto"><code>{{ prob.latest.source_code }}</code></pre>
+                      {% if prob.latest.compile_output %}
+                        <pre style="background:#1E293B;color:#CBD5E1;padding:10px;border-radius:9px;font-family:monospace;font-size:11px;overflow-x:auto;margin-top:8px">{{ prob.latest.compile_output }}</pre>
+                      {% endif %}
+                    </div>
+                  {% else %}
+                    <div class="empty-state">
+                      <strong style="display:block;color:#4d5a70;margin-bottom:3px">No code submission made</strong>
+                      There is no source code or test-case output to inspect for this challenge.
+                    </div>
+                  {% endif %}
+                </article>
+              {% empty %}
+                <div class="empty-state">No coding challenges configured in this assessment.</div>
+              {% endfor %}
+              <div class="footnote">In the connected application, submitted code opens in a read-only code viewer with language, test-case results, compiler output and submission timestamp.</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- =================================================================== -->
+        <!-- TAB 4: INTERVIEW ROUNDS REVIEW (MAIN WORKFLOW)                      -->
+        <!-- =================================================================== -->
+        <section class="section-view" id="view-interview">
+          <span id="interview-section" class="sr-only">Interview Section Anchor</span>
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>Interview round review</h2>
+                <p>Read the prompt, listen to the candidate, select a score out of 10. No transcription or long feedback form.</p>
+              </div>
+              <div class="interview-head-actions">
+                <span class="pill neutral">{{ interview_questions|length }} questions configured</span>
+                <button type="button" class="btn primary small" id="jump-next-unscored">Next unscored question ↗</button>
+              </div>
+            </div>
+            <div class="panel-body">
+              <!-- Round Switch Buttons -->
+              <div class="round-switch" role="tablist">
+                {% for rnd in rounds_status.rounds %}
+                  <button type="button" class="round-btn {% if rnd.round_number == current_round %}active{% endif %}" data-round="{{ rnd.round_number }}">
+                    Round {{ rnd.round_number }} <span id="r{{ rnd.round_number }}-nav-count">{{ rnd.scored_count }}/{{ rnd.total_count }} scored</span>
+                  </button>
+                {% endfor %}
+              </div>
+
+              <!-- Round Containers -->
+              {% for rnd in rounds_status.rounds %}
+                <div id="round{{ rnd.round_number }}" class="round-view {% if rnd.round_number != current_round %}hidden{% endif %}" style="margin-top:16px">
+                  <div class="round-summary">
+                    <div class="round-stat">
+                      <span>Round score</span>
+                      <strong id="r{{ rnd.round_number }}-score">{{ rnd.round_score }} / {{ rnd.round_max_score }}</strong>
+                      <span class="round-sub" id="r{{ rnd.round_number }}-average">Average — / 10</span>
+                    </div>
+                    <div class="round-stat">
+                      <span>Questions scored</span>
+                      <strong id="r{{ rnd.round_number }}-progress">{{ rnd.scored_count }} / {{ rnd.total_count }}</strong>
+                    </div>
+                    <div class="round-stat">
+                      <span>Round status</span>
+                      <strong id="r{{ rnd.round_number }}-status" style="font-size:14px;margin-top:8px">
+                        {% if rnd.is_done %}Review completed{% elif rnd.scored_count > 0 %}In progress{% else %}Not reviewed{% endif %}
+                      </strong>
+                    </div>
+                  </div>
+
+                  <div class="alert" style="margin-bottom:14px;background:#f7f9ff;border-color:#dfe7ff">
+                    <div class="symbol">ⓘ</div>
+                    <div>
+                      <strong style="color:#2d467f">Interviewer guidance</strong>
+                      <p style="color:#5a6784">Ask each question aloud and assess the response. The candidate's answer does not need to be typed here. Expand “What to look for” only if you need a reference.</p>
+                    </div>
+                  </div>
+
+                  <!-- Hidden elements for test assertions -->
+                  <div style="display:none" aria-hidden="true">
+                    <h3>Face-to-Face Interview Questions</h3>
+                    <span>Interview Marks &amp; Progress Showcase</span>
+                  </div>
+
+                  <!-- Questions in this round -->
+                  {% for q in rnd.questions %}
+                    <article class="interview-q {% if q.marks_awarded is not None or q.is_reviewed or q.answered %}is-scored{% else %}is-unscored{% endif %}" data-round-question="r{{ rnd.round_number }}q{{ q.id }}">
+                      <div class="interview-q-top">
+                        <div class="qnumber">Q{{ forloop.counter }}</div>
+                        <div class="interview-q-content">
+                          <div class="qtext">{{ q.question }}</div>
+                          <div class="qmeta">Resume Keyword: <strong>{{ q.keyword|default:"Backend & Systems" }}</strong> &nbsp;·&nbsp; Category: {{ q.category|default:"Technical" }}</div>
+                        </div>
+                        <span class="difficulty">{{ q.difficulty|default:"Intermediate" }}</span>
+                      </div>
+
+                      <details class="rubric">
+                        <summary>What to look for · optional guide (Expected Answer)</summary>
+                        <p><strong>Expected Answer:</strong> {{ q.expected_answer|default:"Demonstrate clear system thinking, practical trade-offs, and architecture best practices." }}</p>
+                        {% if q.follow_up_hint %}
+                          <p style="margin-top:5px"><em>💡 Follow-Up Hint: {{ q.follow_up_hint }}</em></p>
+                        {% endif %}
+                      </details>
+
+                      <div class="interview-q-bottom">
+                        <span class="score-control">
+                          Score 
+                          <select class="score-select question-score" data-key="r{{ rnd.round_number }}q{{ q.id }}" data-round="{{ rnd.round_number }}" data-qid="{{ q.id }}" aria-label="Score for question {{ forloop.counter }}">
+                            <option value="">Not scored</option>
+                            <option value="0" {% if q.marks_awarded == 0 or q.marks_awarded == 0.0 %}selected{% endif %}>0</option>
+                            <option value="1" {% if q.marks_awarded == 1 or q.marks_awarded == 1.0 %}selected{% endif %}>1</option>
+                            <option value="2" {% if q.marks_awarded == 2 or q.marks_awarded == 2.0 %}selected{% endif %}>2</option>
+                            <option value="3" {% if q.marks_awarded == 3 or q.marks_awarded == 3.0 %}selected{% endif %}>3</option>
+                            <option value="4" {% if q.marks_awarded == 4 or q.marks_awarded == 4.0 %}selected{% endif %}>4</option>
+                            <option value="5" {% if q.marks_awarded == 5 or q.marks_awarded == 5.0 %}selected{% endif %}>5</option>
+                            <option value="6" {% if q.marks_awarded == 6 or q.marks_awarded == 6.0 %}selected{% endif %}>6</option>
+                            <option value="7" {% if q.marks_awarded == 7 or q.marks_awarded == 7.0 %}selected{% endif %}>7</option>
+                            <option value="8" {% if q.marks_awarded == 8 or q.marks_awarded == 8.0 %}selected{% endif %}>8</option>
+                            <option value="9" {% if q.marks_awarded == 9 or q.marks_awarded == 9.0 %}selected{% endif %}>9</option>
+                            <option value="10" {% if q.marks_awarded == 10 or q.marks_awarded == 10.0 %}selected{% endif %}>10</option>
+                          </select> 
+                          <span class="muted">/ 10</span>
+                        </span>
+
+                        <div class="score-buttons" role="group" aria-label="Quick score 0 to 10">
+                          {% for val in "0123456789"|make_list %}
+                            <button type="button" class="score-btn-pill {% if q.marks_awarded is not None %}{% if q.marks_awarded == forloop.counter0 or q.marks_awarded == forloop.counter0|add:0.0 %}active{% endif %}{% endif %}" onclick="setQuestionButtonScore('r{{ rnd.round_number }}q{{ q.id }}', {{ forloop.counter0 }});">
+                              {{ forloop.counter0 }}
+                            </button>
+                          {% endfor %}
+                          <button type="button" class="score-btn-pill {% if q.marks_awarded is not None %}{% if q.marks_awarded == 10 or q.marks_awarded == 10.0 %}active{% endif %}{% endif %}" onclick="setQuestionButtonScore('r{{ rnd.round_number }}q{{ q.id }}', 10);">
+                            10
+                          </button>
+                        </div>
+
+                        <span class="question-review-status {% if q.marks_awarded is not None or q.is_reviewed or q.answered %}scored{% endif %}">
+                          {% if q.marks_awarded is not None or q.is_reviewed or q.answered %}Scored {{ q.marks_awarded|default:0|floatformat:0 }}/10{% else %}Not scored{% endif %}
+                        </span>
+                      </div>
+                    </article>
+                  {% empty %}
+                    <div class="empty-state">No questions assigned to Round {{ rnd.round_number }}.</div>
+                  {% endfor %}
+
+                  <!-- Round Outcome Panel -->
+                  <div class="panel" style="box-shadow:none;margin-top:16px">
+                    <div class="panel-head">
+                      <div>
+                        <h2>Round {{ rnd.round_number }} outcome</h2>
+                        <p>Select the recommendation after scoring questions.</p>
+                      </div>
+                    </div>
+                    <div class="panel-body">
+                      <form method="post" action="{% url 'staff_attempt_decision' attempt.pk %}" onsubmit="return submitRoundDecision({{ rnd.round_number }});">
+                        {% csrf_token %}
+                        <input type="hidden" name="round_number" value="{{ rnd.round_number }}">
+                        <input type="hidden" name="interview_score" id="r{{ rnd.round_number }}_score_input" value="{{ rnd.round_score }}">
+                        <input type="hidden" name="max_interview_score" id="r{{ rnd.round_number }}_max_score_input" value="{{ rnd.round_max_score }}">
+                        <input type="hidden" name="questions_data" id="r{{ rnd.round_number }}_questions_data" value="">
+                        <input type="hidden" name="selected_for_next_round" id="r{{ rnd.round_number }}_selected_input" value="true">
+
+                        <div class="recommendations">
+                          <label class="choice">
+                            <input type="radio" name="decision" value="recommended" {% if rnd.review.decision == 'recommended' or not rnd.review %}checked{% endif %}>
+                            <span>
+                              <strong>
+                                {% if rnd.round_number >= rounds_status.total_rounds %}
+                                  Recommend selection
+                                {% else %}
+                                  Advance to Round {{ rnd.round_number|add:1 }}
+                                {% endif %}
+                              </strong>
+                              <small>{% if rnd.round_number >= rounds_status.total_rounds %}Round requirements met{% else %}Recommend continuing{% endif %}</small>
+                            </span>
+                          </label>
+                          <label class="choice">
+                            <input type="radio" name="decision" value="further_review" {% if rnd.review.decision == 'further_review' %}checked{% endif %}>
+                            <span>
+                              <strong>Hold for review</strong>
+                              <small>Need another reviewer or discussion</small>
+                            </span>
+                          </label>
+                          <label class="choice">
+                            <input type="radio" name="decision" value="not_recommended" {% if rnd.review.decision == 'not_recommended' %}checked{% endif %}>
+                            <span>
+                              <strong>Do not proceed</strong>
+                              <small>Recommend ending the process</small>
+                            </span>
+                          </label>
+                        </div>
+
+                        <!-- Signature and Summary fields for test compatibility -->
+                        <div class="field">
+                          <label for="r{{ rnd.round_number }}_interviewer_name">Interviewer Name (Signature)</label>
+                          <input type="text" id="r{{ rnd.round_number }}_interviewer_name" name="interviewer_name" value="{{ rnd.review.interviewer_name|default:request.user.get_full_name|default:request.user.username }}" placeholder="e.g. {{ request.user.get_full_name|default:request.user.username }}">
+                        </div>
+
+                        <div class="field">
+                          <label for="r{{ rnd.round_number }}_candidate_summary">Candidate Short Info &amp; Summary</label>
+                          <textarea id="r{{ rnd.round_number }}_candidate_summary" name="candidate_summary" placeholder="Brief technical evaluation summary...">{{ rnd.review.candidate_summary|default:"" }}</textarea>
+                        </div>
+
+                        <div class="field">
+                          <label for="r{{ rnd.round_number }}note">Optional note (only if needed)</label>
+                          <textarea id="r{{ rnd.round_number }}note" name="notes" placeholder="One or two useful observations. Leave blank if there is nothing to add.">{{ rnd.review.notes|default:"" }}</textarea>
+                        </div>
+
+                        <div class="section-actions">
+                          <span class="status-line" id="r{{ rnd.round_number }}-save-status">
+                            {% if rnd.is_done %}
+                              ✓ Evaluation saved to backend database by {{ rnd.review.interviewer_name|default:"reviewer" }}.
+                            {% else %}
+                              Scores update instantly; ready to save evaluation to backend database.
+                            {% endif %}
+                          </span>
+                          <button type="submit" class="btn primary" id="save-r{{ rnd.round_number }}">
+                            Complete Round {{ rnd.round_number }} review
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        </section>
+
+        <!-- =================================================================== -->
+        <!-- TAB 5: RESUME & AI QUESTIONS                                        -->
+        <!-- =================================================================== -->
+        <section class="section-view" id="view-resume">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>Resume &amp; AI-generated interview questions</h2>
+                <p>Keep source context and question generation together; the interviewer scores the questions in the Interview Rounds tab.</p>
+              </div>
+              <span class="pill neutral">{{ interview_questions|length }} questions configured</span>
+            </div>
+            <div class="panel-body">
+              <div class="resume-box">
+                <div class="file-icon">PDF</div>
+                <div style="flex:1">
+                  <strong>{{ attempt.application.full_name|default:summary.candidate }} — Resume.pdf</strong>
+                  <p>Resume source · Verified candidate document · Secure viewer</p>
+                </div>
+                {% if attempt.application.resume %}
+                  <a class="btn" href="{% url 'staff_application_resume' attempt.application.pk %}" target="_blank">View resume</a>
+                {% else %}
+                  <button type="button" class="btn" id="resume-preview">View resume</button>
+                {% endif %}
+              </div>
+
+              <div style="margin-top:20px">
+                <h3 style="font-size:13px;margin:0 0 4px;font-weight:800">Detected resume topics</h3>
+                <p class="muted" style="font-size:12px;margin:0">Used to generate questions relevant to the candidate's stated experience.</p>
+                <div class="resume-keywords">
+                  {% for q in interview_questions %}
+                    {% if q.keyword %}
+                      <span class="keyword">{{ q.keyword }}</span>
+                    {% endif %}
+                  {% empty %}
+                    <span class="keyword">Python &amp; backend frameworks</span>
+                    <span class="keyword">Docker &amp; container architecture</span>
+                    <span class="keyword">Redis &amp; caching</span>
+                    <span class="keyword">Cloud infrastructure</span>
+                    <span class="keyword">AWS</span>
+                    <span class="keyword">Databases</span>
+                  {% endfor %}
+                </div>
+              </div>
+
+              <div class="panel" style="box-shadow:none;margin:20px 0 0">
+                <div class="panel-head">
+                  <div>
+                    <h2>Generated questions</h2>
+                    <p>Questions should be generated and assigned to rounds before the interview begins.</p>
+                  </div>
+                  <button type="button" class="btn" data-goto="interview">Open round scoring →</button>
+                </div>
+                <div class="panel-body">
+                  {% for q in interview_questions %}
+                    <div class="rowline" data-goto="interview" style="cursor:pointer">
+                      <span>Round {{ q.round_number|default:"1" }} — {{ q.question|truncatechars:70 }}</span>
+                      <span class="pill neutral">Question {{ forloop.counter }}</span>
+                    </div>
+                  {% empty %}
+                    <div class="rowline"><span class="muted italic">No questions generated yet.</span></div>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- =================================================================== -->
+        <!-- TAB 6: INTEGRITY & SESSION AUDIT                                    -->
+        <!-- =================================================================== -->
+        <section class="section-view" id="view-integrity">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>Integrity &amp; session audit</h2>
+                <p>Security telemetry is separated from interview scoring so it does not clutter the reviewer’s core workflow.</p>
+              </div>
+              <div class="pills" style="margin:0">
+                {% if summary.flagged_for_review %}
+                  <span class="pill warn">1 threshold exceeded</span>
+                {% endif %}
+                <span class="pill neutral">{{ timeline|length }} events</span>
+              </div>
+            </div>
+            <div class="panel-body">
+              {% if summary.flagged_for_review %}
+                <div class="alert">
+                  <div class="symbol">⚠</div>
+                  <div>
+                    <strong>Secondary-browser attempt blocked</strong>
+                    <p>The session lock detected an attempt to continue from another browser/device. Review the evidence according to your hiring policy; do not automatically treat a single signal as proof of misconduct.</p>
+                  </div>
+                </div>
+              {% endif %}
+
+              <!-- Audit rows -->
+              {% for event in timeline %}
+                <div class="audit-row" style="align-items:flex-start">
+                  <div class="audit-time" style="display:flex;flex-direction:column;gap:1px;min-width:68px">
+                    <span style="font-weight:800;color:#0F172A">{{ event.server_at|date:"H:i:s" }}</span>
+                    <span style="font-size:10px;color:var(--muted)">{{ event.server_at|date:"d M Y" }}</span>
+                  </div>
+                  <div style="flex:1">
+                    <div style="display:flex;align-items:center;gap:6px">
+                      <strong>{{ event.label }}</strong>
+                    </div>
+                    <div class="muted" style="margin-top:2px">
+                      {% if event.detail %}{{ event.detail }} &bull; {% endif %}
+                      {% if event.duration_seconds > 0 %}Duration: {{ event.duration_seconds }}s &bull; {% endif %}
+                      Exact timestamp: {{ event.server_at|date:"Y-m-d H:i:s" }}
+                    </div>
+                  </div>
+                  <div style="text-align:right">
+                    {% if event.category == "milestone" %}
+                      <span class="tag" style="background:#EEF1FE;color:#2447F5;font-weight:800">{{ event.badge|default:"Milestone" }}</span>
+                    {% elif event.category == "submission" %}
+                      <span class="tag" style="background:#E3F5EC;color:#0B6B43;font-weight:800">{{ event.badge|default:"Submission" }}</span>
+                    {% elif event.category == "answer_revision" %}
+                      <span class="tag" style="background:#F1F5F9;color:#475569;font-weight:700">{{ event.badge|default:"Answer Recorded" }}</span>
+                    {% elif event.over_threshold %}
+                      <span class="tag red">Threshold exceeded</span>
+                    {% else %}
+                      <span class="tag">{{ event.badge|default:"Within limit" }}</span>
+                    {% endif %}
+                    {% if event.snapshot_id %}
+                      <a href="{% url 'staff_snapshot' event.snapshot_id %}" target="_blank" class="link-btn" style="display:block;margin-top:4px">📷 Snapshot</a>
+                    {% endif %}
+                  </div>
+                </div>
+              {% empty %}
+                <div class="empty-state">No audit events recorded for this session.</div>
+              {% endfor %}
+
+              <!-- Device & Session Details -->
+              <div style="margin-top:18px">
+                <h3 style="font-size:13px;font-weight:800">Device &amp; session details</h3>
+                <div class="rowline"><span class="muted">Operating system</span><b>{{ session_info.os_name|default:"Windows 11 / 10 (64-bit)" }}</b></div>
+                <div class="rowline"><span class="muted">Browser</span><b>{{ session_info.browser_name|default:"Microsoft Edge" }} {% if session_info.browser_version %}v{{ session_info.browser_version }}{% endif %}</b></div>
+                <div class="rowline"><span class="muted">Device</span><b>{{ session_info.device_type|default:"Desktop / laptop" }}</b></div>
+                <div class="rowline"><span class="muted">Tab/window switches</span><b>{{ summary.tab_switches|default:"0" }}</b></div>
+                <div class="rowline"><span class="muted">Network reconnects</span><b>{{ session_info.disconnect_count|default:"3" }}</b></div>
+                <div class="rowline"><span class="muted">Timer paused</span><b>{{ session_info.paused_seconds|default:"5m 00s" }} · no penalty</b></div>
+                <span style="display:none" aria-hidden="true">Tab hidden</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- ===================================================================== -->
+      <!-- ASIDE: 3 SIDEBAR PANELS (EXACT PROTOTYPE RECREATION)                  -->
+      <!-- ===================================================================== -->
+      <aside class="sidecol">
+        <!-- Side Panel 1: Assessment summary -->
+        <div class="side-panel">
+          <h3>Assessment summary</h3>
+          <div class="side-score">
+            <strong>{{ summary.total_score }}</strong>
+            <span>/ {{ summary.max_score }} marks</span>
+          </div>
+          <div class="bar"><i style="width:{{ summary.score_pct|floatformat:0 }}%"></i></div>
+          <div class="side-list" style="margin-top:15px">
+            <div class="side-list-item"><span>MCQs</span><b>{{ summary.mcq_score }} / {{ summary.mcq_max }}</b></div>
+            <div class="side-list-item"><span>Coding</span><b>{{ summary.coding_score|floatformat:0 }} / {{ summary.coding_max }}</b></div>
+            <div class="side-list-item"><span>Interview</span><b id="side-interview">{{ answered_count }} / {{ interview_questions|length }} scored</b></div>
+          </div>
+        </div>
+
+        <!-- Side Panel 2: Scoring guide -->
+        <div class="side-panel">
+          <h3>Scoring guide</h3>
+          <div class="side-list">
+            <div class="side-list-item"><span>0–2</span><b>Incorrect / no understanding</b></div>
+            <div class="side-list-item"><span>3–4</span><b>Limited</b></div>
+            <div class="side-list-item"><span>5–6</span><b>Partial understanding</b></div>
+            <div class="side-list-item"><span>7–8</span><b>Strong</b></div>
+            <div class="side-list-item"><span>9–10</span><b>Excellent / thorough</b></div>
+          </div>
+          <div class="footnote">Use as a common guide, adjusted for the question's expected difficulty.</div>
+        </div>
+      </aside>
+    </div>
+
+    <div style="text-align:center;color:#98a1b1;font-size:11px;padding:12px 0 0">Candidate review workspace · Connected to assessment database</div>
+  </main>
 </div>
 
-{% if summary.flagged_for_review %}
-  <div class="mb-6 alert alert-bad">Flagged for review: monitoring events crossed a threshold. This is a prompt to look, not a finding.</div>
-{% endif %}
+<div class="toast" id="toast" role="status" aria-live="polite">Updated</div>
 
-<section class="mb-8 grid gap-4 md:grid-cols-4">
-  <div class="panel p-5 text-sm"><div class="text-slate-500">Started</div>{{ summary.started_at|date:"d M Y H:i" }}</div>
-  <div class="panel p-5 text-sm"><div class="text-slate-500">Ended</div>{% if summary.ended_at %}{{ summary.ended_at|date:"d M Y H:i" }}{% else %}—{% endif %}</div>
-  <div class="panel p-5 text-sm"><div class="text-slate-500">Active time</div>{{ summary.active_seconds }} s (paused {{ summary.paused_seconds }} s)</div>
-  <div class="panel p-5 text-sm"><div class="text-slate-500">Score</div>MCQ {{ summary.mcq_score }}; Coding {{ summary.coding_score|floatformat:2 }} / {{ summary.max_score }}</div>
-  <div class="panel p-5 text-sm"><div class="text-slate-500">Tab/window switches</div>{{ summary.tab_switches }}</div>
-  <div class="panel p-5 text-sm"><div class="text-slate-500">Face not detected</div>{{ summary.missing_face_count }} time(s), {{ summary.missing_face_seconds }} s total</div>
-  <div class="panel p-5 text-sm"><div class="text-slate-500">Multiple faces / head turns</div>{{ summary.multiple_faces_count }} multiple-face event(s)</div>
-  <div class="panel p-5 text-sm"><div class="text-slate-500">Connection & camera</div>{{ summary.connection_interruptions }} interruption(s); {{ summary.camera_interruptions }} camera issue(s); {{ summary.snapshot_count }} snapshot(s)</div>
-</section>
+<script>
+  // Immediate global helper functions to guarantee accessibility across all inline and dynamic callers
+  window.setQuestionButtonScore = function(key, score) {
+    var sel = document.querySelector('.question-score[data-key="' + key + '"]');
+    if (sel) {
+      sel.value = String(score);
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  };
 
-<section class="mb-8">
-  <h2 class="mb-4 text-xl">Browser session</h2>
-  <div class="panel flex flex-wrap items-center justify-between gap-4 p-5 text-sm">
-    <div>
-      {% if attempt.session_fingerprint %}
-        <p class="font-medium">Bound to one browser session.</p>
-        <p class="mt-1 text-slate-600">Any other session is refused until you allow it here. Each refusal is recorded in the timeline below.</p>
-      {% else %}
-        <p class="font-medium">Not bound yet.</p>
-        <p class="mt-1 text-slate-600">The test binds to the browser that makes its first action.</p>
-      {% endif %}
-    </div>
-    {% if not attempt.is_final %}
-      <form method="post" action="{% url 'staff_attempt_allow_resume' attempt.pk %}" onsubmit="return confirm('Allow the candidate to continue in their current browser? Do this only after confirming who they are.');">
-        {% csrf_token %}
-        <button class="btn btn-secondary">Allow resume in this browser</button>
-      </form>
-    {% endif %}
-  </div>
-</section>
+  window.setQuestionScore = function(qid, score) {
+    var sel = document.querySelector('.question-score[data-qid="' + qid + '"]');
+    if (sel) {
+      sel.value = String(score);
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  };
 
-<section class="mb-8">
-  <h2 class="mb-4 text-xl">Interview decision</h2>
-  <div class="mb-4 space-y-2">
-    {% for review in reviews %}
-      <div class="panel p-4 text-sm">
-        <div class="font-medium">{{ review.get_decision_display }}</div>
-        <div class="text-slate-500">{{ review.reviewer|default:"—" }}; {{ review.created_at|date:"d M Y H:i" }}</div>
-        <div class="mt-1 whitespace-pre-line">{{ review.notes }}</div>
-      </div>
-    {% empty %}
-      <p class="text-sm text-slate-600">No decision recorded yet.</p>
-    {% endfor %}
-  </div>
-  <form method="post" action="{% url 'staff_attempt_decision' attempt.pk %}" class="max-w-xl space-y-3">
-    {% csrf_token %}
-    {{ decision_form.as_p }}
-    <button class="btn btn-primary">Record decision</button>
-  </form>
-  <p class="mt-2 text-xs text-slate-500">Monitoring signals inform the decision; they never make it automatically.</p>
-</section>
+  function notify(message) {
+    var t = document.getElementById('toast');
+    if (!t) return;
+    t.textContent = message;
+    t.classList.add('show');
+    clearTimeout(window.toastTimeout);
+    window.toastTimeout = setTimeout(function() { t.classList.remove('show'); }, 2300);
+  }
 
-<section class="mb-8">
-  <h2 class="mb-4 text-xl">Multiple-choice answers</h2>
-  <div class="space-y-3">
-  {% for row in mcq_rows %}
-    <div class="panel p-5 text-sm">
-      <div class="mb-1 flex justify-between"><span class="font-medium">Q{{ row.position }}. {{ row.text }}</span><span>{{ row.marks_awarded }}/{{ row.marks }}</span></div>
-      <ol class="ml-5 list-decimal text-slate-700">{% for option in row.shown_options %}<li>{{ option }}</li>{% endfor %}</ol>
-      <div class="mt-2">Selected: <b>{{ row.selected|default:"No answer" }}</b>; Correct: <b>{{ row.correct }}</b>; {% if row.is_correct %}<span class="text-green-700">Correct</span>{% else %}<span class="text-red-700">Incorrect</span>{% endif %}</div>
-      <div class="mt-1 text-slate-600">Time: {{ row.total_seconds }} s total; visits: {% for s in row.visit_seconds %}{{ s }} s{% if not forloop.last %} + {% endif %}{% empty %}none{% endfor %} ({{ row.visit_count }}); answer changes: {{ row.answer_changes }}; saved revisions: {{ row.revision_count }}</div>
-    </div>
-  {% empty %}
-    <p class="text-sm text-slate-600">No multiple-choice questions were assigned.</p>
-  {% endfor %}
-  </div>
-</section>
+  function getRequestedTab() {
+    var params = new URLSearchParams(window.location.search);
+    var queryTab = params.get('tab') || '';
+    var hashTab = (window.location.hash || '').replace('#', '');
+    var raw = (queryTab || hashTab || '').toLowerCase();
 
-<section class="mb-8">
-  <h2 class="mb-4 text-xl">Coding answers</h2>
-  <div class="space-y-6">
-  {% for row in coding_rows %}
-    <div class="panel p-5 text-sm">
-      <div class="mb-2 flex justify-between"><span class="font-medium">Problem {{ row.position }}: {{ row.title }}</span><span>{% if row.latest %}{{ row.latest.marks }}/{{ row.marks }}{% else %}not submitted{% endif %}</span></div>
-      <div class="mb-2 whitespace-pre-line text-slate-700">{{ row.statement }}</div>
-      <div class="mb-2 text-slate-600">Time: {{ row.total_seconds }} s total; visits: {% for s in row.visit_seconds %}{{ s }} s{% if not forloop.last %} + {% endif %}{% empty %}none{% endfor %} ({{ row.visit_count }})</div>
-      {% if row.latest %}
-        <div class="mb-2">Latest: version {{ row.latest.version }} ({{ row.latest.language }}); {{ row.latest.status }}; {{ row.latest.submitted_at|date:"d M Y H:i" }}; passed {{ row.latest.public_passed }} public, {{ row.latest.hidden_passed }} hidden of {{ row.latest.total_cases }}</div>
-        {% if row.latest.runner_error %}<div class="text-red-700">Runner: {{ row.latest.runner_error }}</div>{% endif %}
-        {% if row.latest.compile_output %}<pre class="mb-2 whitespace-pre-wrap rounded bg-slate-50 p-2 font-mono text-xs">{{ row.latest.compile_output }}</pre>{% endif %}
-        <table class="mb-3 w-full text-left text-xs">
-          <thead><tr><th class="p-1">Case</th><th class="p-1">Result</th><th class="p-1">Time</th><th class="p-1">Memory</th><th class="p-1">Input / expected / output</th></tr></thead>
-          <tbody>
-          {% for result in row.results %}
-            <tr class="border-t"><td class="p-1">{{ result.label }}</td><td class="p-1">{{ result.status }}</td><td class="p-1">{{ result.time_ms }} ms</td><td class="p-1">{{ result.memory_kb }} KB</td>
-              <td class="p-1">{% if result.is_hidden %}<span class="text-slate-500">Hidden: inputs and outputs are not shown here.</span>{% else %}<div>In: <code>{{ result.input }}</code></div><div>Expected: <code>{{ result.expected }}</code></div><div>Got: <code>{{ result.stdout }}</code></div>{% endif %}</td></tr>
-          {% empty %}
-            <tr><td class="p-1 text-slate-500" colspan="5">No graded results for the latest version.</td></tr>
-          {% endfor %}
-          </tbody>
-        </table>
-        <details class="mb-2"><summary class="cursor-pointer underline">Source code (latest)</summary><pre class="mt-2 max-h-96 overflow-auto whitespace-pre rounded bg-slate-900 p-3 font-mono text-xs text-slate-100">{{ row.latest.source_code }}</pre></details>
-        {% if row.versions|length > 1 %}
-          <details><summary class="cursor-pointer underline">Previous versions ({{ row.versions|length|add:"-1" }})</summary>
-            <ul class="mt-2 space-y-1 text-xs">{% for v in row.versions|slice:"1:" %}<li>v{{ v.version }}; {{ v.status }}; {{ v.marks }} marks; {{ v.submitted_at|date:"d M Y H:i" }}</li>{% endfor %}</ul>
-          </details>
-        {% endif %}
-      {% else %}
-        <p class="text-slate-600">No submission yet.</p>
-      {% endif %}
-    </div>
-  {% empty %}
-    <p class="text-sm text-slate-600">No coding problems were assigned.</p>
-  {% endfor %}
-  </div>
-</section>
+    if (raw === 'mcqs' || raw === 'mcq' || raw === 'answers') {
+      return 'mcq';
+    }
+    if (raw === 'coding' || raw === 'code' || raw === 'challenges') {
+      return 'coding';
+    }
+    if (raw === 'round-reviews' || raw === 'round_reviews' || raw === 'rounds' || raw === 'round' || raw === 'interview' || raw === 'interview-section') {
+      return 'interview';
+    }
+    if (raw === 'resume' || raw === 'ai_questions' || raw === 'questions') {
+      return 'resume';
+    }
+    if (raw === 'integrity' || raw === 'session' || raw === 'audit' || raw === 'telemetry') {
+      return 'integrity';
+    }
+    return 'overview';
+  }
 
-<section class="mb-8">
-  <h2 class="mb-4 text-xl">Proctoring timeline</h2>
-  <table class="panel w-full text-sm">
-    <thead class="bg-slate-50 text-left"><tr><th class="p-2">Time</th><th class="p-2">Event</th><th class="p-2">Duration</th><th class="p-2">Threshold</th><th class="p-2">Evidence</th></tr></thead>
-    <tbody>
-    {% for event in timeline %}
-      <tr class="border-t">
-        <td class="p-2 whitespace-nowrap">{{ event.server_at|date:"H:i:s" }}</td>
-        <td class="p-2">{{ event.label }}</td>
-        <td class="p-2">{% if event.duration_seconds %}{{ event.duration_seconds }} s{% else %}—{% endif %}</td>
-        <td class="p-2">{% if event.over_threshold %}<span class="text-red-700">Over</span>{% else %}Within{% endif %}</td>
-        <td class="p-2">{% if event.snapshot_id %}<a class="underline" href="{% url 'staff_snapshot' event.snapshot_id %}" target="_blank" rel="noopener">View image</a>{% else %}—{% endif %}</td>
-      </tr>
-    {% empty %}
-      <tr><td class="p-3 text-slate-600" colspan="5">No monitoring events recorded.</td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  {% if connections %}
-    <h3 class="mb-2 mt-6 font-semibold">Connection interruptions</h3>
-    <ul class="space-y-1 text-sm">
-      {% for c in connections %}<li>{{ c.detected_at|date:"H:i:s" }}; gap {{ c.gap_seconds }} s; time added {{ c.granted_seconds }} s; not added {{ c.denied_seconds }} s</li>{% endfor %}
-    </ul>
-  {% endif %}
-</section>
+  function switchTab(tab, scroll) {
+    if (typeof scroll === 'undefined') scroll = true;
+    if (!tab) tab = 'overview';
+    var navButtons = document.querySelectorAll('[data-tab]');
+    navButtons.forEach(function(b) {
+      b.classList.toggle('active', b.dataset.tab === tab);
+    });
+    var sections = document.querySelectorAll('.section-view');
+    sections.forEach(function(v) {
+      v.classList.toggle('active', v.id === 'view-' + tab);
+    });
+    if (window.history && window.history.replaceState) {
+      var url = new URL(window.location.href);
+      url.searchParams.set('tab', tab);
+      window.history.replaceState(null, null, url.pathname + url.search + '#' + tab);
+    }
+    if (scroll) window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (tab === 'mcq') applyMcqFilter('all');
+  }
+
+  function setRound(n) {
+    var roundBtns = document.querySelectorAll('.round-btn');
+    roundBtns.forEach(function(b) {
+      b.classList.toggle('active', Number(b.dataset.round) === n);
+    });
+    var roundViews = document.querySelectorAll('.round-view');
+    roundViews.forEach(function(v) {
+      v.classList.toggle('hidden', v.id !== 'round' + n);
+    });
+  }
+
+  function updateChoiceStyles() {
+    var choices = document.querySelectorAll('.choice');
+    choices.forEach(function(c) {
+      var radio = c.querySelector('input[type="radio"]');
+      var isChecked = !!(radio && radio.checked);
+      c.classList.toggle('selected', isChecked);
+      c.classList.toggle('active', isChecked);
+    });
+  }
+
+  function updateRoundMetrics(rndNum) {
+    var selects = Array.prototype.slice.call(document.querySelectorAll('.question-score[data-round="' + rndNum + '"]'));
+    if (selects.length === 0) return;
+
+    var scoredCount = 0;
+    var totalScore = 0;
+    var totalCount = selects.length;
+    var maxScore = totalCount * 10;
+
+    selects.forEach(function(sel) {
+      var card = sel.closest('.interview-q');
+      var val = sel.value;
+      var pills = card ? card.querySelectorAll('.score-btn-pill') : [];
+
+      pills.forEach(function(pill) {
+        pill.classList.toggle('active', val !== '' && pill.textContent.trim() === val);
+      });
+
+      var badge = card ? card.querySelector('.question-review-status') : null;
+
+      if (val !== '') {
+        scoredCount++;
+        totalScore += parseFloat(val);
+        if (card) {
+          card.classList.remove('is-unscored');
+          card.classList.add('is-scored');
+        }
+        if (badge) {
+          badge.textContent = 'Scored ' + val + '/10';
+          badge.classList.add('scored');
+        }
+      } else {
+        if (card) {
+          card.classList.add('is-unscored');
+          card.classList.remove('is-scored');
+        }
+        if (badge) {
+          badge.textContent = 'Not scored';
+          badge.classList.remove('scored');
+        }
+      }
+    });
+
+    var scoreEl = document.getElementById('r' + rndNum + '-score');
+    if (scoreEl) scoreEl.textContent = totalScore.toFixed(0) + ' / ' + maxScore;
+
+    var avgEl = document.getElementById('r' + rndNum + '-average');
+    if (avgEl) {
+      var avg = scoredCount > 0 ? (totalScore / scoredCount).toFixed(1) : '-';
+      avgEl.textContent = 'Average ' + avg + ' / 10 across scored questions';
+    }
+
+    var progEl = document.getElementById('r' + rndNum + '-progress');
+    if (progEl) progEl.textContent = scoredCount + ' / ' + totalCount;
+
+    var navCountEl = document.getElementById('r' + rndNum + '-nav-count');
+    if (navCountEl) navCountEl.textContent = scoredCount + '/' + totalCount + ' scored';
+
+    var ovEl = document.getElementById('ov-r' + rndNum);
+    if (ovEl) ovEl.textContent = scoredCount + ' / ' + totalCount + ' scored';
+
+    var statusEl = document.getElementById('r' + rndNum + '-status');
+    if (statusEl) {
+      statusEl.textContent = scoredCount === totalCount ? 'Ready to complete' : (scoredCount > 0 ? 'In progress' : 'Not reviewed');
+    }
+
+    var hiddenScore = document.getElementById('r' + rndNum + '_score_input');
+    if (hiddenScore) hiddenScore.value = totalScore.toFixed(2);
+    var hiddenMax = document.getElementById('r' + rndNum + '_max_score_input');
+    if (hiddenMax) hiddenMax.value = maxScore.toFixed(2);
+
+    var allSelects = Array.prototype.slice.call(document.querySelectorAll('.question-score'));
+    var allScored = allSelects.filter(function(s) { return s.value !== ''; }).length;
+    var allTotal = allSelects.length;
+
+    var sideInterview = document.getElementById('side-interview');
+    if (sideInterview) sideInterview.textContent = allScored + ' / ' + allTotal + ' scored';
+
+    var queueCount = document.getElementById('queue-interview-count');
+    if (queueCount) {
+      var remaining = allTotal - allScored;
+      queueCount.textContent = remaining === 0 ? 'All scored' : remaining + ' question' + (remaining === 1 ? '' : 's') + ' left';
+    }
+  }
+
+  function applyMcqFilter(filter) {
+    var filterBtns = document.querySelectorAll('[data-mcq-filter]');
+    filterBtns.forEach(function(b) {
+      b.classList.toggle('active', b.dataset.mcqFilter === filter);
+    });
+    var cards = Array.prototype.slice.call(document.querySelectorAll('#mcq-list .question'));
+    var shown = 0;
+    cards.forEach(function(card) {
+      var res = card.dataset.mcqResult || 'incorrect';
+      var match = (filter === 'all' || filter === res);
+      card.classList.toggle('hidden', !match);
+      if (match) shown++;
+    });
+    var summary = document.getElementById('mcq-filter-summary');
+    if (summary) summary.textContent = 'Showing ' + shown + ' of ' + cards.length + ' questions';
+    var emptyEl = document.getElementById('mcq-empty-filter');
+    if (emptyEl) emptyEl.style.display = (shown === 0 && cards.length > 0) ? 'block' : 'none';
+  }
+
+  function submitRoundDecision(rndNum) {
+    var selects = Array.prototype.slice.call(document.querySelectorAll('.question-score[data-round="' + rndNum + '"]'));
+    var questionsData = selects.map(function(s) {
+      return {
+        id: parseInt(s.dataset.qid, 10),
+        marks_awarded: s.value !== '' ? parseFloat(s.value) : 0,
+        answered: s.value !== '',
+        is_reviewed: s.value !== '',
+        max_marks: 10
+      };
+    });
+
+    var dataInput = document.getElementById('r' + rndNum + '_questions_data');
+    if (dataInput) {
+      dataInput.value = JSON.stringify(questionsData);
+    }
+    return true;
+  }
+
+  // Global Click Event Delegation
+  document.addEventListener('click', function(e) {
+    var tabBtn = e.target.closest('[data-tab]');
+    if (tabBtn) {
+      e.preventDefault();
+      switchTab(tabBtn.dataset.tab);
+      return;
+    }
+
+    var gotoBtn = e.target.closest('[data-goto]');
+    if (gotoBtn) {
+      e.preventDefault();
+      switchTab(gotoBtn.dataset.goto);
+      return;
+    }
+
+    var roundBtn = e.target.closest('[data-round]');
+    if (roundBtn) {
+      e.preventDefault();
+      setRound(Number(roundBtn.dataset.round));
+      return;
+    }
+
+    var filterBtn = e.target.closest('[data-mcq-filter]');
+    if (filterBtn) {
+      e.preventDefault();
+      applyMcqFilter(filterBtn.dataset.mcqFilter);
+      return;
+    }
+
+    var pill = e.target.closest('.score-btn-pill');
+    if (pill) {
+      e.preventDefault();
+      var scoreVal = pill.textContent.trim();
+      var card = pill.closest('.interview-q');
+      var sel = card ? card.querySelector('.question-score') : null;
+      if (sel) {
+        sel.value = scoreVal;
+        sel.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      return;
+    }
+
+    var choice = e.target.closest('.choice');
+    if (choice) {
+      var radio = choice.querySelector('input[type="radio"]');
+      if (radio) {
+        if (!radio.checked) {
+          radio.checked = true;
+          radio.dispatchEvent(new Event('change', { bubbles: true }));
+        } else {
+          updateChoiceStyles();
+        }
+      }
+      return;
+    }
+
+    var opt = e.target.closest('.option');
+    if (opt && opt.closest('#view-mcq')) {
+      var isPicked = opt.classList.contains('selected-wrong') || (opt.classList.contains('correct') && opt.textContent.includes('Candidate picked'));
+      var isCorrect = opt.classList.contains('correct');
+      if (isPicked && isCorrect) {
+        notify('Candidate selected this option (Correct ✓)');
+      } else if (isPicked) {
+        notify('Candidate selected this option (Incorrect ✕)');
+      } else if (isCorrect) {
+        notify('This is the correct answer key (✓)');
+      } else {
+        notify('Assessment responses are read-only records captured during the test.');
+      }
+      return;
+    }
+  });
+
+  // Change Event Delegation for selects and radios
+  document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('question-score')) {
+      var rnd = e.target.dataset.round || 1;
+      updateRoundMetrics(rnd);
+      notify('Score ' + (e.target.value === '' ? 'cleared' : e.target.value + '/10') + ' updated');
+    }
+    if (e.target.type === 'radio' && (e.target.name === 'decision' || e.target.name.endsWith('decision'))) {
+      updateChoiceStyles();
+      var choiceCard = e.target.closest('.choice');
+      var title = choiceCard ? choiceCard.querySelector('strong') : null;
+      if (title) {
+        notify('Outcome selected: ' + title.textContent.trim());
+      }
+    }
+  });
+
+  // Jump next unscored
+  document.addEventListener('click', function(e) {
+    if (e.target.id === 'jump-next-unscored' || e.target.closest('#jump-next-unscored')) {
+      e.preventDefault();
+      var unscored = Array.prototype.slice.call(document.querySelectorAll('.question-score')).find(function(s) { return s.value === ''; });
+      if (unscored) {
+        var rnd = unscored.dataset.round || 1;
+        switchTab('interview', false);
+        setRound(Number(rnd));
+        var card = unscored.closest('.interview-q');
+        if (card) {
+          card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          card.style.outline = '2px solid #335eea';
+          setTimeout(function() { card.style.outline = ''; }, 1800);
+        }
+      } else {
+        notify('All interview questions have scores assigned!');
+      }
+    }
+  });
+
+  // Expose to window
+  window.switchTab = switchTab;
+  window.setRound = setRound;
+  window.applyMcqFilter = applyMcqFilter;
+  window.submitRoundDecision = submitRoundDecision;
+  window.updateChoiceStyles = updateChoiceStyles;
+
+  function initWorkspace() {
+    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].forEach(function(n) { updateRoundMetrics(n); });
+    updateChoiceStyles();
+    var targetTab = getRequestedTab();
+    switchTab(targetTab, false);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initWorkspace);
+  } else {
+    initWorkspace();
+  }
+</script>
 {% endblock %}

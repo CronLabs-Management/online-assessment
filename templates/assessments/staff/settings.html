@@ -1,127 +1,282 @@
 {% extends "base.html" %}
-{% block title %}Site Settings{% endblock %}
+{% block title %}System Settings | Platform Governance{% endblock %}
 {% block content %}
-<h1 class="text-3xl">Site Settings</h1>
-<p class="mt-2 text-slate-600">Global configuration and branding for the entire platform.</p>
-
-<form method="post" enctype="multipart/form-data" class="mt-8 max-w-2xl space-y-8">
-  {% csrf_token %}
-  
-  <section class="panel p-8">
-    <h2 class="text-xl">Branding & Identity</h2>
-    <p class="mt-1 text-sm text-slate-600">Set the name, header logo, and browser favicon shown to candidates and staff.</p>
-
-    <div class="mt-6 space-y-5">
-      <div>
-        <label for="{{ form.site_name.id_for_label }}" class="label">{{ form.site_name.label }}</label>
-        {{ form.site_name }}
-        {{ form.site_name.errors }}
+<div class="space-y-6 text-left w-full">
+  <!-- Top Header & Breadcrumb -->
+  <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 text-left">
+    <div class="text-left">
+      <div class="flex items-center gap-2 mb-1 text-left">
+        <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-[#EEF1FE] text-[#1E3AC8] border border-blue-200">System Governance</span>
+        <span class="text-xs text-slate-400">&bull;</span>
+        <span class="text-xs text-slate-500 font-medium">Global Configuration</span>
       </div>
-
-      <div class="rounded-lg border border-slate-200 bg-slate-50/50 p-4">
-        <label for="{{ form.site_logo.id_for_label }}" class="label">{{ form.site_logo.label }}</label>
-        {% if form.instance.site_logo %}
-          <div class="mb-3 flex items-center gap-3">
-            <img src="{% url 'serve_branding' 'logo' %}" alt="Current site logo" class="h-10 max-w-[160px] rounded border border-slate-200 bg-white p-1 object-contain">
-            <span class="text-xs text-slate-500">Current logo</span>
-          </div>
-        {% endif %}
-        {{ form.site_logo }}
-        <p class="mt-1 text-xs text-slate-500">PNG, SVG, or JPG image displayed on the top navigation bar.</p>
-        {{ form.site_logo.errors }}
-      </div>
-
-      <div class="rounded-lg border border-slate-200 bg-slate-50/50 p-4">
-        <label for="{{ form.favicon.id_for_label }}" class="label">{{ form.favicon.label }}</label>
-        {% if form.instance.favicon %}
-          <div class="mb-3 flex items-center gap-3">
-            <img src="{% url 'serve_branding' 'favicon' %}" alt="Current favicon" class="h-6 w-6 rounded border border-slate-200 bg-white p-0.5 object-contain">
-            <span class="text-xs text-slate-500">Current favicon</span>
-          </div>
-        {% endif %}
-        {{ form.favicon }}
-        <p class="mt-1 text-xs text-slate-500">.ico, .png, or .svg icon displayed in browser tabs.</p>
-        {{ form.favicon.errors }}
-      </div>
+      <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight text-left">Platform Settings</h1>
+      <p class="mt-1 text-xs sm:text-sm text-slate-600 text-left">
+        Manage organization branding, footer content, evidence retention compliance, and email transport connectivity.
+      </p>
     </div>
-  </section>
-
-  <section class="panel p-8">
-    <h2 class="text-xl">Proctoring Evidence Retention</h2>
-    <p class="mt-1 text-sm text-slate-600">Camera snapshots from tests are automatically purged after this many days.</p>
-    <div class="mt-6">
-      <label for="{{ form.snapshot_retention_days.id_for_label }}" class="label">Keep evidence snapshots for</label>
-      <div class="flex flex-wrap items-center gap-3">
-        <input id="{{ form.snapshot_retention_days.id_for_label }}" type="number" name="snapshot_retention_days" min="1" max="365" value="{{ form.snapshot_retention_days.value|default:60 }}" class="num w-28">
-        <span class="text-slate-600">days (1 to 365). Default: 60.</span>
-      </div>
-      {{ form.snapshot_retention_days.errors }}
-    </div>
-  </section>
-
-  <div>
-    <button class="btn btn-primary px-6 py-2.5 text-base">Save all settings</button>
   </div>
-</form>
 
-<div class="mt-10 max-w-2xl">
-  <section class="panel p-8">
-    <div class="flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <h2 class="text-xl">Email & Notifications</h2>
-        <p class="mt-1 text-sm text-slate-600">Active SMTP configuration used to deliver candidate logins and notifications.</p>
-      </div>
-      {% if email_status.is_configured %}
-        <span class="badge badge-good">SMTP Configured</span>
-      {% else %}
-        <span class="badge badge-warn">Password Not Set</span>
-      {% endif %}
+  <!-- 2-Column Responsive Workspace Grid (Full Width Utilization) -->
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start text-left">
+    <!-- Left Column: Core Form Settings (8 cols) -->
+    <div class="lg:col-span-8 space-y-6 text-left">
+      <form method="post" enctype="multipart/form-data" class="space-y-6 text-left">
+        {% csrf_token %}
+
+        <!-- Card 1: Branding & Identity -->
+        <section class="card p-6 border-l-4 border-l-[#2447F5] space-y-5 shadow-xs text-left">
+          <div class="pb-3 border-b border-slate-100 text-left">
+            <h2 class="text-base font-bold text-slate-900 text-left">1. Branding &amp; Organization Identity</h2>
+            <p class="text-xs text-slate-500 mt-0.5 text-left">Customize platform title, navigation header logo, and browser favicon.</p>
+          </div>
+
+          <div class="space-y-4 text-left">
+            <div>
+              <label for="{{ form.site_name.id_for_label }}" class="label text-xs font-semibold text-slate-800 text-left">Platform Brand Name</label>
+              {{ form.site_name }}
+              <p class="text-[11px] text-slate-500 mt-1">Displayed in the header when no logo is uploaded, and in browser window titles.</p>
+              {{ form.site_name.errors }}
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left">
+              <!-- Site Logo -->
+              <div class="rounded-xl border border-slate-200 bg-slate-50/70 p-4 space-y-3 text-left">
+                <div class="flex items-center justify-between">
+                  <label for="{{ form.site_logo.id_for_label }}" class="label text-xs font-semibold text-slate-800 text-left">Header Logo</label>
+                  {% if form.instance.site_logo %}
+                    <span class="text-[10px] font-bold text-[#2447F5] bg-[#EEF1FE] border border-blue-200 px-1.5 py-0.5 rounded">Uploaded</span>
+                  {% endif %}
+                </div>
+                {% if form.instance.site_logo %}
+                  <div class="flex items-center gap-3 bg-white p-2.5 rounded-lg border border-slate-200 w-fit">
+                    <img src="{% url 'serve_branding' 'logo' %}" alt="Active logo" class="h-8 max-w-[140px] object-contain">
+                    <span class="text-[11px] font-medium text-slate-500">Current Logo</span>
+                  </div>
+                {% endif %}
+                {{ form.site_logo }}
+                <p class="text-[11px] text-slate-500">PNG, SVG, or JPG image displayed on the global navigation header.</p>
+                {{ form.site_logo.errors }}
+              </div>
+
+              <!-- Browser Favicon -->
+              <div class="rounded-xl border border-slate-200 bg-slate-50/70 p-4 space-y-3 text-left">
+                <div class="flex items-center justify-between">
+                  <label for="{{ form.favicon.id_for_label }}" class="label text-xs font-semibold text-slate-800 text-left">Browser Tab Favicon</label>
+                  {% if form.instance.favicon %}
+                    <span class="text-[10px] font-bold text-[#2447F5] bg-[#EEF1FE] border border-blue-200 px-1.5 py-0.5 rounded">Uploaded</span>
+                  {% endif %}
+                </div>
+                {% if form.instance.favicon %}
+                  <div class="flex items-center gap-3 bg-white p-2.5 rounded-lg border border-slate-200 w-fit">
+                    <img src="{% url 'serve_branding' 'favicon' %}" alt="Active favicon" class="h-5 w-5 object-contain">
+                    <span class="text-[11px] font-medium text-slate-500">Current Favicon</span>
+                  </div>
+                {% endif %}
+                {{ form.favicon }}
+                <p class="text-[11px] text-slate-500">Square .ico, .png, or .svg icon displayed in browser tabs.</p>
+                {{ form.favicon.errors }}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Card 2: Footer & Compliance Messaging -->
+        <section class="card p-6 border-l-4 border-l-blue-600 space-y-5 shadow-xs text-left">
+          <div class="pb-3 border-b border-slate-100 text-left">
+            <h2 class="text-base font-bold text-slate-900 text-left">2. Footer &amp; Compliance Messaging</h2>
+            <p class="text-xs text-slate-500 mt-0.5 text-left">Configure copyright ownership and platform description displayed across all footer instances.</p>
+          </div>
+
+          <div class="space-y-4 text-left">
+            <div>
+              <label for="{{ form.footer_copyright.id_for_label }}" class="label text-xs font-semibold text-slate-800 text-left">Footer Copyright Notice</label>
+              {{ form.footer_copyright }}
+              <p class="text-[11px] text-slate-500 mt-1">E.g., &copy; 2026 Assessments. All rights reserved.</p>
+              {{ form.footer_copyright.errors }}
+            </div>
+
+            <div>
+              <label for="{{ form.footer_text.id_for_label }}" class="label text-xs font-semibold text-slate-800 text-left">Footer Description / Tagline</label>
+              {{ form.footer_text }}
+              <p class="text-[11px] text-slate-500 mt-1">E.g., Secure Online Assessment Platform.</p>
+              {{ form.footer_text.errors }}
+            </div>
+
+            <!-- Live Footer Preview -->
+            <div class="rounded-xl border border-slate-200 bg-slate-50/80 p-3.5 text-xs text-left">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1.5">Live Footer Preview:</span>
+              <div class="flex flex-wrap items-center gap-2 text-slate-600 text-[11px]">
+                <strong class="text-slate-800 font-semibold">{{ form.footer_copyright.value|default:"&copy; 2026 Assessments. All rights reserved." }}</strong>
+                {% if form.footer_text.value %}
+                  <span class="text-slate-400">&bull;</span>
+                  <span>{{ form.footer_text.value }}</span>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Card 3: Proctoring Evidence Retention -->
+        <section class="card p-6 border-l-4 border-l-indigo-600 space-y-4 shadow-xs text-left">
+          <div class="pb-3 border-b border-slate-100 text-left">
+            <h2 class="text-base font-bold text-slate-900 text-left">3. Evidence Snapshot Retention Lifecycle</h2>
+            <p class="text-xs text-slate-500 mt-0.5 text-left">Camera violation snapshots are automatically purged according to compliance retention policies.</p>
+          </div>
+
+          <div class="text-left">
+            <label for="{{ form.snapshot_retention_days.id_for_label }}" class="label text-xs font-semibold text-slate-800 text-left">Retention Duration (Days)</label>
+            <div class="flex flex-wrap items-center gap-3 mt-1 text-left">
+              <input id="{{ form.snapshot_retention_days.id_for_label }}" type="number" name="snapshot_retention_days" min="1" max="365" value="{{ form.snapshot_retention_days.value|default:60 }}" class="font-mono text-xs w-28 py-2 px-3">
+              <span class="text-xs text-slate-600">days (1 to 365). Default: 60 days.</span>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-1.5">Snapshots older than this threshold are purged during automated daily cleanup.</p>
+            {{ form.snapshot_retention_days.errors }}
+          </div>
+        </section>
+
+        <!-- Card 4: Google Gemini AI Integration -->
+        <section class="card p-6 border-l-4 border-l-[#0E2378] space-y-5 shadow-xs text-left">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-100 text-left">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="text-base font-bold text-slate-900 text-left">4. Google Gemini AI Integration</span>
+                <span class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-[#EEF1FE] text-[#0E2378] border border-blue-200">AI Interview Copilot</span>
+              </div>
+              <p class="text-xs text-slate-500 mt-0.5 text-left">Connect the Google Gemini API to analyze candidate resumes and generate face-to-face interview questions with expected answer criteria.</p>
+            </div>
+            <div>
+              {% if form.instance.gemini_api_key %}
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                  <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                  API Key Configured
+                </span>
+              {% else %}
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                  <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                  Key Missing
+                </span>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left">
+            <div class="space-y-1.5">
+              <label for="{{ form.gemini_api_key.id_for_label }}" class="label text-xs font-semibold text-slate-800 text-left">Google Gemini API Key</label>
+              {{ form.gemini_api_key }}
+              <p class="text-[11px] text-slate-500 mt-1">Get an API key from <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-[#2447F5] font-semibold underline">Google AI Studio</a>. Keys are encrypted and kept secure.</p>
+              {{ form.gemini_api_key.errors }}
+            </div>
+
+            <div class="space-y-1.5">
+              <label for="{{ form.gemini_model.id_for_label }}" class="label text-xs font-semibold text-slate-800 text-left">Gemini AI Model</label>
+              {{ form.gemini_model }}
+              <p class="text-[11px] text-slate-500 mt-1">Default: <code>gemini-1.5-flash</code> (fastest response and optimal latency).</p>
+              {{ form.gemini_model.errors }}
+            </div>
+          </div>
+        </section>
+
+        <!-- Submit Bar -->
+        <div class="flex items-center gap-3 pt-2 text-left">
+          <button type="submit" class="btn btn-primary text-xs font-semibold py-2.5 px-6 shadow-xs">
+            Save Platform Settings
+          </button>
+        </div>
+      </form>
     </div>
 
-    <div class="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm">
-      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div>
-          <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">SMTP Host & Port</span>
-          <div class="mt-1 font-mono font-medium text-slate-800">{{ email_status.host }}:{{ email_status.port }}</div>
-        </div>
-        <div>
-          <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Security Protocol</span>
-          <div class="mt-1 text-slate-800">
-            {% if email_status.use_ssl %}
-              <span class="font-medium text-emerald-700">SSL (SMTPS)</span>
-            {% elif email_status.use_tls %}
-              <span class="font-medium text-blue-700">TLS (STARTTLS)</span>
+    <!-- Right Column: Diagnostics & Environment Overview (4 cols) -->
+    <div class="lg:col-span-4 space-y-6 text-left">
+      <!-- Card 4: Email Notification Transport -->
+      <section class="card p-5 border-l-4 border-l-emerald-600 space-y-4 shadow-xs text-left">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100 text-left">
+          <h2 class="text-sm font-bold text-slate-900 text-left">Email Transport Status</h2>
+          <div>
+            {% if email_status.is_configured %}
+              <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                Active
+              </span>
             {% else %}
-              <span class="font-medium text-slate-600">Plaintext (No SSL)</span>
+              <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                Password Unset
+              </span>
             {% endif %}
           </div>
         </div>
-        <div>
-          <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Default Sender</span>
-          <div class="mt-1 font-mono text-xs text-slate-800">{{ email_status.from_email }}</div>
-        </div>
-        <div>
-          <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Django Backend</span>
-          <div class="mt-1 font-mono text-xs text-slate-600">{{ email_status.backend }}</div>
-        </div>
-      </div>
-    </div>
 
-    <form method="post" action="{% url 'staff_settings' %}" class="mt-6 border-t border-slate-200 pt-6">
-      {% csrf_token %}
-      <input type="hidden" name="action" value="test_email">
-      <h3 class="text-base font-medium">Verify Email Delivery</h3>
-      <p class="mt-1 text-xs text-slate-600">Send an instant test email through your server's active mail transport to confirm SMTP connections and credentials.</p>
-      
-      <div class="mt-4 flex flex-wrap items-center gap-3">
-        <input type="email" name="test_recipient" value="{{ request.user.email }}" placeholder="recipient@example.com" required class="flex-1 min-w-[240px]">
-        <button type="submit" class="btn btn-secondary whitespace-nowrap">Send test email</button>
-      </div>
-      <p class="mt-2 text-xs text-slate-500">
-        You can also run from SSH/cPanel terminal: <code class="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-slate-800">python manage.py test_email you@example.com</code>
-      </p>
-    </form>
-  </section>
+        <!-- SMTP Details Grid -->
+        <div class="space-y-2.5 text-xs text-left">
+          <div class="flex justify-between py-1 border-b border-slate-50">
+            <span class="text-slate-500">Host &amp; Port</span>
+            <span class="font-mono font-semibold text-slate-900">{{ email_status.host }}:{{ email_status.port }}</span>
+          </div>
+          <div class="flex justify-between py-1 border-b border-slate-50">
+            <span class="text-slate-500">Protocol</span>
+            <span class="font-semibold text-slate-900">
+              {% if email_status.use_ssl %}
+                <span class="text-emerald-700">SSL (SMTPS)</span>
+              {% elif email_status.use_tls %}
+                <span class="text-blue-700">TLS (STARTTLS)</span>
+              {% else %}
+                <span class="text-slate-600">Plaintext</span>
+              {% endif %}
+            </span>
+          </div>
+          <div class="flex justify-between py-1 border-b border-slate-50">
+            <span class="text-slate-500">Sender</span>
+            <span class="font-mono text-[11px] text-slate-800 break-all">{{ email_status.from_email }}</span>
+          </div>
+          <div class="flex justify-between py-1">
+            <span class="text-slate-500">Backend</span>
+            <span class="font-mono text-[10px] text-slate-600 truncate max-w-[170px]" title="{{ email_status.backend }}">{{ email_status.backend|slice:":25" }}...</span>
+          </div>
+        </div>
+
+        <!-- Diagnostic Dispatch Form -->
+        <form method="post" action="{% url 'staff_settings' %}" class="pt-3 border-t border-slate-100 space-y-3 text-left">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="test_email">
+          <div class="text-left">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-800 text-left">Test Email Dispatch</h3>
+            <p class="text-[11px] text-slate-500 mt-0.5 text-left">Send a diagnostic email to test SMTP connectivity.</p>
+          </div>
+          <div class="space-y-2 text-left">
+            <input type="email" name="test_recipient" value="{{ request.user.email }}" placeholder="recipient@example.com" required class="w-full text-xs py-2 px-3">
+            <button type="submit" class="btn btn-secondary text-xs font-semibold py-2 w-full shadow-xs">
+              Send Diagnostic Email
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- Card 5: System Overview & Compliance -->
+      <section class="card p-5 border-l-4 border-l-slate-600 space-y-3 shadow-xs text-left">
+        <div class="pb-2 border-b border-slate-100 text-left">
+          <h2 class="text-sm font-bold text-slate-900 text-left">Platform Environment</h2>
+        </div>
+        <div class="space-y-2 text-xs text-left">
+          <div class="flex justify-between py-1 border-b border-slate-50">
+            <span class="text-slate-500">Server Timezone</span>
+            <span class="font-mono font-medium text-slate-800">UTC</span>
+          </div>
+          <div class="flex justify-between py-1 border-b border-slate-50">
+            <span class="text-slate-500">Code Sandbox Runner</span>
+            <span class="font-mono font-semibold text-[#1E3AC8]">Local / Docker</span>
+          </div>
+          <div class="flex justify-between py-1 border-b border-slate-50">
+            <span class="text-slate-500">Database Engine</span>
+            <span class="font-semibold text-slate-800">SQLite3 / PostgreSQL</span>
+          </div>
+          <div class="flex justify-between py-1">
+            <span class="text-slate-500">Session Isolation</span>
+            <span class="font-semibold text-emerald-700">Enforced</span>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
 </div>
 {% endblock %}
-

@@ -1,139 +1,849 @@
 {% extends "base.html" %}
-{% block title %}{% if question %}Edit question{% else %}New question{% endif %}{% endblock %}
+{% block title %}{% if question %}Edit Question | {{ exam.title }}{% else %}New Question | {{ exam.title }}{% endif %}{% endblock %}
 {% block content %}
-<a href="{% url 'staff_exam_detail' exam.pk %}" class="crumb">Back to {{ exam.title }}</a>
-<h1 class="text-3xl font-bold">{% if question %}Edit question{% else %}New question{% endif %}</h1>
-<p class="mt-2 text-slate-600">Provide the question text, set the marks, and add as many answer options as you need (minimum 2). Mark exactly one option as the correct answer.</p>
+<style>
+  /* Base Authoring Card */
+  .authoring-card {
+    background: #ffffff;
+    border: 1px solid #E2E8F0;
+    border-radius: 16px;
+    padding: 22px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  }
+  .authoring-card-header {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #F1F5F9;
+    margin-bottom: 18px;
+  }
+  @media (min-width: 640px) {
+    .authoring-card-header {
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+    }
+  }
+  .authoring-card-title {
+    font-size: 16px;
+    font-weight: 800;
+    color: #0F172A;
+    letter-spacing: -0.01em;
+    margin: 0;
+  }
+  .authoring-card-desc {
+    font-size: 12px;
+    color: #64748B;
+    margin-top: 3px;
+    line-height: 1.4;
+  }
+  .form-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    color: #334155;
+    margin-bottom: 6px;
+  }
+  .form-hint {
+    font-size: 11px;
+    color: #64748B;
+    margin-top: 4px;
+  }
 
-<form method="post" class="mt-8 max-w-3xl space-y-10" id="mcq-form">
-  {% csrf_token %}
-  <div class="space-y-5">
-    {% for field in question_form %}
-      <div>
-        <label class="label font-medium" for="{{ field.id_for_label }}">{{ field.label }}</label>
-        {{ field }}
-        {% for error in field.errors %}<p class="errorlist text-red-600 text-xs mt-1">{{ error }}</p>{% endfor %}
-      </div>
-    {% endfor %}
-  </div>
+  /* Header & Action Buttons */
+  .btn-submit-main {
+    background: #0E2378;
+    color: #ffffff !important;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 10px 20px;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(14, 35, 120, 0.15);
+    transition: all 0.15s ease;
+    text-decoration: none !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .btn-submit-main:hover {
+    background: #1E3AC8;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(14, 35, 120, 0.2);
+  }
+  .btn-cancel-main {
+    background: #FFFFFF;
+    color: #475569;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 9px 18px;
+    border-radius: 10px;
+    border: 1px solid #CBD5E1;
+    text-decoration: none !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+  }
+  .btn-cancel-main:hover {
+    background: #F8FAFC;
+    color: #0F172A;
+    border-color: #94A3B8;
+  }
 
-  <section class="panel p-6">
-    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
-      <div>
-        <h2 class="text-xl font-bold text-slate-900">Answer Options</h2>
-        <p class="text-xs text-slate-500 mt-0.5">Add as many options as you need (A, B, C, D, E...). Options retain their identity during candidate shuffling.</p>
+  /* ========================================================================= */
+  /* ENHANCED ANSWER CHOICES BUILDER                                           */
+  /* ========================================================================= */
+  .choices-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .choice-card-item {
+    background: #FFFFFF;
+    border: 1.5px solid #E2E8F0;
+    border-radius: 14px;
+    padding: 14px 16px;
+    transition: all 0.18s ease;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.02);
+  }
+  .choice-card-item:hover {
+    border-color: #CBD5E1;
+    box-shadow: 0 3px 8px rgba(15, 23, 42, 0.05);
+  }
+
+  /* When this choice is marked as correct */
+  .choice-card-item.is-correct-choice {
+    border-color: #10B981 !important;
+    background: #F0FDF4 !important;
+    box-shadow: 0 2px 10px rgba(16, 185, 129, 0.12) !important;
+  }
+
+  /* When an existing choice is marked for deletion */
+  .choice-card-item.is-marked-deleted {
+    border-color: #FECDD3 !important;
+    background: #FFF1F2 !important;
+    opacity: 0.6;
+  }
+  .choice-card-item.is-marked-deleted input[type="text"] {
+    text-decoration: line-through;
+    pointer-events: none;
+    color: #94A3B8;
+  }
+
+  .choice-card-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  @media (min-width: 640px) {
+    .choice-card-layout {
+      flex-direction: row;
+      align-items: center;
+      gap: 14px;
+    }
+  }
+
+  /* Left Rail: Letter Badge & Reorder */
+  .choice-left-rail {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .choice-letter-badge {
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+    border-radius: 10px;
+    background: #F1F5F9;
+    border: 1.5px solid #E2E8F0;
+    color: #334155;
+    font-size: 13px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+  }
+  .choice-card-item.is-correct-choice .choice-letter-badge {
+    background: #059669;
+    border-color: #047857;
+    color: #FFFFFF;
+    box-shadow: 0 1px 3px rgba(5, 150, 105, 0.25);
+  }
+
+  .choice-reorder-group {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .btn-choice-order {
+    width: 20px;
+    height: 15px;
+    border-radius: 4px;
+    background: #F1F5F9;
+    border: 1px solid #E2E8F0;
+    color: #64748B;
+    font-size: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.12s ease;
+    user-select: none;
+    padding: 0;
+    line-height: 1;
+  }
+  .btn-choice-order:hover:not(:disabled) {
+    background: #E2E8F0;
+    color: #0F172A;
+  }
+  .btn-choice-order:disabled {
+    opacity: 0.3;
+    cursor: default;
+  }
+
+  /* Middle: Input container */
+  .choice-input-container {
+    flex: 1;
+    min-width: 0;
+  }
+  .choice-text-input {
+    width: 100%;
+    font-size: 14px;
+    font-weight: 500;
+    color: #0F172A;
+    background: #FFFFFF;
+    border: 1.5px solid #CBD5E1;
+    border-radius: 10px;
+    padding: 10px 14px;
+    outline: none;
+    transition: all 0.15s ease;
+  }
+  .choice-text-input:focus {
+    border-color: #0E2378;
+    box-shadow: 0 0 0 3px rgba(14, 35, 120, 0.12);
+  }
+  .choice-card-item.is-correct-choice .choice-text-input {
+    border-color: #6EE7B7;
+  }
+  .choice-card-item.is-correct-choice .choice-text-input:focus {
+    border-color: #059669;
+    box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.15);
+  }
+
+  /* Right Actions */
+  .choice-right-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    justify-content: flex-end;
+  }
+
+  /* Clickable Correct Answer Toggle Button */
+  .btn-toggle-correct {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 14px;
+    border-radius: 9px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+    border: 1.5px solid #E2E8F0;
+    background: #FFFFFF;
+    color: #64748B;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+  }
+  .btn-toggle-correct:hover {
+    background: #F8FAFC;
+    color: #334155;
+    border-color: #CBD5E1;
+  }
+  .choice-card-item.is-correct-choice .btn-toggle-correct {
+    background: #ECFDF5;
+    border-color: #10B981;
+    color: #047857;
+    font-weight: 700;
+  }
+
+  .toggle-radio-circle {
+    width: 16px;
+    height: 16px;
+    min-width: 16px;
+    border-radius: 50%;
+    border: 2px solid #CBD5E1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+    background: #FFFFFF;
+  }
+  .choice-card-item.is-correct-choice .toggle-radio-circle {
+    border-color: #059669;
+    background: #059669;
+  }
+  .toggle-radio-circle::after {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #FFFFFF;
+    display: none;
+  }
+  .choice-card-item.is-correct-choice .toggle-radio-circle::after {
+    display: block;
+  }
+
+  /* Delete & Undo Buttons */
+  .btn-choice-delete {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: #94A3B8;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    padding: 0;
+  }
+  .btn-choice-delete:hover {
+    background: #FEE2E2;
+    color: #DC2626;
+    border-color: #FECDD3;
+  }
+  .btn-choice-undo {
+    display: none;
+    font-size: 11px;
+    font-weight: 700;
+    color: #BE123C;
+    background: #FFFFFF;
+    border: 1px solid #FECDD3;
+    padding: 4px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .choice-card-item.is-marked-deleted .btn-choice-undo {
+    display: inline-flex;
+  }
+  .choice-card-item.is-marked-deleted .btn-choice-delete {
+    display: none;
+  }
+
+  /* Add Choice Dashed Bottom Button */
+  .btn-add-choice-dashed {
+    width: 100%;
+    padding: 14px;
+    border-radius: 12px;
+    border: 2px dashed #CBD5E1;
+    background: #F8FAFC;
+    color: #475569;
+    font-size: 13px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    margin-top: 14px;
+  }
+  .btn-add-choice-dashed:hover {
+    border-color: #0E2378;
+    background: #EEF2FF;
+    color: #0E2378;
+  }
+</style>
+
+<div class="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+  <!-- Top Navigation & Global Action Header -->
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200">
+    <div>
+      <a href="{% url 'staff_exam_detail' exam.pk %}" class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-900 transition-colors mb-2">
+        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        Back to Assessment Overview
+      </a>
+      <div class="flex items-center gap-2">
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-[#0E2378] border border-blue-200">MCQ Authoring</span>
+        <span class="text-xs text-slate-400">&bull;</span>
+        <span class="text-xs text-slate-600 font-medium">{{ exam.title }}</span>
       </div>
-      <button type="button" id="btn-add-option" class="btn btn-secondary btn-sm flex items-center gap-1.5 font-semibold">
-        <span>+</span> Add Another Option
-      </button>
+      <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mt-1">
+        {% if question %}Edit question{% else %}Create question{% endif %}
+      </h1>
     </div>
 
-    {{ option_formset.management_form }}
-    {% if option_formset.non_form_errors %}
-      <div class="alert alert-bad my-4">{{ option_formset.non_form_errors }}</div>
+    <!-- Quick Actions in Header -->
+    <div class="flex items-center gap-3">
+      <a href="{% url 'staff_exam_detail' exam.pk %}" class="btn-cancel-main">
+        Cancel
+      </a>
+      <button type="submit" form="mcq-form" class="btn-submit-main">
+        {% if question %}Save Changes{% else %}Save Question{% endif %}
+      </button>
+    </div>
+  </div>
+
+  <form method="post" id="mcq-form" class="space-y-6">
+    {% csrf_token %}
+    {% if question_form.non_field_errors %}
+      <div class="p-4 rounded-xl bg-rose-50 border border-rose-200 text-sm font-semibold text-rose-800">
+        {{ question_form.non_field_errors }}
+      </div>
     {% endif %}
 
-    <ul id="options-list" class="ledger mt-4 rounded-xl border border-slate-200 bg-white divide-y divide-slate-100">
-      {% for form in option_formset %}
-        <li class="option-row flex flex-wrap items-center gap-4 px-4 py-3.5" data-index="{{ forloop.counter0 }}">
-          {{ form.id }}
-          <span class="option-label w-20 shrink-0 text-sm font-semibold text-slate-600">Option {{ forloop.counter }}</span>
-          <div class="min-w-[200px] flex-1">
-            <label class="sr-only" for="{{ form.text.id_for_label }}">Text for option {{ forloop.counter }}</label>
-            {{ form.text }}
-            {% for error in form.text.errors %}<p class="errorlist text-red-600 text-xs mt-1">{{ error }}</p>{% endfor %}
+    <!-- 2-Column Space-Efficient Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+      <!-- LEFT MAIN WORKSPACE: Question Prompt & Choices (8 cols) -->
+      <div class="lg:col-span-8 space-y-6">
+
+        <!-- Card 1: Question Statement -->
+        <div class="authoring-card">
+          <div class="authoring-card-header">
+            <div>
+              <h2 class="authoring-card-title">1. Question Statement</h2>
+              <p class="authoring-card-desc">Write the prompt presented to candidates during the assessment.</p>
+            </div>
+            <span class="text-xs font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200">
+              Markdown &amp; Text Supported
+            </span>
           </div>
-          <div class="flex items-center gap-4 shrink-0">
-            <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer rounded-lg bg-slate-50 px-3 py-1.5 border border-slate-200 hover:bg-emerald-50">
-              {{ form.is_correct }}
-              <span class="font-semibold text-emerald-800">Correct answer</span>
-            </label>
-            {% if form.instance.pk %}
-              <label class="flex items-center gap-1 text-xs font-medium text-red-600 cursor-pointer ml-1">
-                {{ form.DELETE }} Delete
-              </label>
-            {% else %}
-              <button type="button" class="btn-remove-row text-xs text-slate-400 hover:text-red-600 font-medium ml-1">
-                &times; Remove
-              </button>
+
+          <div>
+            <label class="sr-only" for="{{ question_form.text.id_for_label }}">Question text</label>
+            {{ question_form.text }}
+            {% for error in question_form.text.errors %}
+              <p class="text-xs text-rose-600 font-semibold mt-1.5">{{ error }}</p>
+            {% endfor %}
+            <p class="form-hint">Be clear and unambiguous. Candidates will see this prompt directly above choice options.</p>
+          </div>
+        </div>
+
+        <!-- Card 2: Answer Choices & Key (ENHANCED BUILDER) -->
+        <div class="authoring-card">
+          <div class="authoring-card-header">
+            <div>
+              <div class="flex flex-wrap items-center gap-2.5">
+                <h2 class="authoring-card-title">2. Answer Choices &amp; Scoring Key</h2>
+                <!-- Live Status Pill -->
+                <span id="choices-status-pill" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                  <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                  <span id="choices-status-text">Select 1 correct answer</span>
+                </span>
+              </div>
+              <p class="authoring-card-desc">
+                Provide at least 2 choices. Click <strong>Mark Correct</strong> on the correct choice.
+              </p>
+            </div>
+            <button type="button" id="btn-add-choice-top" class="btn-cancel-main text-xs font-bold py-1.5 px-3 text-[#0E2378] border-[#0E2378]/30 hover:bg-blue-50">
+              + Add Choice
+            </button>
+          </div>
+
+          {{ option_formset.management_form }}
+          {% if option_formset.non_form_errors %}
+            <div class="mb-4 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs font-bold text-rose-800">
+              {{ option_formset.non_form_errors }}
+            </div>
+          {% endif %}
+
+          <!-- Choices Cards List -->
+          <ul id="options-list" class="choices-stack">
+            {% for form in option_formset %}
+              <li class="choice-card-item {% if form.is_correct.value %}is-correct-choice{% endif %} {% if form.DELETE.value %}is-marked-deleted{% endif %}" data-index="{{ forloop.counter0 }}">
+                {{ form.id }}
+
+                <div class="choice-card-layout">
+                  <!-- Left: Letter Badge & Up/Down Sequence Controls -->
+                  <div class="choice-left-rail">
+                    <span class="choice-letter-badge option-label">
+                      {% cycle 'A' 'B' 'C' 'D' 'E' 'F' 'G' 'H' 'I' 'J' %}
+                    </span>
+                    <div class="choice-reorder-group">
+                      <button type="button" class="btn-choice-order btn-move-up" title="Move choice up">&#9650;</button>
+                      <button type="button" class="btn-choice-order btn-move-down" title="Move choice down">&#9660;</button>
+                    </div>
+                  </div>
+
+                  <!-- Middle: Choice Input -->
+                  <div class="choice-input-container">
+                    <label class="sr-only" for="{{ form.text.id_for_label }}">Choice text</label>
+                    {{ form.text }}
+                    {% for error in form.text.errors %}
+                      <p class="text-xs text-rose-600 font-semibold mt-1">{{ error }}</p>
+                    {% endfor %}
+                  </div>
+
+                  <!-- Right: Correct Answer Selector & Delete Action -->
+                  <div class="choice-right-actions">
+                    <!-- Custom Toggle Button controlling the real checkbox -->
+                    <button type="button" class="btn-toggle-correct">
+                      <span class="toggle-radio-circle"></span>
+                      <span class="toggle-text-label">{% if form.is_correct.value %}✓ Correct Answer{% else %}Mark Correct{% endif %}</span>
+                    </button>
+
+                    <!-- Real hidden checkbox input required by Django formset -->
+                    <div style="display:none;">
+                      {{ form.is_correct }}
+                    </div>
+
+                    <!-- Delete / Undo Controls -->
+                    {% if form.instance.pk %}
+                      <div style="display:none;">
+                        {{ form.DELETE }}
+                      </div>
+                      <button type="button" class="btn-choice-delete btn-trigger-delete" title="Delete choice">
+                        <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                      </button>
+                      <button type="button" class="btn-choice-undo btn-trigger-undo">
+                        Undo Delete
+                      </button>
+                    {% else %}
+                      <button type="button" class="btn-choice-delete btn-remove-row" title="Remove choice">
+                        <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                      </button>
+                    {% endif %}
+                  </div>
+                </div>
+              </li>
+            {% endfor %}
+          </ul>
+
+          <!-- Add Choice Dashed Zone -->
+          <button type="button" id="btn-add-choice-bottom" class="btn-add-choice-dashed">
+            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+            <span>Add Choice</span>
+            <span class="text-slate-400 font-normal text-xs">(or press Enter in the last choice)</span>
+          </button>
+        </div>
+
+      </div>
+
+      <!-- RIGHT SIDEBAR: Configuration, Placement & Submit (4 cols, sticky) -->
+      <div class="lg:col-span-4 space-y-6 lg:sticky lg:top-6">
+
+        <!-- Card: Section Assignment -->
+        <div class="authoring-card space-y-4">
+          <div class="pb-3 border-b border-slate-100">
+            <h3 class="authoring-card-title">Section Assignment</h3>
+            <p class="authoring-card-desc">Assign this question to a timed curriculum section.</p>
+          </div>
+
+          <div>
+            <label class="form-label" for="{{ question_form.section.id_for_label }}">{{ question_form.section.label }}</label>
+            {{ question_form.section }}
+            {% if question_form.section.help_text %}
+              <p class="form-hint">{{ question_form.section.help_text }}</p>
             {% endif %}
+            {% for error in question_form.section.errors %}
+              <p class="text-xs text-rose-600 font-semibold mt-1">{{ error }}</p>
+            {% endfor %}
           </div>
-        </li>
-      {% endfor %}
-    </ul>
 
-    <div class="mt-4 flex justify-end">
-      <button type="button" id="btn-add-option-bottom" class="text-sm font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1">
-        <span>+</span> Add another option
-      </button>
+          <div class="pt-2 border-t border-slate-100">
+            <label class="form-label" for="{{ question_form.new_section_title.id_for_label }}">{{ question_form.new_section_title.label }}</label>
+            {{ question_form.new_section_title }}
+            {% if question_form.new_section_title.help_text %}
+              <p class="form-hint">{{ question_form.new_section_title.help_text }}</p>
+            {% endif %}
+            {% for error in question_form.new_section_title.errors %}
+              <p class="text-xs text-rose-600 font-semibold mt-1">{{ error }}</p>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Card: Scoring & Display Order -->
+        <div class="authoring-card space-y-4">
+          <div class="pb-3 border-b border-slate-100">
+            <h3 class="authoring-card-title">Scoring &amp; Sequencing</h3>
+            <p class="authoring-card-desc">Marks rewarded and presentation sequence.</p>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="form-label" for="{{ question_form.marks.id_for_label }}">{{ question_form.marks.label }}</label>
+              {{ question_form.marks }}
+              {% for error in question_form.marks.errors %}
+                <p class="text-xs text-rose-600 font-semibold mt-1">{{ error }}</p>
+              {% endfor %}
+            </div>
+            <div>
+              <label class="form-label" for="{{ question_form.order.id_for_label }}">{{ question_form.order.label }}</label>
+              {{ question_form.order }}
+              {% for error in question_form.order.errors %}
+                <p class="text-xs text-rose-600 font-semibold mt-1">{{ error }}</p>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <!-- Card: Primary Actions & Guidelines -->
+        <div class="authoring-card space-y-4">
+          <button type="submit" class="btn-submit-main w-full py-2.5 text-sm">
+            {% if question %}Save Question Changes{% else %}Save Question{% endif %}
+          </button>
+          <a href="{% url 'staff_exam_detail' exam.pk %}" class="btn-cancel-main w-full py-2 text-xs">
+            Cancel &amp; Discard
+          </a>
+
+          <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 space-y-2">
+            <div class="font-bold text-slate-800">Authoring Checklist:</div>
+            <div class="flex items-center gap-1.5">
+              <span class="text-emerald-600 font-bold">&#10003;</span>
+              <span>Provide at least 2 choices</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="text-emerald-600 font-bold">&#10003;</span>
+              <span>Mark exactly 1 correct answer</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="text-blue-600 font-bold">&bull;</span>
+              <span>Deterministic shuffling during test</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
     </div>
-  </section>
-
-  <div class="flex items-center gap-3">
-    <button class="btn btn-primary px-6 py-2.5 font-bold">{% if question %}Save changes{% else %}Save question{% endif %}</button>
-    <a href="{% url 'staff_exam_detail' exam.pk %}" class="btn btn-secondary px-5 py-2.5">Cancel</a>
-  </div>
-</form>
+  </form>
+</div>
 
 <script>
   (function() {
     const list = document.getElementById("options-list");
     const totalFormsInput = document.getElementById("id_options-TOTAL_FORMS");
-    const btnAdd = document.getElementById("btn-add-option");
-    const btnAddBottom = document.getElementById("btn-add-option-bottom");
+    const btnAddTop = document.getElementById("btn-add-choice-top");
+    const btnAddBottom = document.getElementById("btn-add-choice-bottom");
+    const statusPill = document.getElementById("choices-status-pill");
+    const statusText = document.getElementById("choices-status-text");
+    const letters = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O"];
 
-    function reindexLabels() {
-      const rows = list.querySelectorAll(".option-row");
-      rows.forEach((row, idx) => {
-        const label = row.querySelector(".option-label");
-        if (label) label.textContent = "Option " + (idx + 1);
+    // Update letter badges, up/down button states, and live status pill
+    function refreshBuilderState() {
+      const activeRows = Array.from(list.querySelectorAll(".choice-card-item:not(.is-marked-deleted)"));
+      const allRows = Array.from(list.querySelectorAll(".choice-card-item"));
+
+      // Update letter badges & move button disabled state
+      activeRows.forEach((row, idx) => {
+        const letter = letters[idx] || (idx + 1);
+        const badge = row.querySelector(".choice-letter-badge");
+        if (badge) badge.textContent = letter;
+
+        const btnUp = row.querySelector(".btn-move-up");
+        const btnDown = row.querySelector(".btn-move-down");
+        if (btnUp) btnUp.disabled = (idx === 0);
+        if (btnDown) btnDown.disabled = (idx === activeRows.length - 1);
       });
+
+      // Find which choice is marked correct
+      let correctCount = 0;
+      let correctLetter = "";
+
+      activeRows.forEach((row, idx) => {
+        const checkbox = row.querySelector("input[type='checkbox'][name$='-is_correct']");
+        const labelText = row.querySelector(".toggle-text-label");
+        const isChecked = checkbox && checkbox.checked;
+
+        if (isChecked) {
+          correctCount++;
+          correctLetter = letters[idx] || (idx + 1);
+          row.classList.add("is-correct-choice");
+          if (labelText) labelText.textContent = "✓ Correct Answer";
+        } else {
+          row.classList.remove("is-correct-choice");
+          if (labelText) labelText.textContent = "Mark Correct";
+        }
+      });
+
+      // Update Status Pill
+      if (statusPill && statusText) {
+        if (correctCount === 1) {
+          statusPill.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200";
+          statusPill.querySelector("span.rounded-full").className = "w-1.5 h-1.5 rounded-full bg-emerald-500";
+          statusText.textContent = `✓ Choice ${correctLetter} is Correct`;
+        } else if (correctCount === 0) {
+          statusPill.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200";
+          statusPill.querySelector("span.rounded-full").className = "w-1.5 h-1.5 rounded-full bg-amber-500";
+          statusText.textContent = "Select 1 correct answer";
+        } else {
+          statusPill.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-800 border border-rose-200";
+          statusPill.querySelector("span.rounded-full").className = "w-1.5 h-1.5 rounded-full bg-rose-500";
+          statusText.textContent = `Multiple marked (${correctCount}) - select only 1`;
+        }
+      }
     }
 
-    function addOption() {
+    // Toggle a choice as the single correct answer
+    function markAsCorrect(row) {
+      const allCheckboxes = list.querySelectorAll("input[type='checkbox'][name$='-is_correct']");
+      const targetCheckbox = row.querySelector("input[type='checkbox'][name$='-is_correct']");
+
+      if (targetCheckbox) {
+        // Uncheck all other checkboxes
+        allCheckboxes.forEach(cb => {
+          if (cb !== targetCheckbox) {
+            cb.checked = false;
+          }
+        });
+        // Set target to true
+        targetCheckbox.checked = true;
+        refreshBuilderState();
+      }
+    }
+
+    // Add a new choice card dynamically
+    function addChoice() {
       let currentTotal = parseInt(totalFormsInput.value, 10);
       const newIdx = currentTotal;
 
       const li = document.createElement("li");
-      li.className = "option-row flex flex-wrap items-center gap-4 px-4 py-3.5 bg-blue-50/20";
+      li.className = "choice-card-item";
       li.setAttribute("data-index", newIdx);
 
       li.innerHTML = `
-        <span class="option-label w-20 shrink-0 text-sm font-semibold text-slate-600">Option ${list.children.length + 1}</span>
-        <div class="min-w-[200px] flex-1">
-          <input type="text" name="options-${newIdx}-text" id="id_options-${newIdx}-text" class="w-full rounded border px-3 py-2" placeholder="Enter option text" required>
-        </div>
-        <div class="flex items-center gap-4 shrink-0">
-          <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer rounded-lg bg-slate-50 px-3 py-1.5 border border-slate-200 hover:bg-emerald-50">
-            <input type="checkbox" name="options-${newIdx}-is_correct" id="id_options-${newIdx}-is_correct" class="h-4 w-4">
-            <span class="font-semibold text-emerald-800">Correct answer</span>
-          </label>
-          <button type="button" class="btn-remove-row text-xs text-slate-400 hover:text-red-600 font-medium ml-1">
-            &times; Remove
-          </button>
+        <input type="hidden" name="options-${newIdx}-id" id="id_options-${newIdx}-id">
+        <div class="choice-card-layout">
+          <div class="choice-left-rail">
+            <span class="choice-letter-badge option-label"></span>
+            <div class="choice-reorder-group">
+              <button type="button" class="btn-choice-order btn-move-up" title="Move choice up">&#9650;</button>
+              <button type="button" class="btn-choice-order btn-move-down" title="Move choice down">&#9660;</button>
+            </div>
+          </div>
+          <div class="choice-input-container">
+            <input type="text" name="options-${newIdx}-text" id="id_options-${newIdx}-text" class="choice-text-input" placeholder="Type answer choice here..." required>
+          </div>
+          <div class="choice-right-actions">
+            <button type="button" class="btn-toggle-correct">
+              <span class="toggle-radio-circle"></span>
+              <span class="toggle-text-label">Mark Correct</span>
+            </button>
+            <div style="display:none;">
+              <input type="checkbox" name="options-${newIdx}-is_correct" id="id_options-${newIdx}-is_correct">
+            </div>
+            <button type="button" class="btn-choice-delete btn-remove-row" title="Remove choice">
+              <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            </button>
+          </div>
         </div>
       `;
 
       list.appendChild(li);
       totalFormsInput.value = currentTotal + 1;
-      reindexLabels();
+      refreshBuilderState();
 
       const input = li.querySelector("input[type='text']");
       if (input) input.focus();
     }
 
-    if (btnAdd) btnAdd.addEventListener("click", addOption);
-    if (btnAddBottom) btnAddBottom.addEventListener("click", addOption);
+    // Move choice Up or Down
+    function swapChoices(row, direction) {
+      const activeRows = Array.from(list.querySelectorAll(".choice-card-item:not(.is-marked-deleted)"));
+      const currentPos = activeRows.indexOf(row);
+      const targetPos = direction === "up" ? currentPos - 1 : currentPos + 1;
 
+      if (targetPos < 0 || targetPos >= activeRows.length) return;
+
+      const targetRow = activeRows[targetPos];
+      if (direction === "up") {
+        list.insertBefore(row, targetRow);
+      } else {
+        list.insertBefore(targetRow, row);
+      }
+      refreshBuilderState();
+    }
+
+    // Event Delegation on Choices List
     list.addEventListener("click", function(e) {
+      const row = e.target.closest(".choice-card-item");
+      if (!row) return;
+
+      // Click "Mark Correct" button or radio
+      if (e.target.closest(".btn-toggle-correct")) {
+        markAsCorrect(row);
+        return;
+      }
+
+      // Move Up
+      if (e.target.closest(".btn-move-up")) {
+        swapChoices(row, "up");
+        return;
+      }
+
+      // Move Down
+      if (e.target.closest(".btn-move-down")) {
+        swapChoices(row, "down");
+        return;
+      }
+
+      // Remove new (unsaved) row
       if (e.target.closest(".btn-remove-row")) {
-        const row = e.target.closest(".option-row");
-        if (row) {
-          row.remove();
-          reindexLabels();
+        row.remove();
+        refreshBuilderState();
+        return;
+      }
+
+      // Trigger Delete for existing row
+      if (e.target.closest(".btn-trigger-delete")) {
+        const deleteCheckbox = row.querySelector("input[type='checkbox'][name$='-DELETE']");
+        if (deleteCheckbox) deleteCheckbox.checked = true;
+        const correctCheckbox = row.querySelector("input[type='checkbox'][name$='-is_correct']");
+        if (correctCheckbox) correctCheckbox.checked = false;
+        row.classList.add("is-marked-deleted");
+        refreshBuilderState();
+        return;
+      }
+
+      // Trigger Undo Delete
+      if (e.target.closest(".btn-trigger-undo")) {
+        const deleteCheckbox = row.querySelector("input[type='checkbox'][name$='-DELETE']");
+        if (deleteCheckbox) deleteCheckbox.checked = false;
+        row.classList.remove("is-marked-deleted");
+        refreshBuilderState();
+        return;
+      }
+    });
+
+    // Keyboard support: Enter key in choice input focuses next choice or creates a new one
+    list.addEventListener("keydown", function(e) {
+      if (e.key === "Enter" && e.target.matches("input[type='text']")) {
+        e.preventDefault();
+        const row = e.target.closest(".choice-card-item");
+        const activeRows = Array.from(list.querySelectorAll(".choice-card-item:not(.is-marked-deleted)"));
+        const currentIndex = activeRows.indexOf(row);
+
+        if (currentIndex === activeRows.length - 1) {
+          addChoice();
+        } else {
+          const nextInput = activeRows[currentIndex + 1].querySelector("input[type='text']");
+          if (nextInput) nextInput.focus();
         }
       }
     });
+
+    // Bind Add Choice Buttons
+    if (btnAddTop) btnAddTop.addEventListener("click", addChoice);
+    if (btnAddBottom) btnAddBottom.addEventListener("click", addChoice);
+
+    // Initial State Calculation
+    refreshBuilderState();
   })();
 </script>
 {% endblock %}

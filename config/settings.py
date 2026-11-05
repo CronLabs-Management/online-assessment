@@ -67,6 +67,9 @@ ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1")
 CSRF_TRUSTED_ORIGINS = [
     origin for origin in env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
 ]
+_site_url = os.environ.get("SITE_URL", "").rstrip("/")
+if _site_url and _site_url.startswith(("http://", "https://")) and _site_url not in CSRF_TRUSTED_ORIGINS:
+    CSRF_TRUSTED_ORIGINS.append(_site_url)
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -81,6 +84,7 @@ INSTALLED_APPS = [
 import importlib.util
 
 MIDDLEWARE = [
+    "assessments.middleware.CorrelationIdMiddleware",
     "django.middleware.security.SecurityMiddleware",
     *(["whitenoise.middleware.WhiteNoiseMiddleware"] if importlib.util.find_spec("whitenoise") else []),
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -89,6 +93,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "assessments.middleware.SecurityHeadersMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -203,12 +208,32 @@ CODE_CPU_TIME_LIMIT_S = env_number("CODE_CPU_TIME_LIMIT_S", 2, float)
 CODE_MEMORY_LIMIT_KB = env_number("CODE_MEMORY_LIMIT_KB", 256 * 1024)
 CODE_OUTPUT_LIMIT_KB = env_number("CODE_OUTPUT_LIMIT_KB", 64)
 
-CACHES = {
-    "default": {
-        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-        "LOCATION": "assessments",
+# Shared caching for rate limits, sessions, and multi-process coordination
+REDIS_URL = os.environ.get("REDIS_URL") or os.environ.get("CACHE_URL")
+if REDIS_URL:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": REDIS_URL,
+        }
     }
-}
+elif not DEBUG:
+    # Production without Redis uses the database cache table shared across all Passenger / Gunicorn workers
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+            "LOCATION": "assessment_cache_table",
+        }
+    }
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "assessments",
+        }
+    }
+
+CSP_REPORT_ONLY = env_bool("DJANGO_CSP_REPORT_ONLY", default=False)
 
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 2000
 

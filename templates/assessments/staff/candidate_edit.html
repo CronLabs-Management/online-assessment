@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Edit Candidate | {{ application.full_name }}{% endblock %}
+{% block content %}
+<div class="space-y-6 max-w-xl">
+  <!-- Breadcrumb -->
+  <div>
+    <a href="{% url 'staff_exam_candidates' application.exam_id %}" class="crumb">
+      <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+      <span>Back to Candidates</span>
+    </a>
+  </div>
+
+  <div>
+    <div class="flex items-center gap-2 mb-1">
+      <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-[#EEF1FE] text-[#1E3AC8] border border-blue-200">Candidate Records</span>
+      <span class="text-xs text-slate-400">&bull;</span>
+      <span class="text-xs text-slate-500 font-medium">{{ application.exam.title }}</span>
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Edit Candidate Details</h1>
+    <p class="mt-1 text-sm text-slate-600">
+      Update contact information and candidate access credentials.
+    </p>
+  </div>
+
+  <form method="post" enctype="multipart/form-data" class="card p-6 space-y-5 shadow-xs">
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="alert alert-bad">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <div>
+      <label for="{{ form.full_name.id_for_label }}" class="label text-xs font-semibold">{{ form.full_name.label }}</label>
+      {{ form.full_name }}
+      {% for error in form.full_name.errors %}<p class="errorlist text-xs text-rose-600 mt-1">{{ error }}</p>{% endfor %}
+    </div>
+
+    <div>
+      <label for="{{ form.email.id_for_label }}" class="label text-xs font-semibold">{{ form.email.label }}</label>
+      {{ form.email }}
+      {% for error in form.email.errors %}<p class="errorlist text-xs text-rose-600 mt-1">{{ error }}</p>{% endfor %}
+    </div>
+
+    <div>
+      <label for="{{ form.phone.id_for_label }}" class="label text-xs font-semibold">{{ form.phone.label }}</label>
+      {{ form.phone }}
+      {% for error in form.phone.errors %}<p class="errorlist text-xs text-rose-600 mt-1">{{ error }}</p>{% endfor %}
+    </div>
+
+    <div>
+      <label for="{{ form.resume.id_for_label }}" class="label text-xs font-semibold">{{ form.resume.label }}</label>
+      {% if application.resume %}
+        <div class="mb-2 flex items-center gap-3 text-xs text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+          <span class="font-medium text-slate-700">Current Resume:</span>
+          <a href="{% url 'staff_application_resume' application.pk %}" target="_blank" class="text-[#2447F5] hover:text-[#1E3AC8] font-bold underline inline-flex items-center gap-1">
+            <svg class="w-3.5 h-3.5 text-[#2447F5]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+            View PDF
+          </a>
+          <span class="text-slate-300">&bull;</span>
+          <a href="{% url 'staff_application_resume' application.pk %}?download=1" class="text-slate-600 hover:text-slate-900 font-medium inline-flex items-center gap-1">
+            <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            Download
+          </a>
+        </div>
+      {% endif %}
+      {{ form.resume }}
+      {% if form.resume.help_text %}<p class="text-[11px] text-slate-500 mt-1">{{ form.resume.help_text }}</p>{% endif %}
+      {% for error in form.resume.errors %}<p class="errorlist text-xs text-rose-600 mt-1">{{ error }}</p>{% endfor %}
+    </div>
+
+    <div class="rounded-xl border border-slate-200 bg-slate-50/80 p-4 space-y-1">
+      <label for="{{ form.plain_password.id_for_label }}" class="label text-xs font-bold text-slate-800">{{ form.plain_password.label }}</label>
+      {{ form.plain_password }}
+      {% if form.plain_password.help_text %}<p class="text-[11px] text-slate-500">{{ form.plain_password.help_text }}</p>{% endif %}
+      {% for error in form.plain_password.errors %}<p class="errorlist text-xs text-rose-600 mt-1">{{ error }}</p>{% endfor %}
+    </div>
+
+    <div class="flex items-center gap-3 pt-3 border-t border-slate-100">
+      <button class="btn btn-primary text-xs font-semibold py-2 px-5 shadow-xs">Save Changes</button>
+      <a href="{% url 'staff_exam_candidates' application.exam_id %}" class="btn btn-secondary text-xs py-2 px-4">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

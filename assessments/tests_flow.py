@@ -87,8 +87,14 @@ class CredentialFlowTests(TestCase):
 
     def test_importing_the_same_person_twice_does_not_duplicate(self):
         self._import("asha@example.com, Asha Rao")
-        self._import("asha@example.com, Asha Rao")
+        resp2 = self.client.post(
+            reverse("staff_candidates_import", args=[self.exam.pk]),
+            {"candidates": "asha@example.com, Asha Rao"},
+            follow=True,
+        )
         self.assertEqual(Application.objects.filter(exam=self.exam).count(), 1)
+        self.assertContains(resp2, "Duplicate Candidates Detected")
+        self.assertContains(resp2, "asha@example.com")
 
     def test_login_email_contains_a_password_that_works(self):
         self._import("asha@example.com, Asha Rao")
@@ -129,6 +135,35 @@ class CredentialFlowTests(TestCase):
         self.client.post(reverse("staff_send_credentials", args=[self.exam.pk]), {"mode": "unsent"})
         self.assertEqual(len(mail.outbox), SEND_BATCH)
         self.assertEqual(Application.objects.filter(exam=self.exam, credentials_sent_at__isnull=True).count(), 5)
+
+    def test_bulk_send_to_selected_candidates(self):
+        self._import("cand1@example.com, Cand 1\ncand2@example.com, Cand 2\ncand3@example.com, Cand 3")
+        app1 = self._application("cand1@example.com")
+        app2 = self._application("cand2@example.com")
+        # Send credentials only to app1 and app2
+        response = self.client.post(
+            reverse("staff_send_credentials", args=[self.exam.pk]),
+            {"mode": "selected", "selected_ids": [app1.pk, app2.pk]},
+            follow=True
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(mail.outbox), 2)
+        sent_emails = {m.to[0] for m in mail.outbox}
+        self.assertEqual(sent_emails, {"cand1@example.com", "cand2@example.com"})
+        app1.refresh_from_db()
+        app3 = self._application("cand3@example.com")
+        self.assertIsNotNone(app1.credentials_sent_at)
+        self.assertIsNone(app3.credentials_sent_at)
+
+    def test_export_selected_candidates_to_csv(self):
+        self._import("cand1@example.com, Cand 1\ncand2@example.com, Cand 2\ncand3@example.com, Cand 3")
+        app1 = self._application("cand1@example.com")
+        response = self.client.get(reverse("staff_export_csv", args=[self.exam.pk]) + f"?ids={app1.pk}")
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode("utf-8")
+        self.assertIn("cand1@example.com", content)
+        self.assertNotIn("cand2@example.com", content)
+        self.assertNotIn("cand3@example.com", content)
 
     def test_revoke_and_restore_access(self):
         self._import("asha@example.com, Asha Rao")
@@ -265,7 +300,7 @@ class RunAndSubmitTests(EngineFixture):
     def _assigned_problem_id(self, attempt):
         return AttemptCoding.objects.filter(attempt=attempt).order_by("pk").first().problem_id
 
-    def test_run_reports_hidden_counts_and_stores_nothing(self):
+    def test_run_executes_only_public_cases_and_stores_nothing(self):
         attempt, _ = self._begin_coding()
         problem_id = self._assigned_problem_id(attempt)
         runner = FakeRunner(outputs={"1 2": "3", "5 5": "10", "9 9": "0"})
@@ -278,9 +313,10 @@ class RunAndSubmitTests(EngineFixture):
         result = perform(self.candidate, attempt.pk, run)
         self.assertEqual(CodingSubmission.objects.count(), before)
         self.assertEqual([row["passed"] for row in result["public"]], [True, True])
-        self.assertEqual(set(result["hidden"]), {"passed", "total"})
-        self.assertEqual(result["hidden"]["total"], 1)
-        self.assertEqual(result["hidden"]["passed"], 0)
+        # Hidden test oracle removed: hidden key is completely absent
+        self.assertNotIn("hidden", result)
+        # Runner was invoked only for the 2 public test cases, never the hidden one
+        self.assertEqual(runner.calls, 2)
         # Hidden case inputs and outputs never leave the server.
         self.assertNotIn("9 9", json.dumps(result))
 
@@ -300,6 +336,41 @@ class RunAndSubmitTests(EngineFixture):
         summary = services._public_submission_summary(submission)
         self.assertTrue(summary["final"])
         self.assertEqual(set(summary), {"version", "language", "submitted_at", "final"})
+
+    def test_api_readiness_records_location_and_network_telemetry(self):
+        attempt = self.start()
+        self.client.force_login(self.candidate)
+        payload = {
+            "snapshot_consent": True,
+            "location": {
+                "latitude": 17.3850,
+                "longitude": 78.4867,
+                "accuracy": 12,
+            },
+            "network": {
+                "type": "wifi",
+                "effectiveType": "4g",
+                "rtt": 32,
+                "downlink": 15.5,
+            },
+            "device": {
+                "screen": "1920x1080",
+                "viewport": "1920x960",
+                "platform": "Win32",
+            },
+        }
+        resp = self.client.post(
+            reverse("api_readiness", args=[attempt.pk]),
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, 200)
+        attempt.refresh_from_db()
+        self.assertIsNotNone(attempt.readiness_confirmed_at)
+        self.assertIsNotNone(attempt.device_info)
+        self.assertEqual(attempt.device_info.get("location", {}).get("latitude"), 17.385)
+        self.assertEqual(attempt.device_info.get("network", {}).get("rtt"), 32)
+        self.assertEqual(attempt.device_info.get("screen"), "1920x1080")
 
 
 @override_settings(PASSWORD_HASHERS=FAST_HASHER, PRIVATE_MEDIA_ROOT=TMP_MEDIA)
@@ -337,12 +408,12 @@ class RetentionTests(EngineFixture):
 @override_settings(PRIVATE_MEDIA_ROOT=TMP_MEDIA)
 class PageRenderTests(EngineFixture):
     def test_anonymous_visitor_sees_sign_in_guidance(self):
-        response = self.client.get(reverse("home"))
-        self.assertContains(response, "Sign in with the email address you were given")
+        response = self.client.get(reverse("home"), follow=True)
+        self.assertContains(response, "Sign in")
 
     def test_login_page_asks_for_email(self):
         response = self.client.get(reverse("login"))
-        self.assertContains(response, "Use the email address you were given")
+        self.assertContains(response, "Email")
 
     def test_candidate_pages_render(self):
         self.client.force_login(self.candidate)

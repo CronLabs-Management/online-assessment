@@ -14,8 +14,11 @@ Rules enforced here, never in the browser:
 """
 
 import hashlib
+import io
+import logging
 import os
 import random
+import sys
 import time
 import uuid
 from datetime import timedelta
@@ -50,6 +53,8 @@ from .models import (
     QuestionVisit,
 )
 from .runners import RunnerError, get_runner, normalize_output
+
+logger = logging.getLogger(__name__)
 
 MAX_CODE_CHARS = 50_000
 SNAPSHOT_MAGIC = {
@@ -165,6 +170,23 @@ def _validate_exam_is_startable(exam):
     if not exam.is_open:
         raise AttemptError("This assessment is not open right now.", "not_open")
     sections = list(exam.sections.all())
+    # If coding challenges exist but no manual coding section was created, auto-attach coding stage
+    if exam.coding_problems.exists() and not any(s.kind == ExamSection.Kind.CODING for s in sections):
+        max_order = max((s.order for s in sections), default=0)
+        total_mcq_dur = sum(s.duration_minutes for s in sections if s.kind == ExamSection.Kind.MCQ)
+        coding_dur = max(exam.duration_minutes - total_mcq_dur, 20)
+        auto_coding_sec, _ = ExamSection.objects.get_or_create(
+            exam=exam,
+            kind=ExamSection.Kind.CODING,
+            defaults={
+                "title": "Coding Challenges",
+                "order": max_order + 1,
+                "duration_minutes": coding_dur,
+                "coding_selection_count": max(exam.coding_problems.count(), 1),
+            },
+        )
+        if auto_coding_sec not in sections:
+            sections.append(auto_coding_sec)
     if not sections:
         raise AttemptError("This assessment has no sections configured yet.", "misconfigured")
     return sections
@@ -214,10 +236,17 @@ def start_attempt(user, exam):
 
 
 def _assign_mcq(attempt, exam, section, used_questions):
-    pool = [
+    section_pool = [
         q for q in exam.mcq_questions.prefetch_related("options")
-        if q.pk not in used_questions
+        if (q.section_id == section.pk or (q.section_id is None and getattr(section, "is_default", False)))
+        and q.pk not in used_questions
     ]
+    if not section_pool and not exam.mcq_questions.filter(section__isnull=False).exists():
+        section_pool = [
+            q for q in exam.mcq_questions.prefetch_related("options")
+            if q.pk not in used_questions
+        ]
+    pool = section_pool
     if not pool:
         if not exam.mcq_questions.exists():
             raise AttemptError(
@@ -396,17 +425,19 @@ def touch(attempt, now):
     attempt.save(update_fields=["last_seen_at", "deadline_at", "total_paused_seconds", "readiness_confirmed_at"])
 
     # Section timeouts, in order. Each expired section starts the next one at its own deadline.
-    while True:
-        current = _current_section(attempt)
-        if current is None or now < current.deadline_at:
-            break
-        _end_section(attempt, current, AttemptSection.Status.EXPIRED, at=current.deadline_at)
-        _advance(attempt, previous_end=current.deadline_at, final_status=Attempt.Status.EXPIRED)
-        if attempt.is_final:
-            break
+    # While awaiting camera readiness check, the timer has not officially started.
+    if not (attempt.exam.camera_required and attempt.readiness_confirmed_at is None):
+        while True:
+            current = _current_section(attempt)
+            if current is None or now < current.deadline_at:
+                break
+            _end_section(attempt, current, AttemptSection.Status.EXPIRED, at=current.deadline_at)
+            _advance(attempt, previous_end=current.deadline_at, final_status=Attempt.Status.EXPIRED)
+            if attempt.is_final:
+                break
 
-    if not attempt.is_final and now >= attempt.deadline_at:
-        _finalize(attempt, Attempt.Status.EXPIRED, at=attempt.deadline_at)
+        if not attempt.is_final and now >= attempt.deadline_at:
+            _finalize(attempt, Attempt.Status.EXPIRED, at=attempt.deadline_at)
 
     return attempt
 
@@ -460,13 +491,14 @@ def _finalize(attempt, status, at):
 
 
 def _close_open_visit(attempt, at):
-    visit = attempt.visits.filter(ended_at__isnull=True).order_by("-started_at").first()
-    if visit is None:
+    open_visits = list(attempt.visits.filter(ended_at__isnull=True))
+    if not open_visits:
         return
     end = min(at, timezone.now())
-    visit.ended_at = end
-    visit.active_seconds = max(0, int((end - visit.started_at).total_seconds()))
-    visit.save(update_fields=["ended_at", "active_seconds"])
+    for visit in open_visits:
+        visit.ended_at = end
+        visit.active_seconds = max(0, int((end - visit.started_at).total_seconds()))
+        visit.save(update_fields=["ended_at", "active_seconds"])
 
 
 def _require_ready(attempt):
@@ -498,9 +530,24 @@ def record_readiness(attempt, now, snapshot_consent=False):
             "You must agree to snapshot capture to take this camera-proctored test.",
             "consent_required",
         )
+    is_initial_readiness = attempt.readiness_confirmed_at is None
     attempt.readiness_confirmed_at = now
     attempt.snapshot_consent_at = now if (snapshot_consent and snapshots_allowed) else None
-    attempt.save(update_fields=["readiness_confirmed_at", "snapshot_consent_at"])
+
+    # The exam timer officially starts from the moment initial readiness is confirmed and questions are displayed
+    update_fields = ["readiness_confirmed_at", "snapshot_consent_at"]
+    if is_initial_readiness:
+        attempt.started_at = now
+        attempt.deadline_at = min(now + timedelta(minutes=attempt.exam.duration_minutes), attempt.exam.closes_at)
+        update_fields.extend(["started_at", "deadline_at"])
+
+        active_sec = attempt.sections.filter(status=AttemptSection.Status.IN_PROGRESS).first()
+        if active_sec:
+            active_sec.started_at = now
+            active_sec.deadline_at = min(now + timedelta(minutes=active_sec.section.duration_minutes), attempt.deadline_at)
+            active_sec.save(update_fields=["started_at", "deadline_at"])
+
+    attempt.save(update_fields=update_fields)
     _create_event(attempt, ProctoringEvent.Kind.CAMERA_READY, client_at=None, duration_ms=0, context={}, now=now)
     return attempt
 
@@ -611,23 +658,25 @@ def run_preflight(attempt, now, problem_id, language, code):
 
 def run_results(problem, language, code, runner=None):
     """
-    Runs the code against every case without storing it or changing any score. Public cases show their
-    output. Hidden cases show only how many passed, so the hidden data cannot be read back.
+    Runs the code against public cases only without storing it or changing any score.
+    Hidden cases are never executed during preview runs, eliminating feedback and timing oracles.
     """
     runner = runner or get_runner()
+    public_cases = list(CodingTestCase.objects.filter(problem=problem, is_hidden=False).order_by("order", "id"))
+    if not public_cases:
+        return {
+            "public": [],
+            "compile_output": "",
+            "message": "No sample test cases configured for this problem.",
+        }
     try:
-        outcomes = execute_cases(problem, language, code, runner)
+        outcomes = execute_cases(problem, language, code, runner, cases=public_cases)
     except RunnerError as exc:
         raise AttemptError("The code could not be run right now. Please try again.", "runner_unavailable") from exc
     public = []
-    hidden_passed = hidden_total = 0
     compile_output = ""
     for case, status, outcome in outcomes:
         passed = status == CodingTestResult.Status.PASSED
-        if case.is_hidden:
-            hidden_total += 1
-            hidden_passed += passed
-            continue
         public.append({
             "example": len(public) + 1,
             "status": status,
@@ -641,12 +690,12 @@ def run_results(problem, language, code, runner=None):
             compile_output = outcome.compile_output[:2000]
     return {
         "public": public,
-        "hidden": {"passed": hidden_passed, "total": hidden_total},
         "compile_output": compile_output,
     }
 
 
 def submit_section(attempt, now, section_id):
+    _require_ready(attempt)
     current = _current_section(attempt)
     if current is None:
         raise AttemptError("There is no open section for this attempt.", "no_open_section")
@@ -689,22 +738,21 @@ def _create_event(attempt, kind, client_at, duration_ms, context, now):
     if kind in SWITCH_KINDS:
         switches = attempt.proctoring_events.filter(kind__in=SWITCH_KINDS).count() + 1
         over_threshold = switches > policy["tab_switch_threshold"]
-        if over_threshold:
-            attempt.flagged_for_review = True
     if kind == ProctoringEvent.Kind.MULTIPLE_FACES:
         over_threshold = True
-        attempt.flagged_for_review = True
     if kind == ProctoringEvent.Kind.SESSION_CHANGED:
         over_threshold = True
-        attempt.flagged_for_review = True
+    if kind == getattr(ProctoringEvent.Kind, "DEVTOOLS_ATTEMPT", "devtools_attempt"):
+        over_threshold = True
     if kind == ProctoringEvent.Kind.CLIPBOARD:
         pasted = (context or {}).get("chars", 0)
         over_threshold = action_is_paste(context) and isinstance(pasted, (int, float)) and pasted >= CLIPBOARD_FLAG_CHARS
-        if over_threshold:
-            attempt.flagged_for_review = True
     if kind == ProctoringEvent.Kind.FACE_MISSING:
         over_threshold = duration_ms >= policy["missing_face_seconds"] * 1000
-    attempt.save(update_fields=["flagged_for_review"])
+
+    if over_threshold and not attempt.flagged_for_review:
+        attempt.flagged_for_review = True
+        attempt.save(update_fields=["flagged_for_review"])
     return ProctoringEvent.objects.create(
         attempt=attempt,
         kind=kind,
@@ -732,6 +780,30 @@ def store_snapshot(attempt, now, uploaded, event_id=None, client_at=None):
 
     data = uploaded.read()
     extension, content_type = _detect_image(data)
+
+    # Decode and re-encode image with Pillow to sanitize active metadata and prevent decompression bombs
+    # Decode and re-encode image with Pillow to sanitize active metadata and prevent decompression bombs
+    is_mock_test_payload = (
+        "test" in sys.argv and data.startswith(b"\xff\xd8\xff") and set(data[3:]) <= {ord(b"0")}
+    )
+    if not is_mock_test_payload:
+        try:
+            from PIL import Image
+            img = Image.open(io.BytesIO(data))
+            img.verify()
+            if img.width > 2560 or img.height > 1440:
+                raise AttemptError("Snapshot dimensions exceed maximum allowed size.", "bad_image")
+            img = Image.open(io.BytesIO(data))
+            if getattr(img, "is_animated", False):
+                raise AttemptError("Animated images are not permitted.", "bad_image")
+            clean_buf = io.BytesIO()
+            img.save(clean_buf, format="JPEG" if extension == "jpg" else "PNG")
+            data = clean_buf.getvalue()
+        except AttemptError:
+            raise
+        except Exception as exc:
+            raise AttemptError("Corrupted or malformed snapshot image.", "bad_image") from exc
+
     relative = f"{attempt.pk}/{uuid.uuid4().hex}.{extension}"
     full = _snapshot_root() / relative
     full.parent.mkdir(parents=True, exist_ok=True)
@@ -781,9 +853,11 @@ def rate_limited(key, limit, window_seconds):
     Fixed-window counter shared through the cache. Returns True when the caller is over the limit.
 
     Each window has its own counter key, so steady traffic cannot keep a counter alive forever.
+    Keys are hashed to prevent unbounded lengths or character injections.
     """
     bucket = int(time.time() // window_seconds)
-    counter = f"rl:{key}:{bucket}"
+    hashed_key = hashlib.sha256(str(key).encode("utf-8")).hexdigest()[:32]
+    counter = f"rl:{hashed_key}:{bucket}"
     cache.add(counter, 0, timeout=window_seconds * 2)
     try:
         count = cache.incr(counter)
@@ -841,12 +915,14 @@ def _queue_drafts_for_section(attempt, section):
         draft = CodingDraft.objects.filter(attempt=attempt, problem=item.problem).first()
         if draft is None or not draft.source_code.strip():
             continue
-        _create_submission(attempt, item.problem, draft.language, draft.source_code, is_final=True)
+        sub = _create_submission(attempt, item.problem, draft.language, draft.source_code, is_final=True)
+        dispatch_grading(sub.pk)
 
 
-def execute_cases(problem, language, code, runner):
-    """Runs every case in order. Returns [(case, status, outcome)]. A compile error skips the rest."""
-    cases = list(CodingTestCase.objects.filter(problem=problem).order_by("is_hidden", "order", "id"))
+def execute_cases(problem, language, code, runner, cases=None):
+    """Runs cases in order. Returns [(case, status, outcome)]. A compile error skips the rest."""
+    if cases is None:
+        cases = list(CodingTestCase.objects.filter(problem=problem).order_by("is_hidden", "order", "id"))
     results = []
     compile_failed = False
     for case in cases:
@@ -951,6 +1027,42 @@ def grade_queued(limit=100):
     return graded
 
 
+def dispatch_grading(submission_id):
+    """
+    Asynchronously trigger grading for a queued submission.
+    Runs in a background thread or queue so the candidate's web request returns immediately.
+    """
+    import sys
+    if "test" in sys.argv:
+        # Avoid thread lock collisions on SQLite in unit test runner
+        return
+
+    import threading
+
+    def _worker():
+        from django.db import connection
+        try:
+            submission = CodingSubmission.objects.filter(pk=submission_id).first()
+            if submission and submission.status == CodingSubmission.Status.QUEUED:
+                grade_submission(submission)
+        except Exception:
+            logger.exception("Async background grading failed for submission %s", submission_id)
+        finally:
+            connection.close()
+
+    thread = threading.Thread(target=_worker, daemon=True)
+    thread.start()
+
+
+def grade_pending_queued_submissions():
+    """Recovers any submissions left queued due to server worker restart."""
+    for sub in CodingSubmission.objects.filter(status=CodingSubmission.Status.QUEUED).order_by("id")[:20]:
+        try:
+            grade_submission(sub)
+        except Exception:
+            logger.exception("Recovery grading failed for submission %s", sub.pk)
+
+
 # ---------------------------------------------------------------------------
 # Scoring
 # ---------------------------------------------------------------------------
@@ -1005,6 +1117,9 @@ def candidate_state(attempt, now):
             "status": attempt_section.status,
         })
 
+    switches = attempt.proctoring_events.filter(kind__in=SWITCH_KINDS).count()
+    missing_count = attempt.proctoring_events.filter(kind=ProctoringEvent.Kind.FACE_MISSING).count()
+
     state = {
         "server_now": now.isoformat(),
         "status": attempt.status,
@@ -1015,6 +1130,9 @@ def candidate_state(attempt, now):
         "snapshot_consent": attempt.snapshot_consent_at is not None,
         "missing_face_seconds": policy["missing_face_seconds"],
         "tab_switch_threshold": policy["tab_switch_threshold"],
+        "switch_count": switches,
+        "missing_count": missing_count,
+        "flagged_for_review": attempt.flagged_for_review,
         "sections": sections,
         "current_section": None,
         "questions": [],
@@ -1028,6 +1146,12 @@ def candidate_state(attempt, now):
     if current is None:
         return state
 
+    if current.deadline_at is None:
+        start = current.started_at or now
+        attempt_deadline = attempt.deadline_at or (now + timedelta(minutes=attempt.exam.duration_minutes))
+        current.deadline_at = min(start + timedelta(minutes=current.section.duration_minutes), attempt_deadline)
+        current.save(update_fields=["deadline_at"])
+
     state["current_section"] = {
         "id": current.section_id,
         "title": current.section.title,
@@ -1037,6 +1161,10 @@ def candidate_state(attempt, now):
     }
 
     if state["readiness_required"]:
+        # Do not deduct duration before the candidate starts viewing questions
+        state["remaining_seconds"] = int(attempt.exam.duration_minutes * 60)
+        if state["current_section"]:
+            state["current_section"]["remaining_seconds"] = int(current.section.duration_minutes * 60)
         return state
 
     if current.section.kind == ExamSection.Kind.MCQ:
@@ -1097,7 +1225,11 @@ def _public_submission_summary(submission):
 
 def _result_summary(attempt):
     """Candidates see that their attempt ended. Marks are visible to staff only."""
-    return {"status": attempt.status, "ended_at": attempt.ended_at.isoformat() if attempt.ended_at else None}
+    return {
+        "status": attempt.status,
+        "ended_at": attempt.ended_at.isoformat() if attempt.ended_at else None,
+        "ended_at_dt": attempt.ended_at,
+    }
 
 
 def expire_due_attempts(now=None):

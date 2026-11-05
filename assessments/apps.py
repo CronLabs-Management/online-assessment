@@ -17,3 +17,4 @@ class AssessmentsConfig(AppConfig):
 
     def ready(self):
         connection_created.connect(_sqlite_wal_mode, dispatch_uid="assessments_sqlite_wal")
+        from . import checks  # noqa: F401

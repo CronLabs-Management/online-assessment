@@ -3,16 +3,16 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Unexpected Server Error (500) | Assessments</title>
+  <title>Unexpected Server Error (500) | Online Assessment</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:wght@600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background-color: #F5F7F8;
-      color: #15212B;
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      background-color: #F4F6FB;
+      color: #0F172A;
       line-height: 1.6;
       min-height: 100vh;
       display: flex;
@@ -20,111 +20,133 @@
     }
     header {
       background: #ffffff;
-      border-bottom: 1px solid #DAE1E6;
+      border-bottom: 1px solid #E2E8F0;
       padding: 16px 24px;
     }
     .header-inner {
-      max-width: 1024px;
+      max-width: 1200px;
       margin: 0 auto;
-      font-family: "IBM Plex Serif", Georgia, serif;
-      font-size: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 1.125rem;
+      font-weight: 800;
+      color: #0F172A;
+      letter-spacing: -0.02em;
+    }
+    .header-badge {
+      font-size: 10px;
       font-weight: 700;
-      color: #15212B;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      background: #F1F5F9;
+      color: #475569;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      border: 1px solid #E2E8F0;
     }
     main {
       flex: 1;
-      max-width: 640px;
+      max-width: 600px;
       margin: 0 auto;
-      padding: 48px 24px;
+      padding: 64px 24px;
       text-align: center;
     }
     .badge-icon {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 80px;
-      height: 80px;
+      width: 72px;
+      height: 72px;
       border-radius: 16px;
-      background: #FEE2E2;
-      color: #991B1B;
-      font-size: 2rem;
-      font-weight: 900;
+      background: #FFE4E6;
+      color: #E11D48;
+      font-size: 1.75rem;
+      font-weight: 800;
+      font-family: 'Plus Jakarta Sans', sans-serif;
       margin-bottom: 24px;
+      border: 1px solid #FECDD3;
     }
     h1 {
-      font-family: "IBM Plex Serif", Georgia, serif;
-      font-size: 2.25rem;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 2rem;
       font-weight: 800;
-      letter-spacing: -0.02em;
-      color: #15212B;
+      letter-spacing: -0.025em;
+      color: #0F172A;
       margin-bottom: 12px;
     }
     p {
-      color: #4B5A66;
-      font-size: 1.1rem;
+      color: #475569;
+      font-size: 1rem;
       margin-bottom: 24px;
     }
     .info-card {
       background: #ffffff;
-      border: 1px solid #DAE1E6;
+      border: 1px solid #E2E8F0;
       border-radius: 12px;
-      padding: 24px;
+      padding: 20px 24px;
       text-align: left;
       margin-bottom: 32px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+      box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     }
     .info-card h3 {
-      font-family: "IBM Plex Sans", sans-serif;
-      font-size: 1rem;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 0.95rem;
       font-weight: 700;
-      color: #15212B;
-      margin-bottom: 8px;
+      color: #0F172A;
+      margin-bottom: 6px;
     }
     .info-card p {
-      font-size: 0.95rem;
-      color: #4B5A66;
+      font-size: 0.875rem;
+      color: #475569;
       margin-bottom: 0;
+      line-height: 1.5;
     }
     .actions {
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
-      gap: 16px;
+      gap: 12px;
     }
     .btn {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      padding: 12px 28px;
-      font-size: 1rem;
+      padding: 10px 22px;
+      font-size: 0.875rem;
       font-weight: 600;
-      border-radius: 8px;
+      border-radius: 12px;
       text-decoration: none;
       cursor: pointer;
       transition: all 0.15s ease-in-out;
     }
     .btn-primary {
-      background: #15212B;
+      background: #2447F5;
       color: #ffffff;
-      border: 1px solid #15212B;
+      border: 1px solid #2447F5;
+      box-shadow: 0 2px 6px rgba(36, 71, 245, 0.25);
     }
     .btn-primary:hover {
-      background: #35434E;
+      background: #1E3AC8;
+      border-color: #1E3AC8;
     }
     .btn-secondary {
       background: #ffffff;
-      color: #223039;
-      border: 1px solid #BCC8D0;
+      color: #0F172A;
+      border: 1.5px solid #E2E8F0;
+      box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     }
     .btn-secondary:hover {
-      background: #EBEFF2;
+      background: #F4F6FB;
     }
   </style>
 </head>
 <body>
   <header>
     <div class="header-inner">
-      Assessments
+      <span>Assessments</span>
+      <span class="header-badge">Enterprise Edition</span>
     </div>
   </header>
 
@@ -136,19 +158,19 @@
     <h1>Unexpected Server Error</h1>
 
     <p>
-      An unexpected error occurred while processing your request. Our system administrators have been automatically notified.
+      An unexpected error occurred while processing your request. System telemetry has logged this incident.
     </p>
 
     <div class="info-card">
-      <h3>&#x1F6E1;&#xFE0F; Test Candidates: Your Work is Safe</h3>
+      <h3>Candidate State Protected</h3>
       <p>
-        If you are in the middle of an examination, don't panic. All previously saved responses and timers remain recorded in our database. Wait a few moments, then reload the page to reconnect.
+        If you are currently sitting an examination, your recorded answers, test timer, and proctoring telemetry remain safe on the server. Please wait a moment and reload the page to resume.
       </p>
     </div>
 
     <div class="actions">
       <a href="javascript:location.reload()" class="btn btn-primary">
-        &#x21BB; Reload Page
+        Reload Page
       </a>
       <a href="/" class="btn btn-secondary">
         Return to Dashboard

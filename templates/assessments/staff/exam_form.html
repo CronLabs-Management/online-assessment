@@ -1,37 +1,72 @@
 {% extends "base.html" %}
-{% block title %}{% if exam %}Edit test{% else %}New test{% endif %}{% endblock %}
+{% block title %}{% if exam %}Edit Assessment | {{ exam.title }}{% else %}New Assessment | Staff Console{% endif %}{% endblock %}
 {% block content %}
-{% if exam %}<a href="{% url 'staff_exam_detail' exam.pk %}" class="crumb">Back to {{ exam.title }}</a>{% else %}<a href="{% url 'staff_exam_list' %}" class="crumb">Back to tests</a>{% endif %}
-<h1 class="text-3xl">{% if exam %}Edit test{% else %}New test{% endif %}</h1>
-<p class="mt-2 text-slate-600">{% if exam %}Changes apply to the test straight away.{% else %}The test is created as a draft. Add sections and questions, then publish.{% endif %}</p>
-
-<form method="post" class="mt-8 max-w-2xl space-y-6">
-  {% csrf_token %}
-  {% if form.non_field_errors %}<div class="alert alert-bad">{{ form.non_field_errors }}</div>{% endif %}
-  {% for field in form %}
-    {% if field.field.widget.input_type == 'checkbox' %}
-      <div class="rounded-lg border border-slate-200 bg-slate-50/50 p-4">
-        <label class="flex items-start gap-3 cursor-pointer">
-          <div class="pt-0.5">{{ field }}</div>
-          <div>
-            <span class="text-sm font-medium text-slate-900">{{ field.label }}</span>
-            {% if field.help_text %}<p class="mt-0.5 text-xs text-slate-500">{{ field.help_text }}</p>{% endif %}
-          </div>
-        </label>
-        {% for error in field.errors %}<p class="errorlist">{{ error }}</p>{% endfor %}
-      </div>
+<div class="space-y-6 max-w-2xl">
+  <!-- Breadcrumb -->
+  <div>
+    {% if exam %}
+      <a href="{% url 'staff_exam_detail' exam.pk %}" class="crumb">
+        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        <span>Back to {{ exam.title }}</span>
+      </a>
     {% else %}
-      <div>
-        <label class="label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-        {{ field }}
-        {% if field.help_text %}<p class="helptext">{{ field.help_text }}</p>{% endif %}
-        {% for error in field.errors %}<p class="errorlist">{{ error }}</p>{% endfor %}
-      </div>
+      <a href="{% url 'staff_exam_list' %}" class="crumb">
+        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        <span>Back to Assessments</span>
+      </a>
     {% endif %}
-  {% endfor %}
-  <div class="flex items-center gap-3 pt-2">
-    <button class="btn btn-primary">{% if exam %}Save changes{% else %}Create draft{% endif %}</button>
-    <a href="{% if exam %}{% url 'staff_exam_detail' exam.pk %}{% else %}{% url 'staff_exam_list' %}{% endif %}" class="btn btn-secondary">Cancel</a>
   </div>
-</form>
+
+  <div>
+    <div class="flex items-center gap-2 mb-1">
+      <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-[#EEF1FE] text-[#1E3AC8] border border-blue-200">Assessment Setup</span>
+      <span class="text-xs text-slate-400">&bull;</span>
+      <span class="text-xs text-slate-500 font-medium">{% if exam %}Modify Rules{% else %}Draft Initialization{% endif %}</span>
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">{% if exam %}Edit Assessment Settings{% else %}Create New Assessment{% endif %}</h1>
+    <p class="mt-1 text-sm text-slate-600">
+      {% if exam %}Changes apply to future candidate attempts. Active sessions run on the snapshot captured at attempt start.{% else %}The assessment will be created as a Draft. You can author sections, questions, and test proctoring before publishing.{% endif %}
+    </p>
+  </div>
+
+  <form method="post" class="card p-6 sm:p-8 space-y-6 shadow-xs">
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="alert alert-bad">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <div class="space-y-5">
+      {% for field in form %}
+        {% if field.field.widget.input_type == 'checkbox' %}
+          <div class="rounded-xl border border-slate-200 bg-slate-50/60 p-4 hover:border-slate-300 transition-colors">
+            <label class="flex items-start gap-3 cursor-pointer">
+              <div class="pt-0.5">{{ field }}</div>
+              <div>
+                <span class="text-xs font-bold text-slate-900">{{ field.label }}</span>
+                {% if field.help_text %}<p class="mt-0.5 text-[11px] text-slate-500 leading-relaxed">{{ field.help_text }}</p>{% endif %}
+              </div>
+            </label>
+            {% for error in field.errors %}<p class="errorlist text-xs text-rose-600 mt-1">{{ error }}</p>{% endfor %}
+          </div>
+        {% else %}
+          <div>
+            <label class="label text-xs font-semibold" for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {% if field.help_text %}<p class="helptext text-[11px] text-slate-500 mt-1">{{ field.help_text }}</p>{% endif %}
+            {% for error in field.errors %}<p class="errorlist text-xs text-rose-600 mt-1">{{ error }}</p>{% endfor %}
+          </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+
+    <div class="flex items-center gap-3 pt-4 border-t border-slate-100">
+      <button class="btn btn-primary text-xs font-semibold py-2 px-5 shadow-xs">
+        {% if exam %}Save Assessment Settings{% else %}Create Assessment Draft{% endif %}
+      </button>
+      <a href="{% if exam %}{% url 'staff_exam_detail' exam.pk %}{% else %}{% url 'staff_exam_list' %}{% endif %}" class="btn btn-secondary text-xs py-2 px-4">
+        Cancel
+      </a>
+    </div>
+  </form>
+</div>
 {% endblock %}

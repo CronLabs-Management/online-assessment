@@ -134,7 +134,7 @@ class LocalRunnerTests(TestCase):
 
 
 class RunnerSelectionTests(TestCase):
-    @override_settings(CODE_RUNNER="local")
+    @override_settings(CODE_RUNNER="local", DEBUG=True)
     def test_local_mode_selects_local_runner(self):
         self.assertIsInstance(get_runner(), LocalRunner)
 

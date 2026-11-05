@@ -1,6 +1,8 @@
 import hashlib
 import mimetypes
 import os
+import secrets
+from pathlib import Path
 
 from django.conf import settings as dj_settings
 from django.contrib import messages
@@ -8,9 +10,11 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.views import LoginView
 from django.core.cache import cache
+from django.core.mail import send_mail
 from django.db import transaction
-from django.http import FileResponse, Http404, HttpResponse
+from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
@@ -81,7 +85,11 @@ def _count_login_failure(email, ip):
     for kind, value in (("email", email), ("ip", ip)):
         if value:
             key = _login_key(kind, value)
-            cache.set(key, cache.get(key, 0) + 1, LOGIN_WINDOW_SECONDS)
+            cache.add(key, 0, LOGIN_WINDOW_SECONDS)
+            try:
+                cache.incr(key)
+            except ValueError:
+                cache.set(key, 1, LOGIN_WINDOW_SECONDS)
 
 
 class CandidateLoginView(LoginView):
@@ -111,9 +119,21 @@ class CandidateLoginView(LoginView):
         _count_login_failure(self._submitted_email(), self._client_ip())
         return super().form_invalid(form)
 
+    def get_success_url(self):
+        redirect_to = self.get_redirect_url()
+        if redirect_to:
+            return redirect_to
+        if self.request.user.is_staff or is_reviewer(self.request.user):
+            return reverse("staff_exam_list")
+        return reverse("home")
+
     def form_valid(self, form):
         cache.delete(_login_key("email", self._submitted_email()))
-        return super().form_valid(form)
+        if self._client_ip():
+            cache.delete(_login_key("ip", self._client_ip()))
+        response = super().form_valid(form)
+        self.request.session.cycle_key()
+        return response
 
 
 # ---------------------------------------------------------------------------
@@ -121,9 +141,15 @@ class CandidateLoginView(LoginView):
 # ---------------------------------------------------------------------------
 
 
+def logout_view(request):
+    from django.contrib.auth import logout
+    logout(request)
+    return redirect("login")
+
+
 def home(request):
     if not request.user.is_authenticated:
-        return render(request, "assessments/welcome.html")
+        return redirect("login")
     if request.user.is_staff:
         return redirect("staff_exam_list")
     applications = (
@@ -138,7 +164,12 @@ def home(request):
         for application in applications
         if application.exam.is_published
     ]
-    return render(request, "assessments/home.html", {"rows": rows})
+    completed_attempts = (
+        Attempt.objects.filter(candidate=request.user, status__in=Attempt.FINAL_STATUSES)
+        .select_related("exam")
+        .order_by("-ended_at")
+    )
+    return render(request, "assessments/home.html", {"rows": rows, "completed_attempts": completed_attempts})
 
 
 def candidate_state_for(application, attempt):
@@ -149,14 +180,14 @@ def candidate_state_for(application, attempt):
     if attempt is not None:
         if attempt.is_final:
             return {"code": "ended", "label": "Submitted", "tone": "slate"}
-        return {"code": "in_progress", "label": "In progress", "tone": "amber"}
-    if application.details_confirmed_at is None:
-        return {"code": "confirm", "label": "Confirm your details", "tone": "blue"}
+        return {"code": "in_progress", "label": "In progress", "tone": "blue"}
     if timezone.now() >= exam.closes_at:
         return {"code": "closed", "label": "Closed", "tone": "slate"}
+    if application.details_confirmed_at is None or not application.resume:
+        return {"code": "confirm", "label": "Verify details & resume", "tone": "blue"}
     if timezone.now() < exam.opens_at:
         return {"code": "waiting", "label": "Opens soon", "tone": "slate"}
-    return {"code": "open", "label": "Open", "tone": "green"}
+    return {"code": "open", "label": "Ready to start", "tone": "green"}
 
 
 @login_required
@@ -167,7 +198,16 @@ def exam_detail(request, pk):
     application = Application.objects.filter(candidate=request.user, exam=exam).first()
     if application is None:
         raise Http404("You are not on the list for this assessment.")
+    if application.status == Application.Status.REVOKED:
+        messages.error(request, "Your access to this assessment has been removed.")
+        return redirect("home")
     attempt = Attempt.objects.filter(candidate=request.user, exam=exam).first()
+
+    # Guard: Candidate MUST verify details and upload resume before proceeding to system check & exam
+    if attempt is None and application.details_confirmed_at is None:
+        messages.info(request, "Please verify your candidate details and upload your resume before proceeding to the system check.")
+        return redirect("confirm_details", pk=exam.pk)
+
     return render(
         request,
         "assessments/exam_detail.html",
@@ -179,6 +219,28 @@ def exam_detail(request, pk):
             "server_now": timezone.now(),
         },
     )
+
+
+@login_required
+def candidate_resume(request, pk):
+    """Allow an authenticated candidate to view or download their uploaded resume."""
+    exam = get_object_or_404(Exam, pk=pk, is_published=True)
+    application = get_object_or_404(Application, candidate=request.user, exam=exam)
+    if not application.resume or not application.resume.name:
+        raise Http404("No resume uploaded.")
+    try:
+        file_path = application.resume.path
+        if not os.path.exists(file_path):
+            raise Http404("Resume file not found.")
+        content_type, _ = mimetypes.guess_type(file_path)
+        response = FileResponse(open(file_path, "rb"), content_type=content_type or "application/pdf")
+        if request.GET.get("download") == "1":
+            response["Content-Disposition"] = f'attachment; filename="{os.path.basename(file_path)}"'
+        else:
+            response["Content-Disposition"] = f'inline; filename="{os.path.basename(file_path)}"'
+        return response
+    except Exception:
+        raise Http404("Unable to read resume.")
 
 
 def serve_branding(request, kind):
@@ -202,16 +264,41 @@ def confirm_details(request, pk):
     if application.status == Application.Status.REVOKED:
         messages.error(request, "Your access to this assessment has been removed.")
         return redirect("home")
+    if timezone.now() >= exam.closes_at:
+        messages.error(request, "This assessment window has closed.")
+        return redirect("home")
+    attempt = Attempt.objects.filter(candidate=request.user, exam=exam).first()
+    if attempt and attempt.is_final:
+        messages.info(request, "You have already completed and submitted this assessment.")
+        return redirect("attempt_result", pk=attempt.pk)
+
     if request.method == "POST":
         form = ConfirmDetailsForm(request.POST, request.FILES, instance=application)
         if form.is_valid():
+            if not application.resume and not request.FILES.get("resume"):
+                form.add_error("resume", "Please upload your resume before proceeding.")
+                return render(request, "assessments/confirm_details.html", {"exam": exam, "application": application, "form": form})
             application = form.save(commit=False)
             application.details_confirmed_at = timezone.now()
-            application.save()
             new_email = form.cleaned_data.get("email", "").strip().lower()
             if new_email and application.candidate.email != new_email:
-                application.candidate.email = new_email
-                application.candidate.save(update_fields=["email"])
+                raw_token = secrets.token_urlsafe(32)
+                application.pending_email = new_email
+                application.email_verification_token = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+                application.email_verification_sent_at = timezone.now()
+                verify_url = request.build_absolute_uri(reverse("verify_email", args=[raw_token]))
+                try:
+                    send_mail(
+                        subject=f"Verify your email address for {exam.title}",
+                        message=f"Please confirm your new email address by visiting:\n{verify_url}\n\nThis verification link expires in 24 hours.",
+                        from_email=dj_settings.DEFAULT_FROM_EMAIL,
+                        recipient_list=[new_email],
+                        fail_silently=True,
+                    )
+                except Exception:
+                    pass
+                messages.info(request, f"A verification email was sent to {new_email}. Your login email will update once verified.")
+            application.save()
             messages.success(request, "Thank you. Your details and resume have been confirmed.")
             return redirect("exam_detail", pk=exam.pk)
     else:
@@ -267,10 +354,18 @@ def staff_exam_detail(request, pk):
     exam = get_object_or_404(Exam, pk=pk)
     checks = publish_checks(exam)
     blocking_failures = [c for c in checks if c["blocking"] and not c["ok"]]
+    default_sec = exam.get_default_section()
+    mcq_sections = list(exam.sections.filter(kind=ExamSection.Kind.MCQ).order_by("order", "id"))
+    questions = list(exam.mcq_questions.select_related("section").prefetch_related("options").order_by("order", "id"))
+    for sec in mcq_sections:
+        sec.assigned_questions = [q for q in questions if q.section_id == sec.pk or (not q.section_id and sec.is_default)]
+
     context = {
         "exam": exam,
+        "default_section": default_sec,
+        "mcq_sections": mcq_sections,
         "sections": exam.sections.all(),
-        "mcq_questions": exam.mcq_questions.prefetch_related("options"),
+        "mcq_questions": questions,
         "coding_problems": exam.coding_problems.prefetch_related("test_cases"),
         "section_form": ExamSectionForm(prefix="section"),
         "checks": checks,
@@ -367,18 +462,25 @@ def staff_section_edit(request, pk):
 def staff_section_delete(request, pk):
     section = get_object_or_404(ExamSection, pk=pk)
     exam_pk = section.exam.pk
+    exam = section.exam
+    if section.is_default:
+        messages.error(request, "The default section cannot be deleted.")
+        return redirect("staff_exam_detail", pk=exam_pk)
     title = section.title
+    default_sec = exam.get_default_section()
+    reassigned = exam.mcq_questions.filter(section=section).update(section=default_sec)
     section.delete()
-    audit(request.user, "section.deleted", f"exam:{exam_pk}", title)
-    messages.success(request, f"Section '{title}' deleted.")
+    audit(request.user, "section.deleted", f"exam:{exam_pk}", f"{title} (reassigned {reassigned} to default)")
+    messages.success(request, f"Section '{title}' deleted. {reassigned} question(s) moved to '{default_sec.title}'.")
     return redirect("staff_exam_detail", pk=exam_pk)
 
 
 @staff_required
 def staff_mcq_add(request, pk):
     exam = get_object_or_404(Exam, pk=pk)
+    initial_sec = request.GET.get("section")
     if request.method == "POST":
-        question_form = MCQQuestionForm(request.POST)
+        question_form = MCQQuestionForm(request.POST, exam=exam, initial_section_id=initial_sec)
         option_formset = MCQOptionFormSet(request.POST, prefix="options")
         if question_form.is_valid() and option_formset.is_valid():
             filled = [f for f in option_formset.forms if f.cleaned_data and f.cleaned_data.get("text") and not f.cleaned_data.get("DELETE")]
@@ -391,6 +493,21 @@ def staff_mcq_add(request, pk):
                 with transaction.atomic():
                     question = question_form.save(commit=False)
                     question.exam = exam
+                    new_sec_title = (question_form.cleaned_data.get("new_section_title") or "").strip()
+                    if new_sec_title:
+                        from django.db.models import Max
+                        max_order = exam.sections.aggregate(m=Max("order"))["m"] or 0
+                        sec = ExamSection.objects.create(
+                            exam=exam,
+                            title=new_sec_title,
+                            kind=ExamSection.Kind.MCQ,
+                            order=max_order + 1,
+                            duration_minutes=30,
+                            question_count=0,
+                        )
+                        question.section = sec
+                    elif not question.section_id:
+                        question.section = exam.get_default_section()
                     question.save()
                     for index, form in enumerate(filled, start=1):
                         option = form.save(commit=False)
@@ -398,10 +515,10 @@ def staff_mcq_add(request, pk):
                         option.order = index
                         option.save()
                 audit(request.user, "mcq.created", f"exam:{exam.pk}", question.text[:100])
-                messages.success(request, "Question added.")
-                return redirect("staff_exam_detail", pk=exam.pk)
+                messages.success(request, f"Question added to section '{question.section.title}'.")
+                return redirect(f"{reverse('staff_exam_detail', kwargs={'pk': exam.pk})}#section-{question.section_id}")
     else:
-        question_form = MCQQuestionForm(initial={"order": exam.mcq_questions.count() + 1})
+        question_form = MCQQuestionForm(initial={"order": exam.mcq_questions.count() + 1}, exam=exam, initial_section_id=initial_sec)
         option_formset = MCQOptionFormSet(prefix="options")
     return render(
         request,
@@ -415,7 +532,7 @@ def staff_mcq_edit(request, pk):
     question = get_object_or_404(MCQQuestion, pk=pk)
     exam = question.exam
     if request.method == "POST":
-        question_form = MCQQuestionForm(request.POST, instance=question)
+        question_form = MCQQuestionForm(request.POST, instance=question, exam=exam)
         option_formset = MCQOptionEditFormSet(request.POST, instance=question, prefix="options")
         if question_form.is_valid() and option_formset.is_valid():
             filled = [f for f in option_formset.forms if f.cleaned_data and f.cleaned_data.get("text") and not f.cleaned_data.get("DELETE")]
@@ -426,7 +543,23 @@ def staff_mcq_edit(request, pk):
                 option_formset._non_form_errors = option_formset.error_class(["Mark exactly one option as correct."])
             else:
                 with transaction.atomic():
-                    question = question_form.save()
+                    question = question_form.save(commit=False)
+                    new_sec_title = (question_form.cleaned_data.get("new_section_title") or "").strip()
+                    if new_sec_title:
+                        from django.db.models import Max
+                        max_order = exam.sections.aggregate(m=Max("order"))["m"] or 0
+                        sec = ExamSection.objects.create(
+                            exam=exam,
+                            title=new_sec_title,
+                            kind=ExamSection.Kind.MCQ,
+                            order=max_order + 1,
+                            duration_minutes=30,
+                            question_count=0,
+                        )
+                        question.section = sec
+                    elif not question.section_id:
+                        question.section = exam.get_default_section()
+                    question.save()
                     for form in option_formset.deleted_forms:
                         if form.instance.pk:
                             form.instance.delete()
@@ -436,10 +569,10 @@ def staff_mcq_edit(request, pk):
                         option.order = index
                         option.save()
                 audit(request.user, "mcq.updated", f"exam:{exam.pk}", question.text[:100])
-                messages.success(request, "Multiple choice question updated.")
-                return redirect("staff_exam_detail", pk=exam.pk)
+                messages.success(request, f"Multiple choice question updated in '{question.section.title}'.")
+                return redirect(f"{reverse('staff_exam_detail', kwargs={'pk': exam.pk})}#section-{question.section_id}")
     else:
-        question_form = MCQQuestionForm(instance=question)
+        question_form = MCQQuestionForm(instance=question, exam=exam)
         option_formset = MCQOptionEditFormSet(instance=question, prefix="options")
     return render(
         request,
@@ -636,4 +769,120 @@ def robots_txt_view(request):
     """Serve a basic robots.txt to prevent crawler 404 warnings."""
     content = "User-agent: *\nDisallow: /admin/\nDisallow: /staff/\nDisallow: /api/\n"
     return HttpResponse(content, content_type="text/plain")
+
+
+@login_required
+def verify_email(request, token):
+    """Confirm a candidate email change after verifying token possession."""
+    if not token or len(token) < 16:
+        messages.error(request, "Invalid email verification link.")
+        return redirect("home")
+    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    cutoff = timezone.now() - timezone.timedelta(hours=24)
+    application = Application.objects.filter(
+        email_verification_token=token_hash,
+        email_verification_sent_at__gte=cutoff,
+    ).select_related("candidate").first()
+    if application is None:
+        messages.error(request, "This verification link is invalid or has expired.")
+        return redirect("home")
+
+    if request.user != application.candidate and not request.user.is_staff:
+        messages.error(request, "You are not authorized to verify this email address.")
+        return redirect("home")
+
+    with transaction.atomic():
+        old_email = application.candidate.email
+        new_email = application.pending_email
+        if new_email:
+            application.candidate.email = new_email
+            # Sync username if candidate username was old email
+            if application.candidate.username == old_email or not application.candidate.username:
+                application.candidate.username = new_email
+            application.candidate.save(update_fields=["email", "username"])
+            audit(request.user if request.user.is_authenticated else None, "candidate.email_verified", f"candidate:{application.candidate_id}", f"from={old_email} to={new_email}")
+        application.pending_email = ""
+        application.email_verification_token = ""
+        application.save(update_fields=["pending_email", "email_verification_token"])
+
+    messages.success(request, f"Your email address has been verified as {new_email}.")
+    return redirect("home")
+
+
+def setup_account(request, token):
+    """Single-use setup/login link for candidate onboarding and passwordless access."""
+    if not token or len(token) < 16:
+        messages.error(request, "Invalid setup link.")
+        return redirect("login")
+    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    application = Application.objects.filter(
+        setup_token_hash=token_hash,
+        setup_token_used_at__isnull=True,
+        setup_token_expires_at__gte=timezone.now(),
+    ).select_related("candidate").first()
+
+    if application is None:
+        messages.error(request, "This setup link is invalid, expired, or has already been used.")
+        return redirect("login")
+
+    candidate = application.candidate
+    if not candidate or not candidate.is_active:
+        messages.error(request, "This candidate account is inactive. Please contact the coordinator.")
+        return redirect("login")
+
+    with transaction.atomic():
+        updated = Application.objects.filter(
+            pk=application.pk,
+            setup_token_used_at__isnull=True,
+        ).update(setup_token_used_at=timezone.now())
+        if not updated:
+            messages.error(request, "This setup link is invalid, expired, or has already been used.")
+            return redirect("login")
+
+    from django.contrib.auth import login
+    login(request, candidate)
+    request.session.cycle_key()
+    audit(candidate, "auth.setup_token_login", f"candidate:{application.candidate_id}")
+    messages.success(request, f"Welcome, {application.full_name}. You have been signed in successfully.")
+    return redirect("home")
+
+
+def health_check(request):
+    """Liveness probe: verifies web server process is responsive."""
+    return JsonResponse({"status": "ok", "timestamp": timezone.now().isoformat()})
+
+
+def readiness_check(request):
+    """Readiness probe: verifies critical dependencies without exposing secrets."""
+    status = {"database": "ok", "cache": "ok", "storage": "ok"}
+    is_ready = True
+
+    try:
+        from django.db import connection
+        connection.ensure_connection()
+    except Exception:
+        status["database"] = "unavailable"
+        is_ready = False
+
+    try:
+        cache.set("_readiness_probe", 1, 10)
+        if cache.get("_readiness_probe") != 1:
+            status["cache"] = "unresponsive"
+            is_ready = False
+    except Exception:
+        status["cache"] = "unavailable"
+        is_ready = False
+
+    try:
+        storage_path = Path(dj_settings.PRIVATE_MEDIA_ROOT)
+        storage_path.mkdir(parents=True, exist_ok=True)
+        test_file = storage_path / ".readiness_probe"
+        test_file.write_text("probe", encoding="utf-8")
+        test_file.unlink(missing_ok=True)
+    except Exception:
+        status["storage"] = "unavailable"
+        is_ready = False
+
+    http_status = 200 if is_ready else 503
+    return JsonResponse({"status": "ready" if is_ready else "degraded", "dependencies": status}, status=http_status)
 

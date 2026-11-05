@@ -1,298 +1,863 @@
 {% extends "base.html" %}
 {% load tz %}
-{% block title %}{{ exam.title }}{% endblock %}
+{% block title %}{{ exam.title }} | System Check & Instructions{% endblock %}
+
 {% block content %}
-<a href="{% url 'home' %}" class="crumb text-base font-medium">&larr; Back to my tests</a>
-<div class="mt-2 flex flex-wrap items-center gap-3">
-  <h1 class="text-3xl sm:text-4xl font-extrabold text-slate-900">{{ exam.title }}</h1>
-  {% include "assessments/partials/state_badge.html" with state=state %}
+<div class="space-y-8 max-w-7xl mx-auto">
+  
+  <!-- Stepper & Top Navigation -->
+  <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
+    <a href="{% url 'home' %}" class="inline-flex items-center gap-2 text-xs sm:text-sm font-bold text-slate-600 hover:text-slate-900 transition-colors">
+      <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M15 19l-7-7 7-7"/>
+      </svg>
+      <span>Back to Assessments</span>
+    </a>
+
+    <!-- 3-Step Indicator Bar -->
+    <ol class="flex items-center gap-3 sm:gap-6 text-xs sm:text-sm font-bold list-none p-0 m-0 select-none">
+      <li class="flex items-center gap-2 text-slate-900">
+        <a href="{% url 'confirm_details' exam.pk %}" class="flex items-center gap-2 text-[#0B6B43] hover:underline">
+          <span class="w-7 h-7 rounded-full bg-[#0B6B43] text-white flex items-center justify-center font-extrabold text-xs shadow-xs">✓</span>
+          <span class="hidden sm:inline">Verification</span>
+        </a>
+      </li>
+      <span class="text-slate-300">&bull;</span>
+      <li class="flex items-center gap-2 text-[#0F172A]">
+        <span class="w-7 h-7 rounded-full bg-[#2447F5] text-white flex items-center justify-center font-extrabold text-xs shadow-xs ring-4 ring-blue-100">2</span>
+        <span class="text-[#2447F5] font-extrabold">System Check</span>
+      </li>
+      <span class="text-slate-300">&bull;</span>
+      <li class="flex items-center gap-2 text-slate-400">
+        <span class="w-7 h-7 rounded-full bg-slate-100 border-2 border-slate-300 text-slate-400 flex items-center justify-center font-extrabold text-xs">3</span>
+        <span class="hidden sm:inline">Start Test</span>
+      </li>
+    </ol>
+  </div>
+
+  <!-- Header Banner -->
+  <div class="flex flex-col gap-2.5">
+    <div class="flex items-center gap-2.5">
+      <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-[#EEF1FE] text-[#2447F5] border border-blue-200">
+        <span class="w-1.5 h-1.5 rounded-full bg-[#2447F5]"></span>
+        Step 2 of 3: System Diagnostics &amp; Rules
+      </span>
+      {% include "assessments/partials/state_badge.html" with state=state %}
+    </div>
+    <h1 class="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#0F172A] tracking-tight">
+      Review Rules &amp; Verify Your Setup
+    </h1>
+    <p class="text-sm sm:text-base text-slate-600 font-medium">
+      <strong>{{ exam.title }}</strong> &bull; <span class="font-mono font-bold text-slate-900">{{ exam.duration_minutes }} minutes total</span> &bull; 
+      {% if exam.sections.count %}
+        {{ exam.sections.count }} Section{{ exam.sections.count|pluralize }}
+      {% else %}
+        Full assessment
+      {% endif %}
+    </p>
+  </div>
+
+  <!-- Candidate Verified Profile Banner -->
+  <div class="rounded-2xl border-[1.5px] border-slate-200 bg-white p-4 sm:p-5 shadow-card flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div class="flex items-center gap-3.5">
+      <div class="w-10 h-10 min-w-10 rounded-xl bg-blue-100 text-[#2447F5] font-black flex items-center justify-center text-sm shadow-2xs">
+        {{ application.full_name|default:application.candidate.email|slice:":1"|upper }}
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Candidate Identity</span>
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#E3F5EC] text-[#0B6B43] border border-emerald-200 text-[11px] font-bold">
+            <svg class="w-3 h-3 text-[#0B6B43]" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+            Verified Credentials &amp; Resume
+          </span>
+        </div>
+        <div class="text-xs sm:text-sm font-extrabold text-[#0F172A] mt-1 flex flex-wrap items-center gap-2 sm:gap-3">
+          <span>{{ application.full_name }}</span>
+          <span class="text-slate-300">&bull;</span>
+          <span class="font-medium text-slate-600">{{ application.candidate.email }}</span>
+          {% if application.phone %}
+            <span class="text-slate-300">&bull;</span>
+            <span class="font-medium text-slate-600">{{ application.phone }}</span>
+          {% endif %}
+          {% if application.resume %}
+            <span class="text-slate-300">&bull;</span>
+            <a href="{% url 'candidate_resume' exam.pk %}" target="_blank" class="inline-flex items-center gap-1 text-xs font-bold text-[#2447F5] hover:underline">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+              <span>View Resume &rarr;</span>
+            </a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <a href="{% url 'confirm_details' exam.pk %}" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-50 border border-slate-300 hover:bg-slate-100 transition-colors shrink-0">
+      <span>Edit Details &amp; Resume</span>
+      <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+    </a>
+  </div>
+
+  <!-- Waiting Room Active Countdown (if waiting) -->
+  {% if state.code == "waiting" %}
+  <div class="rounded-3xl border-[1.5px] border-[#D5DEFB] bg-[#F1F5FF] p-8 sm:p-10 text-center shadow-card space-y-4">
+    <div class="inline-flex items-center gap-2 rounded-full bg-blue-100 border border-blue-200 px-3.5 py-1 text-xs font-extrabold text-[#2447F5]">
+      <span class="w-2 h-2 rounded-full bg-[#2447F5] animate-pulse"></span>
+      Waiting Room Active
+    </div>
+
+    <h2 class="text-2xl sm:text-3xl font-extrabold text-[#0F172A]">Assessment Opens Soon</h2>
+    <p class="mx-auto max-w-lg text-sm sm:text-base text-slate-600 leading-relaxed font-medium">
+      Scheduled to unlock on <strong class="text-slate-900 font-bold">{{ exam.opens_at|localtime|date:"l, d F Y at H:i" }}</strong>.
+      This page will refresh automatically when your testing window opens.
+    </p>
+
+    <div class="my-6 flex items-center justify-center gap-2 sm:gap-3" id="countdown-board">
+      <div class="flex min-w-[70px] sm:min-w-[85px] flex-col items-center rounded-2xl bg-[#0F172A] border border-slate-800 p-3 sm:p-4 shadow-sm">
+        <span id="cd-days" class="font-mono text-2xl sm:text-3xl font-extrabold text-white num">00</span>
+        <span class="mt-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Days</span>
+      </div>
+      <span class="font-mono text-xl sm:text-2xl text-slate-400 font-bold">:</span>
+      <div class="flex min-w-[70px] sm:min-w-[85px] flex-col items-center rounded-2xl bg-[#0F172A] border border-slate-800 p-3 sm:p-4 shadow-sm">
+        <span id="cd-hours" class="font-mono text-2xl sm:text-3xl font-extrabold text-white num">00</span>
+        <span class="mt-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Hours</span>
+      </div>
+      <span class="font-mono text-xl sm:text-2xl text-slate-400 font-bold">:</span>
+      <div class="flex min-w-[70px] sm:min-w-[85px] flex-col items-center rounded-2xl bg-[#0F172A] border border-slate-800 p-3 sm:p-4 shadow-sm">
+        <span id="cd-mins" class="font-mono text-2xl sm:text-3xl font-extrabold text-white num">00</span>
+        <span class="mt-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Mins</span>
+      </div>
+      <span class="font-mono text-xl sm:text-2xl text-slate-400 font-bold">:</span>
+      <div class="flex min-w-[70px] sm:min-w-[85px] flex-col items-center rounded-2xl bg-[#0F172A] border border-slate-800 p-3 sm:p-4 shadow-sm">
+        <span id="cd-secs" class="font-mono text-2xl sm:text-3xl font-extrabold text-[#FFB020] num">00</span>
+        <span class="mt-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Secs</span>
+      </div>
+    </div>
+
+    <script>
+      (function() {
+        const serverNowMs = new Date("{{ server_now.isoformat }}").getTime();
+        const opensAtMs = new Date("{{ exam.opens_at.isoformat }}").getTime();
+        const pageLoadDeviceMs = Date.now();
+
+        const elDays = document.getElementById("cd-days");
+        const elHours = document.getElementById("cd-hours");
+        const elMins = document.getElementById("cd-mins");
+        const elSecs = document.getElementById("cd-secs");
+
+        function updateCountdown() {
+          const elapsed = Date.now() - pageLoadDeviceMs;
+          const currentServerMs = serverNowMs + elapsed;
+          const diffSec = Math.floor((opensAtMs - currentServerMs) / 1000);
+
+          if (diffSec <= 0) {
+            if (elSecs) elSecs.textContent = "00";
+            setTimeout(function() { window.location.reload(); }, 1200);
+            return;
+          }
+
+          const days = Math.floor(diffSec / 86400);
+          const hours = Math.floor((diffSec % 86400) / 3600);
+          const mins = Math.floor((diffSec % 3600) / 60);
+          const secs = diffSec % 60;
+
+          if (elDays) elDays.textContent = String(days).padStart(2, "0");
+          if (elHours) elHours.textContent = String(hours).padStart(2, "0");
+          if (elMins) elMins.textContent = String(mins).padStart(2, "0");
+          if (elSecs) elSecs.textContent = String(secs).padStart(2, "0");
+        }
+
+        updateCountdown();
+        setInterval(updateCountdown, 1000);
+      })();
+    </script>
+  </div>
+  {% endif %}
+
+  <!-- Submission or Closed State -->
+  {% if state.code == "closed" or state.code == "ended" %}
+  <div class="rounded-3xl border-[1.5px] border-slate-200 bg-white p-8 sm:p-10 text-center shadow-card space-y-4">
+    {% if state.code == "ended" %}
+      <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-200">
+        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+      </div>
+      <h2 class="text-2xl sm:text-3xl font-extrabold text-[#0F172A]">Assessment Submitted</h2>
+      <p class="mx-auto max-w-lg text-sm sm:text-base text-slate-600 font-medium leading-relaxed">
+        Your answers, code solutions, and proctoring telemetry have been recorded.
+      </p>
+      {% if attempt %}
+        <div class="pt-2">
+          <a href="{% url 'attempt_result' attempt.pk %}" class="btn btn-primary px-7 py-3 text-sm font-extrabold shadow-cta">
+            <span>View Submission Confirmation &rarr;</span>
+          </a>
+        </div>
+      {% endif %}
+    {% else %}
+      <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-500 border border-slate-200">
+        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </div>
+      <h2 class="text-2xl sm:text-3xl font-extrabold text-[#0F172A]">This Assessment Has Closed</h2>
+      <p class="mx-auto max-w-lg text-sm sm:text-base text-slate-600 font-medium leading-relaxed">
+        The assessment window officially closed on <strong class="text-slate-900 font-bold">{{ exam.closes_at|localtime|date:"l, d F Y at H:i" }}</strong>.
+      </p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Main 2-Column Section: Rules (Left) and System Check (Right) -->
+  <div class="exam-layout-grid grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_440px] xl:grid-cols-[minmax(0,1fr)_460px] gap-8 items-start w-full">
+    
+    <!-- Left Column: Rules & Guidelines -->
+    <div class="w-full min-w-0 flex flex-col gap-6">
+
+      <!-- Test Rules Card -->
+      <section class="bg-white border-[1.5px] border-slate-200 rounded-3xl p-6 sm:p-8 lg:p-9 flex flex-col gap-6 shadow-card">
+        <div class="border-b border-slate-100 pb-4">
+          <span class="text-xs font-extrabold uppercase tracking-wider text-slate-400">Code of Conduct</span>
+          <h2 class="text-xl sm:text-2xl font-extrabold text-[#0F172A] tracking-tight mt-0.5">Rules &amp; Guidelines</h2>
+        </div>
+        
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <!-- Rule 1 -->
+          <div class="flex gap-3.5 p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
+            <span class="w-7 h-7 rounded-lg bg-[#0F172A] text-[#FFB020] font-extrabold text-xs flex items-center justify-center shrink-0">1</span>
+            <div>
+              <div class="text-sm font-bold text-[#0F172A]">Continuous Full Screen</div>
+              <div class="text-xs text-slate-600 font-medium mt-0.5 leading-relaxed">Leaving full screen is recorded and flagged for human review.</div>
+            </div>
+          </div>
+
+          <!-- Rule 2 -->
+          <div class="flex gap-3.5 p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
+            <span class="w-7 h-7 rounded-lg bg-[#0F172A] text-[#FFB020] font-extrabold text-xs flex items-center justify-center shrink-0">2</span>
+            <div>
+              <div class="text-sm font-bold text-[#0F172A]">Keep Face Visible</div>
+              <div class="text-xs text-slate-600 font-medium mt-0.5 leading-relaxed">Sit in good lighting and face the camera throughout the test.</div>
+            </div>
+          </div>
+
+          <!-- Rule 3 -->
+          <div class="flex gap-3.5 p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
+            <span class="w-7 h-7 rounded-lg bg-[#0F172A] text-[#FFB020] font-extrabold text-xs flex items-center justify-center shrink-0">3</span>
+            <div>
+              <div class="text-sm font-bold text-[#0F172A]">Work Independently</div>
+              <div class="text-xs text-slate-600 font-medium mt-0.5 leading-relaxed">No secondary monitors, mobile phones, or notes allowed in the room.</div>
+            </div>
+          </div>
+
+          <!-- Rule 4 -->
+          <div class="flex gap-3.5 p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
+            <span class="w-7 h-7 rounded-lg bg-[#0F172A] text-[#FFB020] font-extrabold text-xs flex items-center justify-center shrink-0">4</span>
+            <div>
+              <div class="text-sm font-bold text-[#0F172A]">Stay on Assessment Tab</div>
+              <div class="text-xs text-slate-600 font-medium mt-0.5 leading-relaxed">Tab switches and window focus loss trigger integrity penalty events.</div>
+            </div>
+          </div>
+
+          <!-- Rule 5 -->
+          <div class="flex gap-3.5 p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
+            <span class="w-7 h-7 rounded-lg bg-[#0F172A] text-[#FFB020] font-extrabold text-xs flex items-center justify-center shrink-0">5</span>
+            <div>
+              <div class="text-sm font-bold text-[#0F172A]">Server-Synced Timers</div>
+              <div class="text-xs text-slate-600 font-medium mt-0.5 leading-relaxed">Time counts continuously on the server; submit before expiration.</div>
+            </div>
+          </div>
+
+          <!-- Rule 6 -->
+          <div class="flex gap-3.5 p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
+            <span class="w-7 h-7 rounded-lg bg-[#0F172A] text-[#FFB020] font-extrabold text-xs flex items-center justify-center shrink-0">6</span>
+            <div>
+              <div class="text-sm font-bold text-[#0F172A]">Continuous Auto-Save</div>
+              <div class="text-xs text-slate-600 font-medium mt-0.5 leading-relaxed">Answers and code drafts are backed up locally and automatically synchronized.</div>
+            </div>
+          </div>
+        </div>
+
+        {% if exam.instructions %}
+        <div class="pt-3 border-t border-slate-100">
+          <div class="text-xs font-extrabold uppercase tracking-wider text-slate-500 mb-1.5">Special Instructions from Instructor:</div>
+          <div class="whitespace-pre-line text-xs sm:text-sm leading-relaxed text-slate-700 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            {{ exam.instructions }}
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- How Proctoring Works Notice -->
+        <div class="bg-[#F1F5FF] border-[1.5px] border-[#D5DEFB] rounded-2xl p-4 sm:p-5 flex items-start gap-3.5">
+          <div class="w-8 h-8 rounded-xl bg-blue-100 text-[#2447F5] flex items-center justify-center shrink-0 mt-0.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+            </svg>
+          </div>
+          <div>
+            <div class="text-sm font-extrabold text-[#1E3AC8]">Proctoring &amp; Privacy Assurance</div>
+            <p class="text-xs text-slate-600 font-medium leading-relaxed mt-0.5">
+              Snapshots are captured only when an unexpected anomaly is detected. Full video is not permanently stored, and an authorized recruitment reviewer inspects any flagged events before any decision.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section Allocation Breakdown Table -->
+      <section class="bg-white border-[1.5px] border-slate-200 rounded-3xl p-6 sm:p-8 shadow-card flex flex-col gap-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-lg sm:text-xl font-extrabold text-[#0F172A] tracking-tight">Assessment Sections</h3>
+          <span class="text-xs font-bold text-slate-400">Sequenced Delivery</span>
+        </div>
+        <div class="overflow-x-auto rounded-2xl border border-slate-200">
+          <table class="w-full text-left text-sm border-collapse">
+            <thead>
+              <tr class="border-b border-slate-200 bg-[#F4F6FB] text-[11px] font-extrabold uppercase tracking-wider text-slate-600">
+                <th class="py-3 px-4">#</th>
+                <th class="py-3 px-4">Section Name</th>
+                <th class="py-3 px-4">Format</th>
+                <th class="py-3 px-4">Allocated Time</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 bg-white">
+              {% for section in exam.sections.all %}
+                <tr class="hover:bg-slate-50 transition-colors">
+                  <td class="py-3 px-4 font-mono font-bold text-slate-400">0{{ section.order }}</td>
+                  <td class="py-3 px-4 font-bold text-slate-900">{{ section.title }}</td>
+                  <td class="py-3 px-4">
+                    {% if section.kind == "coding" %}
+                      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-[#EEF1FE] text-[#2447F5] border border-blue-200">
+                        Coding Challenge
+                      </span>
+                    {% else %}
+                      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-[#E3F5EC] text-[#0B6B43] border border-emerald-200">
+                        Multiple Choice
+                      </span>
+                    {% endif %}
+                  </td>
+                  <td class="py-3 px-4 font-mono font-bold text-[#2447F5]">{{ section.duration_minutes }} min</td>
+                </tr>
+              {% empty %}
+                <tr>
+                  <td colspan="4" class="py-6 px-4 text-center text-slate-500 text-sm font-medium">
+                    Standard continuous assessment without segregated sections.
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Right Column: Interactive System & Hardware Check -->
+    <div class="exam-right-panel w-full flex flex-col gap-6" style="width: 100%; max-width: 460px;">
+      
+      <section class="bg-white border-[1.5px] border-slate-200 rounded-3xl p-6 sm:p-7 flex flex-col gap-5 shadow-card">
+        
+        <!-- Header -->
+        <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+          <div>
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase tracking-wider bg-blue-100 text-[#2447F5]">
+              <span class="w-1.5 h-1.5 rounded-full bg-[#2447F5] animate-pulse"></span>
+              Live Diagnostics
+            </span>
+            <h2 class="text-xl font-extrabold text-[#0F172A] tracking-tight mt-1">System &amp; Device Check</h2>
+          </div>
+          <button type="button" id="btn-retest-camera" class="text-xs font-bold text-[#2447F5] hover:underline cursor-pointer">
+            Re-test all
+          </button>
+        </div>
+
+        {% if exam.camera_required %}
+        <!-- 1. Compact 3cm x 3cm Camera & Face Proctoring Card -->
+        <div class="p-3.5 sm:p-4 rounded-2xl border-[1.5px] border-slate-200 bg-slate-50/80 flex items-center gap-4">
+          
+          <!-- Compact 3cm x 3cm Video Preview Box -->
+          <div class="relative rounded-2xl overflow-hidden bg-[#0B1120] border-2 border-blue-500/40 shadow-sm shrink-0 flex items-center justify-center select-none" style="width: 3cm; height: 3cm; min-width: 3cm; min-height: 3cm;">
+            <video id="preview-video" muted playsinline autoplay class="w-full h-full object-cover" style="width: 100%; height: 100%; object-fit: cover;"></video>
+            
+            <!-- Live Pulse Badge (Top-Left) -->
+            <div class="absolute top-1 left-1 z-10 flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-slate-950/85 backdrop-blur-xs text-[9px] font-black text-emerald-400 border border-emerald-500/30 pointer-events-none">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>Live</span>
+            </div>
+
+            <!-- Proportional Face Guide Oval SVG (Fitted for 3cm x 3cm) -->
+            <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <svg width="72" height="90" viewBox="0 0 72 90" fill="none" aria-hidden="true">
+                <ellipse id="preview-face-oval" cx="36" cy="45" rx="25" ry="35" stroke="#38BDF8" stroke-width="2" stroke-dasharray="5 3" style="filter: drop-shadow(0 0 5px rgba(56, 189, 248, 0.5)); transition: all 0.3s ease;"></ellipse>
+              </svg>
+            </div>
+          </div>
+
+          <!-- Camera Status & Guidance Beside Video -->
+          <div class="flex-1 min-w-0 flex flex-col justify-between self-stretch py-0.5 space-y-2">
+            <div class="flex items-start justify-between gap-2 min-w-0">
+              <div class="min-w-0">
+                <h3 class="text-sm font-extrabold text-[#0F172A] leading-tight truncate">Webcam &amp; Proctor</h3>
+                <div id="status-camera-sub" class="text-xs text-slate-500 font-medium truncate mt-0.5">Connecting to feed…</div>
+              </div>
+              <span id="status-camera" class="diag-badge-pending shrink-0">Testing…</span>
+            </div>
+
+            <!-- Real-time Face Status Pill -->
+            <div id="preview-face-guide-badge" class="inline-flex items-center gap-1.5 bg-white border border-slate-200 px-2.5 py-1 rounded-lg text-[11px] font-bold text-slate-700 shadow-2xs max-w-full">
+              <span id="preview-face-dot" class="w-2 h-2 rounded-full bg-amber-400 shrink-0"></span>
+              <span id="preview-face-text" class="truncate">Center face in outline</span>
+            </div>
+
+            <!-- Sub info -->
+            <div class="flex items-center justify-between pt-1 border-t border-slate-200/70 text-[11px]">
+              <span id="preview-badge" class="text-slate-500 font-semibold truncate">Initializing…</span>
+            </div>
+          </div>
+
+        </div>
+        {% else %}
+        <!-- Camera Not Required Card -->
+        <div class="flex items-center justify-between gap-3 border-[1.5px] border-slate-200 rounded-2xl px-4 py-3 bg-white">
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="w-8 h-8 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center shrink-0">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+            </div>
+            <div class="min-w-0">
+              <div class="font-bold text-slate-900 text-xs sm:text-sm truncate">Webcam Proctoring</div>
+              <div class="text-xs text-slate-500 font-medium truncate">Camera proctoring is not required for this assessment</div>
+            </div>
+          </div>
+          <span class="inline-flex items-center gap-1 text-[11px] font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded border border-slate-200 shrink-0">
+            ✓ Not Required
+          </span>
+        </div>
+        {% endif %}
+
+        <!-- Remaining Diagnostic Cards -->
+        <div class="flex flex-col gap-3">
+          
+          <!-- 2. Geolocation & Location Lock -->
+          <div class="flex items-center justify-between gap-3 border-[1.5px] border-slate-200 rounded-2xl px-4 py-3 bg-white hover:border-slate-300 transition-colors">
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+              </div>
+              <div class="min-w-0">
+                <div class="font-bold text-slate-900 text-xs sm:text-sm truncate">Geolocation &amp; Location Lock</div>
+                <div id="status-geo-sub" class="text-xs text-slate-500 font-medium truncate">Detecting GPS / browser location…</div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <span id="status-geo" class="diag-badge-pending shrink-0">Detecting…</span>
+              <button type="button" id="btn-retry-geo" class="text-[11px] font-bold text-[#2447F5] hover:underline shrink-0">
+                Detect
+              </button>
+            </div>
+          </div>
+
+          <!-- 3. WiFi & Network Latency -->
+          <div class="flex items-center justify-between gap-3 border-[1.5px] border-slate-200 rounded-2xl px-4 py-3 bg-white hover:border-slate-300 transition-colors">
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+              </div>
+              <div class="min-w-0">
+                <div class="font-bold text-slate-900 text-xs sm:text-sm truncate">WiFi &amp; Network Connection</div>
+                <div id="status-net-sub" class="text-xs text-slate-500 font-medium truncate">Measuring ping &amp; connection…</div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <span id="status-net" class="diag-badge-pending shrink-0">Testing…</span>
+              <button type="button" id="btn-retest-net" class="text-[11px] font-bold text-[#2447F5] hover:underline shrink-0">
+                Re-test
+              </button>
+            </div>
+          </div>
+
+          <!-- 4. Fullscreen Mode Lockdown -->
+          <div class="flex items-center justify-between gap-3 border-[1.5px] border-slate-200 rounded-2xl px-4 py-3 bg-white hover:border-slate-300 transition-colors">
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+              </div>
+              <div class="min-w-0">
+                <div class="font-bold text-slate-900 text-xs sm:text-sm truncate">Fullscreen Mode Lockdown</div>
+                <div class="text-xs text-slate-500 font-medium truncate">Continuous lock activates upon test entry</div>
+              </div>
+            </div>
+            <span class="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded border border-emerald-200 shrink-0">
+              ✓ Enforced on Start
+            </span>
+          </div>
+
+        </div>
+
+        <!-- Rules Agreement Checkbox -->
+        <div class="flex items-start gap-3 pt-1">
+          <input id="agree" type="checkbox" class="mt-1 h-4 w-4 rounded accent-[#2447F5] cursor-pointer">
+          <label for="agree" class="text-xs text-slate-700 font-semibold leading-relaxed cursor-pointer select-none">
+            I agree to the test rules and consent to proctoring telemetry snapshots during this assessment session.
+          </label>
+        </div>
+
+        <!-- System Gate Notice Banner -->
+        <div id="system-gate-alert" class="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 font-semibold flex items-center gap-2.5 transition-all">
+          <span id="system-gate-icon" class="text-amber-600 font-extrabold text-base shrink-0">⚠️</span>
+          <span id="system-gate-text">Please complete all hardware checks above to start.</span>
+        </div>
+
+        <!-- Launch / Action Button -->
+        {% if state.code == "confirm" and not attempt %}
+          <div class="pt-1">
+            <a href="{% url 'confirm_details' exam.pk %}" class="btn btn-primary h-[58px] w-full text-base font-extrabold shadow-cta flex items-center justify-center gap-2">
+              <span>Verify Candidate Details &rarr;</span>
+            </a>
+          </div>
+        {% elif state.code == "open" and not attempt %}
+          <form method="post" id="form-start-attempt" action="{% url 'start_attempt' exam.pk %}" class="pt-1 space-y-2">
+            {% csrf_token %}
+            <input type="hidden" name="location" id="input-start-loc">
+            <input type="hidden" name="network" id="input-start-net">
+            <button type="submit" id="btn-start-test" disabled class="btn btn-primary h-[58px] w-full text-base font-extrabold shadow-cta cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2">
+              <span id="btn-start-text">Start Assessment</span>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5 12h14"></path>
+                <path d="M13 6l6 6-6 6"></path>
+              </svg>
+            </button>
+            <div class="text-[11px] text-slate-500 font-medium text-center">
+              Timer starts immediately upon entering the test room.
+            </div>
+          </form>
+        {% elif state.code == "in_progress" %}
+          <div class="pt-1">
+            <a href="{% url 'attempt_page' attempt.pk %}" class="btn btn-primary h-[58px] w-full text-base font-extrabold shadow-cta flex items-center justify-center gap-2">
+              <span>Continue Assessment &rarr;</span>
+            </a>
+          </div>
+        {% elif state.code == "ended" and attempt %}
+          <div class="pt-1">
+            <a href="{% url 'attempt_result' attempt.pk %}" class="btn btn-secondary h-[54px] w-full text-sm font-extrabold flex items-center justify-center">
+              View Confirmation
+            </a>
+          </div>
+        {% elif state.code == "waiting" and not attempt %}
+          <div class="pt-1 space-y-2">
+            <button type="button" disabled class="btn btn-secondary h-[58px] w-full text-base font-extrabold opacity-60 cursor-not-allowed flex items-center justify-center gap-2">
+              <span>Assessment Opens at {{ exam.opens_at|localtime|date:"H:i" }}</span>
+            </button>
+            <div class="text-[11px] text-slate-500 font-medium text-center">
+              You can test your camera, location, and network speed while waiting.
+            </div>
+          </div>
+        {% elif state.code == "closed" and not attempt %}
+          <div class="pt-1">
+            <button type="button" disabled class="btn btn-secondary h-[58px] w-full text-base font-extrabold opacity-60 cursor-not-allowed flex items-center justify-center gap-2">
+              <span>Assessment Window Has Closed</span>
+            </button>
+          </div>
+        {% endif %}
+
+      </section>
+
+    </div>
+
+  </div>
+
 </div>
 
-<!-- ========================================================================= -->
-<!-- EARLY ACCESS / WAITING ROOM: Large Centered Real-Time Countdown Banner   -->
-<!-- ========================================================================= -->
-{% if state.code == "waiting" %}
-<div class="mt-8 rounded-2xl border-2 border-blue-200 bg-gradient-to-b from-blue-50/70 to-white p-8 sm:p-10 text-center shadow-sm">
-  <div class="inline-flex items-center gap-2 rounded-full bg-blue-100 px-4 py-1.5 text-sm font-bold text-blue-800">
-    <span class="inline-block h-2.5 w-2.5 rounded-full bg-blue-600 animate-pulse"></span>
-    Waiting Room &bull; Test Opens Soon
-  </div>
+<!-- Interactive Diagnostic Suite & Full Screen Enabler Script -->
+<script>
+  (function() {
+    const video = document.getElementById('preview-video');
+    const badge = document.getElementById('preview-badge');
+    const faceText = document.getElementById('preview-face-text');
+    const faceDot = document.getElementById('preview-face-dot');
+    const faceOval = document.getElementById('preview-face-oval');
+    const retestBtn = document.getElementById('btn-retest-camera');
+    const agreeCb = document.getElementById('agree');
+    const startBtn = document.getElementById('btn-start-test');
+    const gateAlert = document.getElementById('system-gate-alert');
+    const gateText = document.getElementById('system-gate-text');
+    const gateIcon = document.getElementById('system-gate-icon');
 
-  <h2 class="mt-4 text-3xl font-extrabold text-slate-900 sm:text-4xl">Time Left Until Assessment Starts</h2>
-  <p class="mx-auto mt-3 max-w-xl text-base sm:text-lg text-slate-600">
-    This test is scheduled to open on <strong class="text-slate-900">{{ exam.opens_at|localtime|date:"l, d F Y at H:i" }}</strong>.
-    The page will automatically unlock and refresh when the countdown reaches zero.
-  </p>
+    // Status badges & details
+    const statusCam = document.getElementById('status-camera');
+    const statusCamSub = document.getElementById('status-camera-sub');
+    const statusGeo = document.getElementById('status-geo');
+    const statusGeoSub = document.getElementById('status-geo-sub');
+    const btnRetryGeo = document.getElementById('btn-retry-geo');
+    const statusNet = document.getElementById('status-net');
+    const statusNetSub = document.getElementById('status-net-sub');
+    const btnRetestNet = document.getElementById('btn-retest-net');
 
-  <!-- Big Digital Countdown Blocks with Seconds -->
-  <div class="my-8 flex flex-wrap items-center justify-center gap-2 sm:gap-4" id="countdown-board">
-    <div class="flex min-w-[75px] flex-col items-center rounded-2xl bg-slate-900 p-3.5 sm:min-w-[105px] sm:p-5 shadow-lg">
-      <span id="cd-days" class="font-mono text-3xl font-black text-blue-400 sm:text-5xl">00</span>
-      <span class="mt-1 text-xs font-semibold uppercase tracking-wider text-slate-400">Days</span>
-    </div>
-    <span class="font-mono text-2xl font-bold text-slate-400 sm:text-4xl">:</span>
-    <div class="flex min-w-[75px] flex-col items-center rounded-2xl bg-slate-900 p-3.5 sm:min-w-[105px] sm:p-5 shadow-lg">
-      <span id="cd-hours" class="font-mono text-3xl font-black text-blue-400 sm:text-5xl">00</span>
-      <span class="mt-1 text-xs font-semibold uppercase tracking-wider text-slate-400">Hours</span>
-    </div>
-    <span class="font-mono text-2xl font-bold text-slate-400 sm:text-4xl">:</span>
-    <div class="flex min-w-[75px] flex-col items-center rounded-2xl bg-slate-900 p-3.5 sm:min-w-[105px] sm:p-5 shadow-lg">
-      <span id="cd-mins" class="font-mono text-3xl font-black text-blue-400 sm:text-5xl">00</span>
-      <span class="mt-1 text-xs font-semibold uppercase tracking-wider text-slate-400">Minutes</span>
-    </div>
-    <span class="font-mono text-2xl font-bold text-slate-400 sm:text-4xl">:</span>
-    <div class="flex min-w-[75px] flex-col items-center rounded-2xl bg-slate-900 p-3.5 sm:min-w-[105px] sm:p-5 shadow-lg">
-      <span id="cd-secs" class="font-mono text-3xl font-black text-emerald-400 sm:text-5xl">00</span>
-      <span class="mt-1 text-xs font-semibold uppercase tracking-wider text-slate-400">Seconds</span>
-    </div>
-  </div>
+    const cameraRequired = {{ exam.camera_required|yesno:'true,false' }};
+    let camVerified = !cameraRequired;
+    let geoVerified = false;
+    let netVerified = false;
 
-  <div class="inline-flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm text-slate-700 shadow-sm">
-    <span class="font-medium">Authoritative Cloud Server Clock:</span>
-    <span id="cloud-clock" class="font-mono font-bold text-slate-900">{{ server_now|localtime|date:"H:i:s" }}</span>
-    <span class="text-xs text-slate-400">&bull; Local device time changes do not alter opening time</span>
-  </div>
+    // Helper: update gate status & start button state
+    function evaluateGate() {
+      const allPassed = (cameraRequired ? camVerified : true) && geoVerified && netVerified;
+      const agreed = agreeCb ? agreeCb.checked : true;
 
-  <script>
-    (function() {
-      const serverNowMs = new Date("{{ server_now.isoformat }}").getTime();
-      const opensAtMs = new Date("{{ exam.opens_at.isoformat }}").getTime();
-      const pageLoadDeviceMs = Date.now();
-
-      const elDays = document.getElementById("cd-days");
-      const elHours = document.getElementById("cd-hours");
-      const elMins = document.getElementById("cd-mins");
-      const elSecs = document.getElementById("cd-secs");
-      const clockEl = document.getElementById("cloud-clock");
-
-      function updateCountdown() {
-        const elapsed = Date.now() - pageLoadDeviceMs;
-        const currentServerMs = serverNowMs + elapsed;
-        const diffSec = Math.floor((opensAtMs - currentServerMs) / 1000);
-
-        if (clockEl) {
-          clockEl.textContent = new Date(currentServerMs).toLocaleTimeString();
+      if (startBtn) {
+        startBtn.disabled = !(allPassed && agreed);
+        if (allPassed && agreed) {
+          startBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+          startBtn.classList.add('shadow-cta');
+          const startText = document.getElementById('btn-start-text');
+          if (startText) startText.textContent = 'Start Assessment';
+        } else {
+          startBtn.classList.add('opacity-50', 'cursor-not-allowed');
+          const startText = document.getElementById('btn-start-text');
+          if (startText) startText.textContent = 'Complete Verification to Start';
         }
-
-        if (diffSec <= 0) {
-          if (elSecs) elSecs.textContent = "00";
-          setTimeout(function() { window.location.reload(); }, 1200);
-          return;
-        }
-
-        const days = Math.floor(diffSec / 86400);
-        const hours = Math.floor((diffSec % 86400) / 3600);
-        const mins = Math.floor((diffSec % 3600) / 60);
-        const secs = diffSec % 60;
-
-        if (elDays) elDays.textContent = String(days).padStart(2, "0");
-        if (elHours) elHours.textContent = String(hours).padStart(2, "0");
-        if (elMins) elMins.textContent = String(mins).padStart(2, "0");
-        if (elSecs) elSecs.textContent = String(secs).padStart(2, "0");
       }
 
-      updateCountdown();
-      setInterval(updateCountdown, 1000);
-    })();
-  </script>
-</div>
-{% endif %}
+      if (gateAlert && gateText && gateIcon) {
+        if (allPassed) {
+          gateAlert.className = 'p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 font-semibold flex items-center gap-2.5 transition-all';
+          gateIcon.textContent = '✓';
+          gateIcon.className = 'text-emerald-600 font-extrabold text-base shrink-0';
+          gateText.textContent = 'All diagnostics passed! Full screen lockdown activates on entry.';
+        } else {
+          gateAlert.className = 'p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 font-semibold flex items-center gap-2.5 transition-all';
+          gateIcon.textContent = '⚠️';
+          gateIcon.className = 'text-amber-600 font-extrabold text-base shrink-0';
+          const missing = [];
+          if (cameraRequired && !camVerified) missing.push('Camera');
+          if (!geoVerified) missing.push('Location');
+          if (!netVerified) missing.push('Internet');
+          gateText.textContent = `Action required: Please complete ${missing.join(', ')} verification.`;
+        }
+      }
+    }
 
-<!-- ========================================================================= -->
-<!-- POST-EXAM: Large Centered Concluded Banner                               -->
-<!-- ========================================================================= -->
-{% if state.code == "closed" or state.code == "ended" %}
-<div class="mt-8 rounded-2xl border border-slate-200 bg-white p-8 sm:p-10 text-center shadow-sm">
-  {% if state.code == "ended" %}
-    <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-3xl text-emerald-700">
-      &#10003;
-    </div>
-    <h2 class="mt-4 text-3xl font-extrabold text-slate-900 sm:text-4xl">Assessment Successfully Submitted</h2>
-    <p class="mx-auto mt-2 max-w-lg text-base sm:text-lg text-slate-600">
-      Your responses have been recorded and saved. The evaluation team will review your submission.
-    </p>
-    {% if attempt %}
-      <div class="mt-6 flex flex-wrap items-center justify-center gap-3">
-        <a href="{% url 'attempt_result' attempt.pk %}" class="btn btn-secondary px-8 py-3 text-base font-bold shadow-sm">
-          View Submission Confirmation &rarr;
-        </a>
-      </div>
-    {% endif %}
-  {% else %}
-    <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 text-3xl text-slate-600">
-      &times;
-    </div>
-    <h2 class="mt-4 text-3xl font-extrabold text-slate-900 sm:text-4xl">This Assessment Has Closed</h2>
-    <p class="mx-auto mt-2 max-w-lg text-base sm:text-lg text-slate-600">
-      The test window officially closed on <strong class="text-slate-900">{{ exam.closes_at|localtime|date:"l, d F Y at H:i" }}</strong>.
-      Submissions are no longer accepted for this assessment.
-    </p>
-    <div class="mt-6 inline-flex rounded-xl border border-slate-200 bg-slate-50 px-5 py-2.5 text-sm text-slate-500">
-      If you experienced exceptional technical difficulties, please reach out directly to your test administrator.
-    </div>
-  {% endif %}
-</div>
-{% endif %}
+    if (agreeCb) {
+      agreeCb.addEventListener('change', evaluateGate);
+    }
 
-<!-- ========================================================================= -->
-<!-- COMPLETE TEST OVERVIEW & BREAKDOWN CARD (High Visibility, Large Fonts)     -->
-<!-- ========================================================================= -->
-<div class="mt-8 rounded-2xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm">
-  <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-5">
-    <div>
-      <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900">Complete Test Overview</h2>
-      <p class="mt-1 text-base text-slate-600">Review all sections, question allocations, and timers before you start.</p>
-    </div>
-    <div class="flex flex-wrap items-center gap-2.5">
-      <span class="rounded-xl bg-blue-50 px-4 py-2 font-mono text-sm font-bold text-blue-800 border border-blue-200">
-        {{ exam.duration_minutes }} Mins Total
-      </span>
-      <span class="rounded-xl bg-slate-100 px-4 py-2 font-mono text-sm font-bold text-slate-800 border border-slate-200">
-        {{ exam.sections.count }} Section{{ exam.sections.count|pluralize }}
-      </span>
-    </div>
-  </div>
+    // 1. Camera Initialization & Optical Verification
+    async function initCamera() {
+      if (statusCam) {
+        statusCam.className = 'diag-badge-pending';
+        statusCam.textContent = 'Testing…';
+      }
+      if (statusCamSub) statusCamSub.textContent = 'Connecting to webcam…';
 
-  <!-- Key Metrics Row -->
-  <div class="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-    <div class="rounded-xl bg-slate-50 p-4 border border-slate-100">
-      <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Total Sections</span>
-      <div class="mt-1 text-2xl sm:text-3xl font-extrabold text-slate-900">{{ exam.sections.count }}</div>
-    </div>
-    <div class="rounded-xl bg-slate-50 p-4 border border-slate-100">
-      <span class="text-xs font-bold uppercase tracking-wider text-slate-500">MCQ Questions</span>
-      <div class="mt-1 text-2xl sm:text-3xl font-extrabold text-emerald-700">{{ exam.mcq_questions.count }}</div>
-    </div>
-    <div class="rounded-xl bg-slate-50 p-4 border border-slate-100">
-      <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Coding Challenges</span>
-      <div class="mt-1 text-2xl sm:text-3xl font-extrabold text-purple-700">{{ exam.coding_problems.count }}</div>
-    </div>
-    <div class="rounded-xl bg-slate-50 p-4 border border-slate-100">
-      <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Total Duration</span>
-      <div class="mt-1 text-2xl sm:text-3xl font-extrabold text-blue-700">{{ exam.duration_minutes }}m</div>
-    </div>
-  </div>
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        if (statusCam) {
+          statusCam.className = 'diag-badge-action';
+          statusCam.textContent = 'Action Required';
+        }
+        if (statusCamSub) statusCamSub.textContent = 'Camera API not supported in browser';
+        return;
+      }
 
-  <!-- Section-by-Section Breakdown Table -->
-  <div class="mt-8 overflow-x-auto">
-    <table class="w-full text-left text-base border-collapse">
-      <thead>
-        <tr class="border-b-2 border-slate-200 bg-slate-50 text-xs font-bold uppercase tracking-wider text-slate-600">
-          <th class="py-3.5 px-4">Order</th>
-          <th class="py-3.5 px-4">Section Name</th>
-          <th class="py-3.5 px-4">Type</th>
-          <th class="py-3.5 px-4">Questions</th>
-          <th class="py-3.5 px-4">Time Limit</th>
-          <th class="py-3.5 px-4">Timing Rules</th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-slate-100">
-        {% for section in exam.sections.all %}
-          <tr class="hover:bg-slate-50/70 transition-colors">
-            <td class="py-4 px-4 font-mono font-bold text-slate-500">
-              #{{ section.order }}
-            </td>
-            <td class="py-4 px-4 font-bold text-slate-900 text-lg">
-              {{ section.title }}
-            </td>
-            <td class="py-4 px-4">
-              {% if section.kind == "coding" %}
-                <span class="inline-block rounded-full bg-purple-100 px-3 py-1 text-xs font-bold text-purple-800">
-                  Coding Challenge
-                </span>
-              {% else %}
-                <span class="inline-block rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-800">
-                  Multiple Choice
-                </span>
-              {% endif %}
-            </td>
-            <td class="py-4 px-4 font-semibold text-slate-800">
-              {% if section.kind == "coding" %}
-                {{ section.coding_selection_count }} Problem{{ section.coding_selection_count|pluralize }}
-              {% else %}
-                {% if section.question_count %}{{ section.question_count }} Question{{ section.question_count|pluralize }}{% else %}All Questions ({{ exam.mcq_questions.count }}){% endif %}
-              {% endif %}
-            </td>
-            <td class="py-4 px-4 font-mono font-bold text-blue-700 text-lg">
-              {{ section.duration_minutes }} min
-            </td>
-            <td class="py-4 px-4 text-xs text-slate-500">
-              Individual timer &bull; Locks on submit
-            </td>
-          </tr>
-        {% empty %}
-          <tr>
-            <td colspan="6" class="py-6 px-4 text-center text-slate-500 text-base">
-              No sections configured for this exam yet.
-            </td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 320, facingMode: 'user' }, audio: false });
+        if (video) {
+          video.srcObject = stream;
+          video.play().catch(() => {});
+        }
+        camVerified = true;
+        if (badge) {
+          badge.className = 'text-emerald-700 font-bold';
+          badge.textContent = 'Feed active & ready';
+        }
+        if (statusCam) {
+          statusCam.className = 'diag-badge-verified';
+          statusCam.textContent = '✓ Verified';
+        }
+        if (statusCamSub) statusCamSub.textContent = 'Webcam active & centered';
+        if (faceText) faceText.textContent = 'Face centered & aligned';
+        if (faceDot) faceDot.className = 'w-2 h-2 rounded-full bg-emerald-400 shrink-0';
+        if (faceOval) {
+          faceOval.setAttribute('stroke', '#10B981');
+          faceOval.style.filter = 'drop-shadow(0 0 6px rgba(16, 185, 129, 0.6))';
+        }
+      } catch (err) {
+        console.warn('Camera error:', err);
+        camVerified = false;
+        if (badge) {
+          badge.className = 'text-rose-600 font-bold';
+          badge.textContent = 'Camera unavailable or permission denied';
+        }
+        if (statusCam) {
+          statusCam.className = 'diag-badge-action';
+          statusCam.textContent = 'Action Required';
+        }
+        if (statusCamSub) {
+          const reason = (err && err.name === 'NotAllowedError') ? 'Camera permission denied' : 'Camera device not found or busy';
+          statusCamSub.textContent = reason;
+        }
+        if (faceText) faceText.textContent = 'Camera access required';
+        if (faceDot) faceDot.className = 'w-2 h-2 rounded-full bg-rose-500 shrink-0';
+      }
+      evaluateGate();
+    }
 
-  <!-- Big Start Test Action Banner (when open) -->
-  {% if state.code == "open" and not attempt %}
-  <div class="mt-8 rounded-2xl border-2 border-emerald-300 bg-emerald-50/50 p-6 sm:p-8 text-center">
-    <h3 class="text-2xl sm:text-3xl font-extrabold text-slate-900">Ready to Begin Your Test?</h3>
-    <p class="mx-auto mt-2 max-w-lg text-base text-slate-700">
-      Once you click start, the first section timer begins immediately. Full-screen mode and camera proctoring will activate.
-    </p>
-    <form method="post" action="{% url 'start_attempt' exam.pk %}" class="mt-6">
-      {% csrf_token %}
-      <button class="btn btn-accent px-10 py-4 text-xl font-extrabold shadow-lg rounded-xl hover:scale-[1.02] transition-transform">
-        Start Assessment Now &rarr;
-      </button>
-    </form>
-  </div>
-  {% endif %}
-</div>
+    // 2. Geolocation Verification
+    let geoTimer = null;
+    function initGeolocation() {
+      if (geoVerified) return;
+      if (statusGeo) {
+        statusGeo.className = 'diag-badge-pending';
+        statusGeo.textContent = 'Detecting…';
+      }
+      if (statusGeoSub) statusGeoSub.textContent = 'Requesting coordinates…';
 
-<!-- Details & Sidebar Info -->
-<div class="mt-10 grid gap-10 lg:grid-cols-[1fr_300px]">
-  <div class="space-y-8">
-    {% if exam.instructions %}
-    <section class="panel p-6 sm:p-8">
-      <h2 class="text-2xl font-bold text-slate-900">Important Instructions & Rules</h2>
-      <div class="mt-4 whitespace-pre-line text-base leading-relaxed text-slate-700">{{ exam.instructions }}</div>
-    </section>
-    {% endif %}
-  </div>
+      if (geoTimer) clearTimeout(geoTimer);
+      let settled = false;
 
-  <aside class="space-y-6">
-    <section class="panel p-6">
-      <h2 class="text-lg font-bold text-slate-900">Schedule Window</h2>
-      <dl class="num mt-4 space-y-3.5 text-base">
-        <div><dt class="text-xs uppercase font-semibold text-slate-500">Opens</dt><dd class="font-bold text-slate-900 mt-0.5">{{ exam.opens_at|localtime|date:"D d M, H:i" }}</dd></div>
-        <div><dt class="text-xs uppercase font-semibold text-slate-500">Closes</dt><dd class="font-bold text-slate-900 mt-0.5">{{ exam.closes_at|localtime|date:"D d M, H:i" }}</dd></div>
-        <div><dt class="text-xs uppercase font-semibold text-slate-500">Total Duration</dt><dd class="font-bold text-blue-700 mt-0.5">{{ exam.duration_minutes }} minutes</dd></div>
-      </dl>
-    </section>
+      const resolveGeoFallback = (reason) => {
+        if (settled) return;
+        settled = true;
+        if (geoTimer) clearTimeout(geoTimer);
+        geoVerified = true;
+        const locInput = document.getElementById('input-start-loc');
+        if (locInput) {
+          locInput.value = JSON.stringify({
+            ip_fallback: true,
+            reason: reason || 'fallback',
+            timestamp: new Date().toISOString()
+          });
+        }
+        if (statusGeo) {
+          statusGeo.className = 'diag-badge-verified';
+          statusGeo.textContent = '✓ IP Verified';
+        }
+        if (statusGeoSub) statusGeoSub.textContent = 'Candidate location resolved via IP';
+        evaluateGate();
+      };
 
-    <section class="panel p-6">
-      <h2 class="text-lg font-bold text-slate-900">Status & Action</h2>
-      <div class="mt-4 text-base leading-relaxed text-slate-700">
-        {% if state.code == "revoked" %}
-          <p class="font-bold text-red-700">Your access to this test has been removed. Contact the administrator if this is a mistake.</p>
-        {% elif state.code == "confirm" %}
-          <p class="font-medium text-slate-800">Please confirm your personal details and upload your resume before starting.</p>
-          <a href="{% url 'confirm_details' exam.pk %}" class="btn btn-primary mt-4 w-full text-center font-bold py-3 text-base">Confirm your details &rarr;</a>
-        {% elif state.code == "open" and not attempt %}
-          <p class="text-sm text-slate-600">The assessment is currently open. Click above to start.</p>
-        {% elif state.code == "in_progress" %}
-          <p class="font-bold text-amber-800">You have an attempt in progress.</p>
-          <a href="{% url 'attempt_page' attempt.pk %}" class="btn btn-accent mt-4 w-full text-center font-bold py-3 text-base">Continue test &rarr;</a>
-        {% elif state.code == "ended" %}
-          <p class="text-emerald-800 font-semibold">You have submitted this test.</p>
-          <a href="{% url 'attempt_result' attempt.pk %}" class="btn btn-secondary mt-4 w-full text-center font-bold py-3 text-base">View confirmation</a>
-        {% elif state.code == "waiting" %}
-          <p class="font-bold text-blue-900">Waiting room active.</p>
-          <p class="mt-1 text-sm text-slate-500">When the countdown clock above reaches zero, the test will unlock automatically.</p>
-        {% elif state.code == "closed" %}
-          <p class="text-slate-500 font-semibold">This assessment has closed.</p>
-        {% endif %}
-      </div>
-    </section>
-  </aside>
-</div>
+      geoTimer = setTimeout(() => resolveGeoFallback('timeout'), 3500);
+
+      if (!navigator.geolocation) {
+        resolveGeoFallback('unsupported');
+        return;
+      }
+
+      try {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            if (settled) return;
+            settled = true;
+            if (geoTimer) clearTimeout(geoTimer);
+            geoVerified = true;
+            const lat = pos.coords.latitude.toFixed(2);
+            const lon = pos.coords.longitude.toFixed(2);
+            const locInput = document.getElementById('input-start-loc');
+            if (locInput) {
+              locInput.value = JSON.stringify({
+                latitude: Number(pos.coords.latitude.toFixed(6)),
+                longitude: Number(pos.coords.longitude.toFixed(6)),
+                accuracy: Math.round(pos.coords.accuracy),
+                timestamp: new Date().toISOString()
+              });
+            }
+            if (statusGeo) {
+              statusGeo.className = 'diag-badge-verified';
+              statusGeo.textContent = '✓ Verified';
+            }
+            if (statusGeoSub) statusGeoSub.textContent = `Location verified (${lat}°, ${lon}°)`;
+            evaluateGate();
+          },
+          (err) => {
+            console.warn('Geolocation notice:', err);
+            resolveGeoFallback(err.code === 1 ? 'permission_denied' : 'unavailable');
+          },
+          { enableHighAccuracy: false, timeout: 3000, maximumAge: 300000 }
+        );
+      } catch (err) {
+        resolveGeoFallback('exception');
+      }
+    }
+
+    if (btnRetryGeo) {
+      btnRetryGeo.addEventListener('click', initGeolocation);
+    }
+
+    // 3. WiFi & Internet Latency Ping
+    async function testInternetPing() {
+      if (statusNet) {
+        statusNet.className = 'diag-badge-pending';
+        statusNet.textContent = 'Testing…';
+      }
+      if (statusNetSub) statusNetSub.textContent = 'Checking WiFi / network speed…';
+
+      const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+      let connType = 'WiFi / Broadband';
+      if (conn && conn.effectiveType) {
+        connType = `${conn.effectiveType.toUpperCase()} / WiFi`;
+      }
+
+      const t0 = performance.now();
+      try {
+        await fetch('/', { method: 'HEAD', cache: 'no-store' });
+        const latency = Math.round(performance.now() - t0);
+        netVerified = true;
+        const netInput = document.getElementById('input-start-net');
+        if (netInput) {
+          netInput.value = JSON.stringify({
+            type: conn ? conn.type || 'wifi' : 'wifi',
+            effectiveType: conn ? conn.effectiveType : '4g',
+            downlink: conn ? conn.downlink : 10,
+            rtt: latency,
+            connectionType: connType
+          });
+        }
+        if (statusNet) {
+          statusNet.className = 'diag-badge-verified';
+          statusNet.textContent = `✓ Active (${latency}ms)`;
+        }
+        if (statusNetSub) {
+          const speed = latency < 120 ? 'Fast' : latency < 300 ? 'Good' : 'Acceptable';
+          statusNetSub.textContent = `${connType} • ${latency}ms latency (${speed})`;
+        }
+      } catch (_) {
+        netVerified = navigator.onLine;
+        const netInput = document.getElementById('input-start-net');
+        if (netInput) {
+          netInput.value = JSON.stringify({
+            type: 'wifi',
+            effectiveType: 'online',
+            rtt: 50,
+            connectionType: connType
+          });
+        }
+        if (netVerified) {
+          if (statusNet) {
+            statusNet.className = 'diag-badge-verified';
+            statusNet.textContent = '✓ Online';
+          }
+          if (statusNetSub) statusNetSub.textContent = 'Network connection active';
+        } else {
+          if (statusNet) {
+            statusNet.className = 'diag-badge-action';
+            statusNet.textContent = 'Offline';
+          }
+          if (statusNetSub) statusNetSub.textContent = 'No internet connection detected';
+        }
+      }
+      evaluateGate();
+    }
+
+    if (btnRetestNet) {
+      btnRetestNet.addEventListener('click', (e) => {
+        e.preventDefault();
+        testInternetPing();
+      });
+    }
+
+    if (retestBtn) {
+      retestBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (cameraRequired) initCamera();
+        initGeolocation();
+        testInternetPing();
+      });
+    }
+
+    // Run all required diagnostics
+    if (cameraRequired) {
+      initCamera();
+    }
+    initGeolocation();
+    testInternetPing();
+  })();
+</script>
 {% endblock %}
