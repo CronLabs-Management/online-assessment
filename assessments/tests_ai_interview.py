@@ -1,4 +1,5 @@
 from unittest.mock import MagicMock, patch
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
@@ -8,9 +9,8 @@ from assessments.ai_interview import (
     extract_resume_text,
     generate_fallback_questions,
     generate_interview_questions_with_gemini,
-    get_gemini_config,
 )
-from assessments.models import Application, Attempt, Exam, SiteSettings
+from assessments.models import Application, Attempt, Exam
 
 User = get_user_model()
 
@@ -55,10 +55,10 @@ class AIInterviewFeatureTests(TestCase):
             ended_at=now + timezone.timedelta(minutes=45),
         )
 
-    def test_extract_resume_text_generates_and_reads_resume(self):
+    def test_extract_resume_text_does_not_fabricate_synthetic_resume(self):
         text = extract_resume_text(self.application)
-        self.assertTrue(len(text) > 30)
-        self.assertIn("Jane Doe", text)
+        self.assertEqual(text, "")
+        self.assertFalse(bool(self.application.resume))
 
     def test_fallback_keyword_questions_generation(self):
         sample_resume = (
@@ -80,14 +80,12 @@ class AIInterviewFeatureTests(TestCase):
             self.assertTrue(len(q["question"]) > 0)
             self.assertTrue(len(q["expected_answer"]) > 0)
 
-    def test_generate_interview_questions_without_api_key_uses_fallback(self):
-        SiteSettings.objects.all().delete()
+    def test_generate_interview_questions_without_resume_refuses_honestly(self):
         res = generate_interview_questions_with_gemini(self.application)
-        self.assertTrue(res["success"])
-        self.assertEqual(res["engine"], "fallback_keyword_engine")
+        self.assertFalse(res["success"])
+        self.assertIn("No verified candidate resume found", res.get("error", ""))
         self.application.refresh_from_db()
-        self.assertTrue(len(self.application.ai_interview_questions) > 0)
-        self.assertIsNotNone(self.application.ai_questions_generated_at)
+        self.assertEqual(len(self.application.ai_interview_questions), 0)
 
     @patch("requests.post")
     def test_generate_interview_questions_with_gemini_api_mock(self, mock_post):
@@ -118,10 +116,12 @@ class AIInterviewFeatureTests(TestCase):
         }
         mock_post.return_value = mock_response
 
+        # When structured text is explicitly provided
         res = generate_interview_questions_with_gemini(
             self.application,
             api_key_override="test-api-key-12345",
             model_override="gemini-1.5-flash",
+            candidate_text_override="PostgreSQL query optimization and database engineering",
         )
         self.assertTrue(res["success"])
         self.assertEqual(res["count"], 1)
@@ -139,17 +139,26 @@ class AIInterviewFeatureTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertIn(reverse("staff_attempt_review", args=[self.attempt.pk]), response.url)
         self.application.refresh_from_db()
-        self.assertTrue(len(self.application.ai_interview_questions) > 0)
+        # Does not fabricate questions from non-existent resume
+        self.assertEqual(len(self.application.ai_interview_questions), 0)
 
     def test_review_page_displays_questions_and_keywords(self):
-        # Generate questions first
-        generate_interview_questions_with_gemini(self.application)
+        # Configure real structured questions directly
+        self.application.ai_interview_questions = [
+            {
+                "keyword": "Python Architecture",
+                "question": "Explain async IO in Python.",
+                "expected_answer": "Event loops and coroutines.",
+                "difficulty": "Intermediate",
+                "round": 1,
+            }
+        ]
+        self.application.save(update_fields=["ai_interview_questions"])
         self.client.force_login(self.staff_user)
         url = reverse("staff_attempt_review", args=[self.attempt.pk])
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Face-to-Face Interview Questions")
-        self.assertContains(response, "Resume Keyword:")
         self.assertContains(response, "Expected Answer")
         self.assertContains(response, "Interview Marks &amp; Progress Showcase")
         self.assertContains(response, "Interviewer Name (Signature)")

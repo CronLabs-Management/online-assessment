@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Sign In to Assessment — {{ application.exam.title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto my-12 p-8 bg-white border border-slate-200 rounded-2xl shadow-sm text-center">
+  <div class="w-14 h-14 mx-auto mb-4 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-2xl font-bold">
+    🎯
+  </div>
+  <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Welcome, {{ application.full_name }}</h1>
+  <p class="mt-2 text-sm text-slate-600">
+    You have received an invitation to take the assessment for:
+  </p>
+  <div class="my-4 py-3 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800">
+    {{ application.exam.title }}
+  </div>
+  <p class="text-xs text-slate-500 mb-6">
+    Click below to confirm your session and enter your assessment portal. This single-use link will activate your account.
+  </p>
+
+  <form method="post" action="">
+    {% csrf_token %}
+    <button type="submit" class="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition shadow-sm hover:shadow">
+      Sign In &amp; Continue &rarr;
+    </button>
+  </form>
+
+  <div class="mt-6 pt-6 border-t border-slate-100 text-xs text-slate-500">
+    Already set up your credentials? <a href="{% url 'login' %}" class="text-blue-600 font-medium hover:underline">Sign in with email and password</a>
+  </div>
+</div>
+{% endblock %}
+

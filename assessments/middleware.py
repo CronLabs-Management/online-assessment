@@ -1,4 +1,5 @@
 import uuid
+
 from django.conf import settings
 
 
@@ -33,7 +34,7 @@ class SecurityHeadersMiddleware:
 
         # Additional security headers
         if "Permissions-Policy" not in response:
-            response["Permissions-Policy"] = getattr(settings, "PERMISSIONS_POLICY", "camera=(self), microphone=(), geolocation=()")
+            response["Permissions-Policy"] = getattr(settings, "PERMISSIONS_POLICY", "camera=(self), microphone=(self), geolocation=(self)")
         if "Referrer-Policy" not in response:
             response["Referrer-Policy"] = getattr(settings, "SECURE_REFERRER_POLICY", "strict-origin-when-cross-origin")
         if "Cross-Origin-Opener-Policy" not in response:

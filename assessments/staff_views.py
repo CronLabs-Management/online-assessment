@@ -8,30 +8,30 @@ logger = logging.getLogger(__name__)
 
 from django.conf import settings
 from django.contrib import messages
-from django.core.files.base import ContentFile
 from django.core.mail import get_connection
+from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Avg, Q
 from django.http import FileResponse, Http404, HttpResponse, HttpResponseNotAllowed, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.text import slugify
 from django.views.decorators.http import require_POST
 
 from . import notifications
 from .ai_interview import generate_interview_questions_with_gemini, get_gemini_config
 from .forms import CandidateEditForm, CandidateImportForm, InterviewDecisionForm, RevokeForm
-from .models import Application, Attempt, AuditLog, Exam, InterviewReview, ProctoringSnapshot, SiteSettings
-from .resume_builder import build_candidate_resume_pdf
+from .models import Application, Attempt, AuditLog, Exam, InterviewReview, ProctoringSnapshot
 from .review import attempt_csv_rows, build_attempt_review, csv_safe
-from .services import AttemptError, allow_resume, snapshot_file_path
+from .services import AttemptError, allow_resume, expire_due_attempts, snapshot_file_path
 from .views import User, audit, reviewer_required, staff_required
-
 
 
 @reviewer_required
 def staff_exam_overview(request, pk):
+    expire_due_attempts()
     exam = get_object_or_404(Exam, pk=pk)
     applications = exam.applications.all()
     attempts = exam.attempts.all()
@@ -70,11 +70,14 @@ def _candidate_rows(exam, q="", status="", flagged=False, sort="newest", score_v
         applications = applications.filter(
             Q(full_name__icontains=q) | Q(candidate__email__icontains=q) | Q(phone__icontains=q)
         )
-    attempts = {a.candidate_id: a for a in exam.attempts.select_related("candidate", "exam").prefetch_related("reviews")}
+    attempts = {
+        a.candidate_id: a
+        for a in exam.attempts.select_related("candidate", "exam").prefetch_related(
+            "reviews", "mcq_items__question", "coding_items__problem"
+        )
+    }
     rows = []
     for application in applications:
-        if not application.plain_password:
-            application.ensure_password()
         attempt = attempts.get(application.candidate_id)
         if status == "not_started" and attempt is not None:
             continue
@@ -148,9 +151,14 @@ def _candidate_rows(exam, q="", status="", flagged=False, sort="newest", score_v
 
         if total_val is not None or has_any_interview_score:
             final_val = round((total_val or 0.0) + interview_score_sum, 2)
-            exam_mcq_max = sum(q.marks for q in exam.mcq_questions.all())
-            exam_coding_max = sum(p.marks for p in exam.coding_problems.all())
-            exam_max = float(exam_mcq_max + exam_coding_max)
+            if attempt:
+                mcq_max = sum(item.question.marks for item in attempt.mcq_items.all())
+                coding_max = sum(item.problem.marks for item in attempt.coding_items.all())
+                exam_max = float(mcq_max + coding_max)
+            else:
+                exam_mcq_max = sum(q.marks for q in exam.mcq_questions.all())
+                exam_coding_max = sum(p.marks for p in exam.coding_problems.all())
+                exam_max = float(exam_mcq_max + exam_coding_max)
             final_max = round(exam_max + interview_max_sum, 2) if (exam_max or interview_max_sum) else None
         else:
             final_val = None
@@ -210,6 +218,7 @@ def _candidate_rows(exam, q="", status="", flagged=False, sort="newest", score_v
 
 @staff_required
 def staff_exam_candidates(request, pk):
+    expire_due_attempts()
     exam = get_object_or_404(Exam, pk=pk)
     q = request.GET.get("q", "").strip()
     status = request.GET.get("status", "").strip()
@@ -217,6 +226,9 @@ def staff_exam_candidates(request, pk):
     sort = request.GET.get("sort", "newest").strip()
 
     rows = _candidate_rows(exam, q=q, status=status, flagged=flagged, sort=sort)
+    paginator = Paginator(rows, 50)
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
     finished_count = exam.attempts.filter(status__in=[Attempt.Status.SUBMITTED, Attempt.Status.EXPIRED]).count()
     counts = {
         "total": exam.applications.count(),
@@ -237,7 +249,8 @@ def staff_exam_candidates(request, pk):
         "assessments/staff/candidates.html",
         {
             "exam": exam,
-            "rows": rows,
+            "rows": page_obj.object_list,
+            "page_obj": page_obj,
             "q": q,
             "status": status,
             "flagged": flagged,
@@ -299,7 +312,7 @@ def staff_candidates_import(request, pk):
                         candidate=user,
                         exam=exam,
                         defaults={
-                            "full_name": row["full_name"] or row["email"].split("@")[0],
+                            "full_name": row["full_name"],
                             "phone": row["phone"],
                             "status": Application.Status.APPROVED,
                         },
@@ -351,16 +364,14 @@ def staff_candidates_import(request, pk):
 
 
 def _send_to(application, actor, connection=None):
-    """Creates a fresh password and emails it. The candidate's password is only updated if email delivery succeeds."""
-    password = notifications.new_password()
+    """Sends current active password to candidate without rotating it."""
+    password = application.plain_password
+    if not password:
+        password = application.ensure_password()
     if not notifications.send_login_details(application, password, actor=actor, connection=connection):
         return False
-    user = application.candidate
-    user.set_password(password)
-    user.save(update_fields=["password"])
-    application.plain_password = password
     application.credentials_sent_at = timezone.now()
-    application.save(update_fields=["credentials_sent_at", "plain_password"])
+    application.save(update_fields=["credentials_sent_at"])
     return True
 
 
@@ -382,6 +393,47 @@ def staff_resend_credentials(request, pk):
             f"The email to {application.candidate.email} could not be sent. Check the mail settings and try again.",
         )
     return redirect("staff_exam_candidates", pk=application.exam_id)
+
+
+@staff_required
+@require_POST
+def staff_regenerate_credentials(request, pk):
+    application = get_object_or_404(Application.objects.select_related("candidate", "exam"), pk=pk)
+    if application.status != Application.Status.APPROVED:
+        messages.error(request, "Restore this candidate's access before regenerating credentials.")
+        return redirect("staff_exam_candidates", pk=application.exam_id)
+
+    new_password = notifications.new_password()
+    application.plain_password = new_password
+    user = application.candidate
+    user.set_password(new_password)
+    user.save(update_fields=["password"])
+    application.save(update_fields=["plain_password"])
+
+    send_now = request.POST.get("send_email") == "1"
+    if send_now:
+        if notifications.send_login_details(application, new_password, actor=request.user):
+            application.credentials_sent_at = timezone.now()
+            application.save(update_fields=["credentials_sent_at"])
+            messages.success(request, f"New credentials generated and emailed to {application.candidate.email}.")
+        else:
+            messages.warning(request, f"New credentials generated, but email to {application.candidate.email} could not be delivered.")
+    else:
+        messages.success(request, f"New password generated for {application.candidate.email}. You can copy or send it anytime.")
+
+    audit(request.user, "credentials.regenerated", f"application:{application.pk}", f"email_sent={send_now}")
+    return redirect("staff_exam_candidates", pk=application.exam_id)
+
+
+@staff_required
+@require_POST
+def staff_audit_credential_access(request, pk):
+    application = get_object_or_404(Application, pk=pk)
+    action = request.POST.get("action", "revealed")
+    if action not in ("revealed", "copied"):
+        action = "revealed"
+    audit(request.user, f"credentials.{action}", f"application:{application.pk}", application.candidate.email)
+    return JsonResponse({"ok": True})
 
 
 @staff_required
@@ -518,6 +570,7 @@ def staff_attempt_allow_resume(request, pk):
 
 @reviewer_required
 def staff_attempt_review(request, pk):
+    expire_due_attempts()
     attempt = get_object_or_404(
         Attempt.objects.select_related("exam", "candidate", "application").prefetch_related("reviews"), pk=pk
     )
@@ -707,7 +760,16 @@ def staff_exam_update_rounds(request, pk):
     except (ValueError, TypeError):
         messages.error(request, "Invalid rounds count specified.")
 
-    next_url = request.POST.get("next") or request.META.get("HTTP_REFERER") or reverse("staff_exam_candidates", args=[exam.pk])
+    default_url = reverse("staff_exam_candidates", args=[exam.pk])
+    target_url = request.POST.get("next") or request.META.get("HTTP_REFERER")
+    if target_url and url_has_allowed_host_and_scheme(
+        url=target_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        next_url = target_url
+    else:
+        next_url = default_url
     return redirect(next_url)
 
 
@@ -735,6 +797,14 @@ def staff_attempt_decision(request, pk):
     form = InterviewDecisionForm(post_data)
     if form.is_valid():
         round_number = form.cleaned_data.get("round_number") or 1
+        max_configured_rounds = max(attempt.exam.interview_rounds_count, 1)
+        if round_number < 1 or round_number > max_configured_rounds + 2:
+            err_msg = f"Round number {round_number} is out of allowed range (1 to {max_configured_rounds + 2})."
+            if is_ajax:
+                return JsonResponse({"success": False, "error": err_msg}, status=400)
+            messages.error(request, err_msg)
+            return redirect("staff_attempt_review", pk=attempt.pk)
+
         notes = form.cleaned_data.get("notes", "").strip()
         interviewer_name = form.cleaned_data.get("interviewer_name", "").strip() or (
             request.user.get_full_name() or request.user.username
@@ -752,44 +822,75 @@ def staff_attempt_decision(request, pk):
         interview_score = form.cleaned_data.get("interview_score")
         max_interview_score = form.cleaned_data.get("max_interview_score")
 
-        # Update questions answered state and marks in application
+        if interview_score is not None:
+            if interview_score < 0:
+                err_msg = "Interview score cannot be negative."
+                if is_ajax:
+                    return JsonResponse({"success": False, "error": err_msg}, status=400)
+                messages.error(request, err_msg)
+                return redirect("staff_attempt_review", pk=attempt.pk)
+            if max_interview_score is not None and interview_score > max_interview_score:
+                err_msg = f"Interview score ({interview_score}) cannot exceed maximum ({max_interview_score})."
+                if is_ajax:
+                    return JsonResponse({"success": False, "error": err_msg}, status=400)
+                messages.error(request, err_msg)
+                return redirect("staff_attempt_review", pk=attempt.pk)
+
+        # Update questions answered state and marks in application with size and schema validation
         questions_raw = post_data.get("questions_data", "")
         questions_list = []
         if questions_raw:
+            raw_str = json.dumps(questions_raw) if isinstance(questions_raw, list) else str(questions_raw)
+            if len(raw_str) > 65536:
+                err_msg = "Question data payload exceeds maximum allowed size (64KB)."
+                if is_ajax:
+                    return JsonResponse({"success": False, "error": err_msg}, status=400)
+                messages.error(request, err_msg)
+                return redirect("staff_attempt_review", pk=attempt.pk)
             try:
-                if isinstance(questions_raw, list):
-                    questions_list = questions_raw
-                else:
-                    questions_list = json.loads(questions_raw)
-                if isinstance(questions_list, list) and questions_list:
-                    attempt.application.ai_interview_questions = questions_list
-                    attempt.application.save(update_fields=["ai_interview_questions"])
+                parsed = questions_raw if isinstance(questions_raw, list) else json.loads(questions_raw)
+                if isinstance(parsed, list):
+                    # Schema sanitize each question dict
+                    for item in parsed:
+                        if isinstance(item, dict):
+                            questions_list.append({
+                                "question": str(item.get("question", ""))[:500],
+                                "marks": float(item.get("marks", 0)) if item.get("marks") is not None else 0,
+                                "max_marks": float(item.get("max_marks", 10)) if item.get("max_marks") is not None else 10,
+                                "status": str(item.get("status", "answered"))[:50],
+                                "notes": str(item.get("notes", ""))[:1000],
+                            })
             except Exception as exc:
                 logger.warning("Could not parse questions_data JSON: %s", exc)
 
-        review, _ = InterviewReview.objects.update_or_create(
-            attempt=attempt,
-            round_number=round_number,
-            defaults={
-                "reviewer": request.user,
-                "interviewer_name": interviewer_name,
-                "candidate_summary": candidate_summary,
-                "decision": decision,
-                "selected_for_next_round": selected_for_next_round,
-                "interview_score": interview_score,
-                "max_interview_score": max_interview_score,
-                "notes": notes,
-                "questions_data": questions_list,
-            },
-        )
+        with transaction.atomic():
+            if questions_list:
+                attempt.application.ai_interview_questions = questions_list
+                attempt.application.save(update_fields=["ai_interview_questions"])
 
-        decision_label = review.get_decision_display()
-        audit(
-            request.user,
-            "interview.decision",
-            f"attempt:{attempt.pk}",
-            f"round={round_number}, signed_by={interviewer_name}, decision={decision_label}, score={interview_score}",
-        )
+            review, _ = InterviewReview.objects.update_or_create(
+                attempt=attempt,
+                round_number=round_number,
+                defaults={
+                    "reviewer": request.user,
+                    "interviewer_name": interviewer_name,
+                    "candidate_summary": candidate_summary,
+                    "decision": decision,
+                    "selected_for_next_round": selected_for_next_round,
+                    "interview_score": interview_score,
+                    "max_interview_score": max_interview_score,
+                    "notes": notes,
+                    "questions_data": questions_list,
+                },
+            )
+
+            decision_label = review.get_decision_display()
+            audit(
+                request.user,
+                "interview.decision",
+                f"attempt:{attempt.pk}",
+                f"round={round_number}, signed_by={interviewer_name}, decision={decision_label}, score={interview_score}",
+            )
         messages.success(
             request,
             f"Round {round_number} evaluation recorded by {interviewer_name}. Status: {decision_label}.",
@@ -851,6 +952,7 @@ def staff_snapshot_review(request, pk):
 
 @staff_required
 def staff_export_csv(request, pk):
+    expire_due_attempts()
     exam = get_object_or_404(Exam, pk=pk)
     selected_ids = request.GET.getlist("selected_ids") or request.POST.getlist("selected_ids")
     if not selected_ids and request.GET.get("ids"):
@@ -862,7 +964,7 @@ def staff_export_csv(request, pk):
     response["Content-Disposition"] = f'attachment; filename="{filename}"'
     fieldnames = [
         "full_name", "username", "email", "phone", "application_status", "attempt_status",
-        "started_at", "ended_at", "mcq_score", "coding_score", "total_score", "flagged_for_review", "has_resume",
+        "started_at", "ended_at", "mcq_score", "coding_score", "total_score", "flagged_for_review",
     ]
     writer = csv.DictWriter(response, fieldnames=fieldnames)
     writer.writeheader()
@@ -895,24 +997,14 @@ def staff_audit_log(request):
 def staff_application_resume(request, pk):
     application = get_object_or_404(Application.objects.select_related("candidate"), pk=pk)
 
-    # Check if the candidate's resume exists and is a valid file (> 300 bytes); if not, generate a proper PDF resume
-    needs_generation = False
     if not application.resume or not application.resume.name:
-        needs_generation = True
-    else:
-        try:
-            if not os.path.exists(application.resume.path) or os.path.getsize(application.resume.path) < 300:
-                needs_generation = True
-        except (NotImplementedError, AttributeError, OSError):
-            needs_generation = True
+        raise Http404("No resume on file.")
 
-    if needs_generation:
-        candidate_name = application.full_name or application.candidate.username or f"Candidate {application.pk:04d}"
-        candidate_email = application.candidate.email or application.candidate.username
-        candidate_phone = application.phone or ""
-        pdf_bytes = build_candidate_resume_pdf(candidate_name, candidate_email, candidate_phone)
-        safe_rel_name = f"candidate_{application.pk:04d}_resume.pdf"
-        application.resume.save(safe_rel_name, ContentFile(pdf_bytes), save=True)
+    try:
+        if not os.path.exists(application.resume.path):
+            raise Http404("Resume file not found.")
+    except (NotImplementedError, AttributeError, OSError) as exc:
+        raise Http404("Resume file not accessible.") from exc
 
     slug_name = slugify(application.full_name or application.candidate.username or f"candidate_{application.pk}").replace("-", "_")
     ext = os.path.splitext(application.resume.name)[1].lower() or ".pdf"
@@ -928,8 +1020,8 @@ def staff_application_resume(request, pk):
             file_obj = open(file_path, "rb")  # noqa: SIM115
         else:
             file_obj = application.resume.open("rb")
-    except (OSError, FileNotFoundError, NotImplementedError, AttributeError):
-        file_obj = application.resume.open("rb")
+    except (OSError, FileNotFoundError, NotImplementedError, AttributeError) as exc:
+        raise Http404("Unable to read resume.") from exc
 
     response = FileResponse(file_obj, as_attachment=as_attachment, filename=download_filename, content_type=content_type)
     disposition = "attachment" if as_attachment else "inline"
@@ -960,8 +1052,8 @@ def staff_generate_ai_questions(request, pk):
         audit(request.user, "ai_interview.generated", f"attempt:{attempt.pk}", f"count={count}, engine={engine}")
     else:
         err = res.get("error", "Unknown error")
-        messages.warning(request, f"Notice: {err}. Resume keyword questions loaded.")
-        audit(request.user, "ai_interview.fallback", f"attempt:{attempt.pk}", f"error={err}")
+        messages.warning(request, f"Notice: {err}")
+        audit(request.user, "ai_interview.disabled", f"attempt:{attempt.pk}", f"error={err}")
 
     redirect_url = reverse("staff_attempt_review", args=[attempt.pk]) + "#interview-section"
     return redirect(redirect_url)

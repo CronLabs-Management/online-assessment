@@ -89,17 +89,18 @@ def check_eligibility(user, exam):
 
 def publish_checks(exam):
     """
-    The pre-publish checklist. Each entry: {"ok", "blocking", "text", "time"}.
-    Blocking failures stop publishing and starting. Warnings only inform.
-    "time" marks the opening and closing checks, which starting covers through is_open instead.
+    The pre-publish checklist. Each entry: {"ok", "blocking", "text", "time", "structural"}.
+    Hard/structural failures stop publishing entirely and cannot be overridden.
+    Soft blocking checks require superuser role and an explicit reason.
+    Warnings only inform.
     """
     checks = []
 
-    def add(ok, text, blocking=True, time=False):
-        checks.append({"ok": bool(ok), "blocking": blocking, "text": text, "time": time})
+    def add(ok, text, blocking=True, time=False, structural=True):
+        checks.append({"ok": bool(ok), "blocking": blocking, "text": text, "time": time, "structural": structural})
 
     sections = list(exam.sections.all())
-    add(sections, "At least one section is configured" if sections else "Add at least one section", )
+    add(sections, "At least one section is configured" if sections else "Add at least one section", structural=True)
     if sections:
         total = sum(section.duration_minutes for section in sections)
         add(
@@ -107,10 +108,11 @@ def publish_checks(exam):
             f"Sections use {total} of the {exam.duration_minutes} minutes allowed"
             if total <= exam.duration_minutes
             else f"Sections add up to {total} minutes, more than the {exam.duration_minutes}-minute limit",
+            structural=True,
         )
 
-    add(exam.closes_at > exam.opens_at, "Closing time is after opening time", time=True)
-    add(exam.closes_at > timezone.now(), "Closing time is in the future", time=True)
+    add(exam.closes_at > exam.opens_at, "Closing time is after opening time", time=True, structural=True)
+    add(exam.closes_at > timezone.now(), "Closing time is in the future", time=True, structural=False)
 
     mcq_total = exam.mcq_questions.count()
     mcq_needed = sum(
@@ -120,6 +122,7 @@ def publish_checks(exam):
         add(
             mcq_total and mcq_needed <= mcq_total,
             f"{mcq_total} multiple-choice questions available, {mcq_needed} needed",
+            structural=True,
         )
     bad_questions = []
     for question in exam.mcq_questions.prefetch_related("options"):
@@ -131,6 +134,7 @@ def publish_checks(exam):
         "Every question has at least two options and exactly one correct answer"
         if not bad_questions
         else f"{len(bad_questions)} question(s) need two or more options and exactly one correct answer",
+        structural=True,
     )
 
     problems = list(exam.coding_problems.prefetch_related("test_cases"))
@@ -143,6 +147,7 @@ def publish_checks(exam):
             f"{len(problems)} coding problem(s) available, {coding_needed} needed"
             if problems and coding_needed <= len(problems)
             else f"{len(problems)} coding problem(s) available, but {coding_needed} distinct ones are needed",
+            structural=True,
         )
     bad_problems = [
         problem.title for problem in problems
@@ -156,13 +161,14 @@ def publish_checks(exam):
         "Every coding problem has a statement, supported languages and a test case"
         if not bad_problems
         else "Fix these coding problems (statement, languages or test cases): " + ", ".join(bad_problems[:5]),
+        structural=True,
     )
     no_hidden = [problem.title for problem in problems if not any(c.is_hidden for c in problem.test_cases.all())]
     if no_hidden:
-        add(False, f"No hidden test cases for: {', '.join(no_hidden[:5])}. Grading would use public cases only.", blocking=False)
+        add(False, f"No hidden test cases for: {', '.join(no_hidden[:5])}. Grading would use public cases only.", blocking=False, structural=False)
 
     waiting = exam.applications.filter(status=Application.Status.APPROVED).count()
-    add(True, f"{waiting} candidate(s) on the list (candidates can be added at any time)", blocking=False)
+    add(True, f"{waiting} candidate(s) on the list (candidates can be added at any time)", blocking=False, structural=False)
     return checks
 
 
@@ -384,15 +390,15 @@ def touch(attempt, now):
     if attempt.is_final:
         return attempt
 
-    policy = attempt.policy_snapshot
-    grace = policy["network_grace_seconds"]
+    policy = attempt.policy_snapshot or {}
+    grace = policy.get("network_grace_seconds", 30)
     gap = (now - attempt.last_seen_at).total_seconds()
 
     if gap > grace:
         excess = int(gap - grace)
         granted = 0
-        if policy["pause_enabled"]:
-            allowance = max(0, policy["max_pause_seconds"] - attempt.total_paused_seconds)
+        if policy.get("pause_enabled", False):
+            allowance = max(0, policy.get("max_pause_seconds", 0) - attempt.total_paused_seconds)
             # Pause credit can never move the deadline past the exam's closing time.
             room = max(0, int((attempt.exam.closes_at - attempt.deadline_at).total_seconds()))
             granted = min(excess, allowance, room)
@@ -425,19 +431,32 @@ def touch(attempt, now):
     attempt.save(update_fields=["last_seen_at", "deadline_at", "total_paused_seconds", "readiness_confirmed_at"])
 
     # Section timeouts, in order. Each expired section starts the next one at its own deadline.
-    # While awaiting camera readiness check, the timer has not officially started.
-    if not (attempt.exam.camera_required and attempt.readiness_confirmed_at is None):
+    # Check if the candidate is on the very first initial pre-flight readiness check
+    # (i.e. has never passed readiness check, has no section submitted or expired, and has no answers/drafts).
+    has_prior_readiness = attempt.proctoring_events.filter(kind=ProctoringEvent.Kind.CAMERA_READY).exists()
+    is_initial_preflight = (
+        attempt.exam.camera_required
+        and attempt.readiness_confirmed_at is None
+        and not has_prior_readiness
+        and not attempt.sections.filter(status__in=[AttemptSection.Status.SUBMITTED, AttemptSection.Status.EXPIRED]).exists()
+        and not attempt.answers.exists()
+        and not attempt.coding_drafts.exists()
+    )
+
+    if not is_initial_preflight:
         while True:
             current = _current_section(attempt)
-            if current is None or now < current.deadline_at:
+            if current is None or current.deadline_at is None or now < current.deadline_at:
                 break
             _end_section(attempt, current, AttemptSection.Status.EXPIRED, at=current.deadline_at)
             _advance(attempt, previous_end=current.deadline_at, final_status=Attempt.Status.EXPIRED)
             if attempt.is_final:
                 break
 
-        if not attempt.is_final and now >= attempt.deadline_at:
-            _finalize(attempt, Attempt.Status.EXPIRED, at=attempt.deadline_at)
+    # If the overall attempt deadline or exam closing time has passed, finalize as EXPIRED immediately.
+    effective_deadline = min(attempt.deadline_at, attempt.exam.closes_at)
+    if not attempt.is_final and now >= effective_deadline:
+        _finalize(attempt, Attempt.Status.EXPIRED, at=effective_deadline)
 
     return attempt
 
@@ -530,7 +549,11 @@ def record_readiness(attempt, now, snapshot_consent=False):
             "You must agree to snapshot capture to take this camera-proctored test.",
             "consent_required",
         )
-    is_initial_readiness = attempt.readiness_confirmed_at is None
+    has_prior_readiness = (
+        attempt.readiness_confirmed_at is not None
+        or attempt.proctoring_events.filter(kind=ProctoringEvent.Kind.CAMERA_READY).exists()
+    )
+    is_initial_readiness = not has_prior_readiness
     attempt.readiness_confirmed_at = now
     attempt.snapshot_consent_at = now if (snapshot_consent and snapshots_allowed) else None
 
@@ -548,7 +571,15 @@ def record_readiness(attempt, now, snapshot_consent=False):
             active_sec.save(update_fields=["started_at", "deadline_at"])
 
     attempt.save(update_fields=update_fields)
-    _create_event(attempt, ProctoringEvent.Kind.CAMERA_READY, client_at=None, duration_ms=0, context={}, now=now)
+    if is_initial_readiness:
+        _create_event(
+            attempt,
+            ProctoringEvent.Kind.CAMERA_READY,
+            client_at=None,
+            duration_ms=0,
+            context={"snapshot_consent": bool(attempt.snapshot_consent_at)},
+            now=now,
+        )
     return attempt
 
 
@@ -916,7 +947,8 @@ def _queue_drafts_for_section(attempt, section):
         if draft is None or not draft.source_code.strip():
             continue
         sub = _create_submission(attempt, item.problem, draft.language, draft.source_code, is_final=True)
-        dispatch_grading(sub.pk)
+        sub_pk = sub.pk
+        transaction.on_commit(lambda pk=sub_pk: dispatch_grading(pk))
 
 
 def execute_cases(problem, language, code, runner, cases=None):
@@ -1010,20 +1042,53 @@ def grade_submission(submission, runner=None):
     return submission
 
 
-def grade_queued(limit=100):
+def claim_submission(submission_id, worker_id="worker"):
+    """
+    Atomically claims a queued or stale RUNNING submission using select_for_update.
+    Returns the claimed submission or None if claimed by another worker.
+    """
+    now = timezone.now()
+    stale_threshold = now - timedelta(minutes=3)
+    with transaction.atomic():
+        sub = (
+            CodingSubmission.objects.select_for_update(skip_locked=True)
+            .filter(
+                Q(status=CodingSubmission.Status.QUEUED)
+                | Q(status=CodingSubmission.Status.RUNNER_ERROR, grading_attempts__lt=MAX_GRADING_ATTEMPTS)
+                | Q(status=CodingSubmission.Status.RUNNING, claimed_at__lt=stale_threshold),
+                pk=submission_id,
+            )
+            .first()
+        )
+        if sub is None:
+            return None
+        sub.status = CodingSubmission.Status.RUNNING
+        sub.claimed_at = now
+        sub.claimed_by = str(worker_id)[:64]
+        sub.save(update_fields=["status", "claimed_at", "claimed_by"])
+        return sub
+
+
+def grade_queued(limit=100, worker_id="cron"):
     """Grade queued submissions in order. Run from cron, or by the management command."""
     runner = get_runner()
+    now = timezone.now()
+    stale_threshold = now - timedelta(minutes=3)
     graded = 0
-    pending = (
+    candidate_ids = list(
         CodingSubmission.objects.filter(
             Q(status=CodingSubmission.Status.QUEUED)
             | Q(status=CodingSubmission.Status.RUNNER_ERROR, grading_attempts__lt=MAX_GRADING_ATTEMPTS)
+            | Q(status=CodingSubmission.Status.RUNNING, claimed_at__lt=stale_threshold)
         )
-        .order_by("submitted_at")[:limit]
+        .order_by("submitted_at")
+        .values_list("pk", flat=True)[:limit]
     )
-    for submission in pending:
-        grade_submission(submission, runner=runner)
-        graded += 1
+    for sub_id in candidate_ids:
+        sub = claim_submission(sub_id, worker_id=worker_id)
+        if sub:
+            grade_submission(sub, runner=runner)
+            graded += 1
     return graded
 
 
@@ -1042,9 +1107,10 @@ def dispatch_grading(submission_id):
     def _worker():
         from django.db import connection
         try:
-            submission = CodingSubmission.objects.filter(pk=submission_id).first()
-            if submission and submission.status == CodingSubmission.Status.QUEUED:
-                grade_submission(submission)
+            worker_id = f"thread-{threading.get_ident()}"
+            sub = claim_submission(submission_id, worker_id=worker_id)
+            if sub:
+                grade_submission(sub)
         except Exception:
             logger.exception("Async background grading failed for submission %s", submission_id)
         finally:
@@ -1055,12 +1121,8 @@ def dispatch_grading(submission_id):
 
 
 def grade_pending_queued_submissions():
-    """Recovers any submissions left queued due to server worker restart."""
-    for sub in CodingSubmission.objects.filter(status=CodingSubmission.Status.QUEUED).order_by("id")[:20]:
-        try:
-            grade_submission(sub)
-        except Exception:
-            logger.exception("Recovery grading failed for submission %s", sub.pk)
+    """Recovers any submissions left queued or stalled due to server worker restart."""
+    return grade_queued(limit=20, worker_id="recovery")
 
 
 # ---------------------------------------------------------------------------
@@ -1161,10 +1223,22 @@ def candidate_state(attempt, now):
     }
 
     if state["readiness_required"]:
-        # Do not deduct duration before the candidate starts viewing questions
-        state["remaining_seconds"] = int(attempt.exam.duration_minutes * 60)
-        if state["current_section"]:
-            state["current_section"]["remaining_seconds"] = int(current.section.duration_minutes * 60)
+        has_prior_readiness = attempt.proctoring_events.filter(kind=ProctoringEvent.Kind.CAMERA_READY).exists()
+        is_initial_preflight = (
+            not has_prior_readiness
+            and not attempt.sections.filter(status__in=[AttemptSection.Status.SUBMITTED, AttemptSection.Status.EXPIRED]).exists()
+            and not attempt.answers.exists()
+            and not attempt.coding_drafts.exists()
+        )
+        if is_initial_preflight and now < attempt.deadline_at:
+            # Do not deduct duration before the candidate starts viewing questions for the first time
+            state["remaining_seconds"] = int(attempt.exam.duration_minutes * 60)
+            if state["current_section"]:
+                state["current_section"]["remaining_seconds"] = int(current.section.duration_minutes * 60)
+        else:
+            state["remaining_seconds"] = max(0, int((attempt.deadline_at - now).total_seconds()))
+            if state["current_section"] and current.deadline_at:
+                state["current_section"]["remaining_seconds"] = max(0, int((current.deadline_at - now).total_seconds()))
         return state
 
     if current.section.kind == ExamSection.Kind.MCQ:
@@ -1236,7 +1310,7 @@ def expire_due_attempts(now=None):
     """
     Finish attempts whose time has run out, including attempts the candidate abandoned.
 
-    Run from cron. Returns the number of attempts processed.
+    Run from cron or view hooks. Returns the number of attempts processed.
     """
     now = now or timezone.now()
     overdue_sections = AttemptSection.objects.filter(
@@ -1244,7 +1318,7 @@ def expire_due_attempts(now=None):
     ).values("attempt_id")
     due = (
         Attempt.objects.filter(status=Attempt.Status.IN_PROGRESS)
-        .filter(Q(deadline_at__lte=now) | Q(pk__in=overdue_sections))
+        .filter(Q(deadline_at__lte=now) | Q(pk__in=overdue_sections) | Q(exam__closes_at__lte=now))
         .values_list("pk", flat=True)
     )
     processed = 0
@@ -1258,6 +1332,6 @@ def expire_due_attempts(now=None):
             )
             if attempt is None or attempt.is_final:
                 continue
-            touch(attempt, timezone.now())
+            touch(attempt, now)
             processed += 1
     return processed

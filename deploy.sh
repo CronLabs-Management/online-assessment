@@ -42,6 +42,7 @@ pip install -r requirements.txt
 
 echo "==> [6/8] Applying database migrations & collecting static files..."
 python manage.py migrate --noinput
+python manage.py createcachetable assessment_cache_table || true
 python manage.py collectstatic --noinput
 
 echo "==> [7/8] Running Django deployment and security checks (fail-closed)..."

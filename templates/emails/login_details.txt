@@ -16,4 +16,4 @@ Time allowed once started: {{ exam.duration_minutes }} minutes
 Important:
 - Keep this email private. Anyone with the password can sign in as you.
 - Once you start, the timer runs without stopping. Start only when you can finish in one sitting.
-- If you lose this email, ask the test administrator to resend it. A new password is created each time and the old one stops working.
+- If you lose this email, ask the test administrator to resend your credentials.

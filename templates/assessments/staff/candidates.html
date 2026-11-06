@@ -315,7 +315,10 @@
 
             <!-- Col 2: Login Credentials (Moved to Column 2) -->
             <th scope="col" class="px-3.5 py-3.5 font-bold uppercase tracking-wider text-[11px] text-slate-700">
-              Login Credentials
+              <div class="flex items-center justify-between gap-1">
+                <span>Login Credentials</span>
+                <button type="button" id="btn-toggle-all-passwords" onclick="toggleAllPasswords()" class="text-[10px] font-sans font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-1.5 py-0.5 rounded border border-slate-300" title="Show or hide all candidate passwords">Show All</button>
+              </div>
             </th>
 
             <!-- Col 3: MCQ Marks -->
@@ -468,13 +471,14 @@
                 <!-- Col 2: Login Credentials -->
                 <td class="px-3.5 py-3.5">
                   <div class="space-y-1">
-                    <div class="flex items-center gap-1.5 font-mono text-[11px] bg-slate-100 text-slate-900 px-2 py-0.5 rounded border border-slate-200 w-fit">
+                    <div class="flex items-center gap-1 font-mono text-[11px] bg-slate-100 text-slate-900 px-2 py-0.5 rounded border border-slate-200 w-fit">
                       <span class="text-slate-500 font-bold select-none text-[10px]">PWD:</span>
-                      <span class="font-bold select-all tracking-wider text-slate-900">
-                        {% if app.plain_password %}{{ app.plain_password }}{% else %}<span class="text-slate-400 font-normal italic">Pending</span>{% endif %}
-                      </span>
                       {% if app.plain_password %}
-                        <button type="button" onclick="navigator.clipboard.writeText('{{ app.plain_password }}'); this.textContent='✓'; setTimeout(()=>this.textContent='Copy', 1500);" class="ml-1 text-[10px] font-sans font-bold text-[#335eea] hover:text-[#254bd0] bg-white px-1.5 py-0.2 rounded border border-slate-200" title="Copy password">Copy</button>
+                        <span class="password-cell font-mono font-bold tracking-wider text-slate-900 select-all" data-app-id="{{ app.pk }}" data-password="{{ app.plain_password }}" data-masked="true">••••••••</span>
+                        <button type="button" onclick="togglePassword(this, '{{ app.pk }}')" class="btn-toggle-pwd ml-1 text-[10px] font-sans font-bold text-slate-600 hover:text-slate-900 bg-white px-1.5 py-0.5 rounded border border-slate-200" title="Show / hide password">Show</button>
+                        <button type="button" onclick="copyPassword('{{ app.plain_password }}', '{{ app.pk }}', this)" class="btn-copy-pwd text-[10px] font-sans font-bold text-[#335eea] hover:text-[#254bd0] bg-white px-1.5 py-0.5 rounded border border-slate-200" title="Copy password">Copy</button>
+                      {% else %}
+                        <span class="text-slate-400 font-normal italic">Pending</span>
                       {% endif %}
                     </div>
                     <div>
@@ -660,9 +664,17 @@
                         {% endif %}
                         <form method="post" action="{% url 'staff_resend_credentials' app.pk %}" class="block m-0">
                           {% csrf_token %}
-                          <button type="submit" class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-[#335eea] hover:bg-blue-50 font-medium transition-colors text-left">
+                          <button type="submit" class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-[#335eea] hover:bg-blue-50 font-medium transition-colors text-left" title="Resend the current working password via email">
                             <span class="text-xs">✉️</span>
                             <span>Resend Credentials</span>
+                          </button>
+                        </form>
+                        <form method="post" action="{% url 'staff_regenerate_credentials' app.pk %}" onsubmit="return confirm('Regenerate password for {{ app.full_name }}? Any previous password will stop working immediately.');" class="block m-0">
+                          {% csrf_token %}
+                          <input type="hidden" name="send_email" value="1">
+                          <button type="submit" class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-amber-700 hover:bg-amber-50 font-medium transition-colors text-left" title="Generate a fresh random password and email it">
+                            <span class="text-xs">🔄</span>
+                            <span>Regenerate &amp; Send</span>
                           </button>
                         </form>
                         <div class="border-t border-slate-100 my-1"></div>
@@ -1124,6 +1136,71 @@ function bulkCopyEmails(btn) {
     btn.innerHTML = '<span>✓</span> Copied!';
     setTimeout(function() { btn.innerHTML = orig; }, 1800);
   });
+}
+
+function togglePassword(btn, appId) {
+  const cell = document.querySelector(`.password-cell[data-app-id="${appId}"]`);
+  if (!cell) return;
+  const isMasked = cell.getAttribute('data-masked') === 'true';
+  if (isMasked) {
+    cell.textContent = cell.getAttribute('data-password');
+    cell.setAttribute('data-masked', 'false');
+    btn.textContent = 'Hide';
+    fetch(`/staff/applications/${appId}/audit-access/`, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': getCsrfToken(),
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: 'action=revealed'
+    }).catch(() => {});
+  } else {
+    cell.textContent = '••••••••';
+    cell.setAttribute('data-masked', 'true');
+    btn.textContent = 'Show';
+  }
+}
+
+function toggleAllPasswords() {
+  const btn = document.getElementById('btn-toggle-all-passwords');
+  const cells = document.querySelectorAll('.password-cell');
+  if (!cells.length) return;
+  const anyMasked = Array.from(cells).some(c => c.getAttribute('data-masked') === 'true');
+  cells.forEach(cell => {
+    const appId = cell.getAttribute('data-app-id');
+    const rowBtn = cell.parentElement.querySelector('.btn-toggle-pwd');
+    if (anyMasked) {
+      cell.textContent = cell.getAttribute('data-password');
+      cell.setAttribute('data-masked', 'false');
+      if (rowBtn) rowBtn.textContent = 'Hide';
+    } else {
+      cell.textContent = '••••••••';
+      cell.setAttribute('data-masked', 'true');
+      if (rowBtn) rowBtn.textContent = 'Show';
+    }
+  });
+  if (btn) btn.textContent = anyMasked ? 'Hide All' : 'Show All';
+}
+
+function copyPassword(pw, appId, btn) {
+  navigator.clipboard.writeText(pw).then(function() {
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copied';
+    setTimeout(function() { btn.textContent = orig; }, 1500);
+    fetch(`/staff/applications/${appId}/audit-access/`, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': getCsrfToken(),
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: 'action=copied'
+    }).catch(() => {});
+  });
+}
+
+function getCsrfToken() {
+  const input = document.querySelector('[name=csrfmiddlewaretoken]');
+  return input ? input.value : '';
 }
 
 function setQuickFilter(statusVal) {

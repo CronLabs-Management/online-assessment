@@ -71,10 +71,12 @@
           <p class="mt-1 text-xs text-slate-600">
             {% if exam.is_published %}
               This assessment is currently live to invited candidates. Unpublish before making mid-exam adjustments.
-            {% elif blocking_count == 0 %}
-              All prerequisites are satisfied. Ready for candidate access.
+            {% elif hard_blocking_count > 0 %}
+              <span class="text-rose-600 font-semibold">{{ hard_blocking_count }} structural blocker{{ hard_blocking_count|pluralize }}</span> must be resolved before publishing.
+            {% elif blocking_count > 0 %}
+              <span class="text-amber-700 font-semibold">{{ blocking_count }} non-critical warning{{ blocking_count|pluralize }}</span> present. Requires administrator override reason to publish.
             {% else %}
-              There are {{ blocking_count }} warning{{ blocking_count|pluralize }}. You may publish with an override if intended.
+              All prerequisites are satisfied. Ready for candidate access.
             {% endif %}
           </p>
         </div>
@@ -85,6 +87,9 @@
               {% if check.ok %}
                 <span class="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[10px] font-bold text-emerald-800">&#10003;</span>
                 <span class="text-slate-700">{{ check.text }}</span>
+              {% elif check.blocking and check.structural %}
+                <span class="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-rose-100 text-[10px] font-bold text-rose-800">&#x2715;</span>
+                <span class="text-rose-900 font-semibold">{{ check.text }}</span>
               {% elif check.blocking %}
                 <span class="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-100 text-[10px] font-bold text-amber-800">!</span>
                 <span class="text-amber-900 font-semibold">{{ check.text }}</span>
@@ -106,12 +111,32 @@
                 Unpublish test
               </button>
             </form>
+          {% elif hard_blocking_count > 0 %}
+            <button class="btn btn-secondary w-full text-xs font-semibold py-2 opacity-50 cursor-not-allowed" disabled title="Fix structural blockers before publishing.">
+              Cannot Publish (Fix Blockers)
+            </button>
+          {% elif blocking_count > 0 %}
+            {% if can_override %}
+              <form method="post" action="{% url 'staff_exam_publish' exam.pk %}" class="space-y-2">
+                {% csrf_token %}
+                <div>
+                  <label class="block text-[11px] font-semibold text-amber-900 mb-1">Admin Override Reason</label>
+                  <textarea name="override_reason" required minlength="10" rows="2" class="w-full text-xs p-2 border border-amber-300 rounded-lg focus:ring-1 focus:ring-amber-500" placeholder="Reason for publishing with warnings..."></textarea>
+                </div>
+                <button class="btn btn-warning w-full text-xs font-semibold py-2 shadow-xs" onclick="return confirm('Publish assessment with overridden warnings?');">
+                  Override &amp; Publish Test
+                </button>
+              </form>
+            {% else %}
+              <div class="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800">
+                Non-critical warnings present. An administrator is required to override and publish.
+              </div>
+            {% endif %}
           {% else %}
-            <form method="post" action="{% url 'staff_exam_publish' exam.pk %}" {% if blocking_count > 0 %}onsubmit="return confirm('You have {{ blocking_count }} pre-publish warning(s). Do you wish to override and publish this test anyway?');"{% endif %}>
+            <form method="post" action="{% url 'staff_exam_publish' exam.pk %}">
               {% csrf_token %}
-              <input type="hidden" name="override" value="true">
               <button class="btn btn-accent w-full text-xs font-semibold py-2 shadow-xs">
-                {% if blocking_count > 0 %}Override &amp; Publish Test{% else %}Publish Assessment{% endif %}
+                Publish Assessment
               </button>
             </form>
           {% endif %}

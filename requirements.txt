@@ -4,3 +4,5 @@ PyMySQL==1.2.3
 asgiref==3.12.1
 sqlparse==0.6.0
 Pillow>=10.0.0
+requests==2.32.3
+

@@ -1,4 +1,3 @@
-import os
 import re
 
 from django import forms
@@ -142,7 +141,7 @@ class MCQQuestionForm(forms.ModelForm):
                     pass
             if not self.initial.get("section") and not (self.instance and self.instance.section_id):
                 self.initial["section"] = default_sec
-        for name, field in self.fields.items():
+        for _name, field in self.fields.items():
             field.widget.attrs.setdefault("class", "w-full rounded border px-3 py-2")
 
 
@@ -310,9 +309,12 @@ class CandidateImportForm(forms.Form):
     def clean(self):
         cleaned = super().clean()
         single_email = (cleaned.get("single_email") or "").strip()
+        single_name = (cleaned.get("single_full_name") or "").strip()
         bulk = (cleaned.get("candidates") or "").strip()
         if not single_email and not bulk:
             raise ValidationError("Please provide candidate details above or paste a candidate list.")
+        if single_email and not single_name:
+            self.add_error("single_full_name", "Candidate full name is required.")
         return cleaned
 
     def parse(self):
@@ -320,13 +322,18 @@ class CandidateImportForm(forms.Form):
         rows, errors = [], []
         seen = set()
         single_email = (self.cleaned_data.get("single_email") or "").strip().lower()
+        single_name = (self.cleaned_data.get("single_full_name") or "").strip()
+        single_phone = (self.cleaned_data.get("single_phone") or "").strip()
         if single_email:
-            seen.add(single_email)
-            rows.append({
-                "email": single_email,
-                "full_name": (self.cleaned_data.get("single_full_name") or "").strip(),
-                "phone": (self.cleaned_data.get("single_phone") or "").strip(),
-            })
+            if not single_name:
+                errors.append("Single candidate import: Candidate full name is required.")
+            else:
+                seen.add(single_email)
+                rows.append({
+                    "email": single_email,
+                    "full_name": single_name,
+                    "phone": single_phone,
+                })
 
         for number, raw in enumerate((self.cleaned_data.get("candidates") or "").splitlines(), start=1):
             line = raw.strip()
@@ -339,42 +346,21 @@ class CandidateImportForm(forms.Form):
             except forms.ValidationError:
                 errors.append(f"Line {number}: “{parts[0]}” is not a valid email address.")
                 continue
+            if len(parts) < 2 or not parts[1]:
+                errors.append(f"Line {number}: Candidate full name is required.")
+                continue
+            name = parts[1][:200]
+            phone = parts[2][:20] if len(parts) > 2 else ""
             if email in seen:
                 errors.append(f"Line {number}: “{email}” was duplicated in the submitted list and only processed once.")
                 continue
             seen.add(email)
             rows.append({
                 "email": email,
-                "full_name": parts[1][:200] if len(parts) > 1 and parts[1] else "",
-                "phone": parts[2][:20] if len(parts) > 2 else "",
+                "full_name": name,
+                "phone": phone,
             })
         return rows, errors
-
-
-def validate_resume_file(uploaded):
-    if not uploaded:
-        return
-    ext = os.path.splitext(uploaded.name)[1].lower()
-    allowed = [".pdf", ".doc", ".docx"]
-    if ext not in allowed:
-        raise ValidationError(f"Resume must be a PDF or Word document ({', '.join(allowed)}).")
-    if uploaded.size > 10 * 1024 * 1024:
-        raise ValidationError("Resume file size must not exceed 10 MB.")
-
-    pos = uploaded.tell() if hasattr(uploaded, "tell") else 0
-    header = uploaded.read(8)
-    if hasattr(uploaded, "seek"):
-        uploaded.seek(pos)
-
-    if ext == ".pdf":
-        if not header.startswith(b"%PDF-"):
-            raise ValidationError("Invalid PDF file: file signature does not match PDF format.")
-    elif ext == ".docx":
-        if not header.startswith(b"PK\x03\x04"):
-            raise ValidationError("Invalid Word document: file signature does not match DOCX format.")
-    elif ext == ".doc":
-        if not header.startswith(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"):
-            raise ValidationError("Invalid Word document: file signature does not match legacy DOC format.")
 
 
 class CandidateEditForm(forms.ModelForm):
@@ -383,27 +369,14 @@ class CandidateEditForm(forms.ModelForm):
         required=True,
         widget=forms.EmailInput(attrs={"class": "w-full rounded border px-3 py-2"}),
     )
-    resume = forms.FileField(
-        label="Candidate Resume (.pdf, .doc, .docx)",
-        required=False,
-        validators=[validate_resume_file],
-        widget=forms.FileInput(
-            attrs={
-                "accept": ".pdf,.doc,.docx",
-                "class": "w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200",
-            }
-        ),
-        help_text="Upload a PDF or Word document to update this candidate's resume (Max 10 MB).",
-    )
 
     class Meta:
         model = Application
-        fields = ["full_name", "phone", "plain_password", "resume"]
+        fields = ["full_name", "phone", "plain_password"]
         labels = {
             "full_name": "Full Legal Name",
             "phone": "Mobile Number",
             "plain_password": "Candidate Login Password (Always Visible to Admin)",
-            "resume": "Candidate Resume",
         }
         widgets = {
             "full_name": forms.TextInput(attrs={"class": "w-full rounded border px-3 py-2"}),
@@ -420,7 +393,6 @@ class CandidateEditForm(forms.ModelForm):
             self.fields["email"].initial = self.instance.candidate.email or self.instance.candidate.username
 
 
-
 class ConfirmDetailsForm(forms.ModelForm):
     email = forms.EmailField(
         label="Email address",
@@ -433,21 +405,13 @@ class ConfirmDetailsForm(forms.ModelForm):
         }),
         help_text="Your account email address is locked and cannot be changed.",
     )
-    resume = forms.FileField(
-        label="Upload resume",
-        required=False,
-        validators=[validate_resume_file],
-        widget=forms.FileInput(attrs={"accept": ".pdf,.doc,.docx"}),
-        help_text="PDF or Word document (Max 10 MB).",
-    )
 
     class Meta:
         model = Application
-        fields = ["full_name", "phone", "resume"]
+        fields = ["full_name", "phone"]
         labels = {
             "full_name": "Full legal name",
             "phone": "Mobile number",
-            "resume": "Upload resume",
         }
         widgets = {
             "full_name": forms.TextInput(attrs={
@@ -465,12 +429,7 @@ class ConfirmDetailsForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for name, field in self.fields.items():
-            if name == "resume":
-                field.widget.attrs.setdefault(
-                    "class",
-                    "w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-blue-50 file:text-[#2447F5] hover:file:bg-blue-100 cursor-pointer",
-                )
-            elif name != "email":
+            if name != "email":
                 field.widget.attrs.setdefault("class", "w-full rounded-xl border border-slate-300 px-3 py-2 text-slate-900 font-medium focus:border-blue-600 focus:ring-1 focus:ring-blue-600")
 
         self.fields["full_name"].required = True
@@ -487,10 +446,6 @@ class ConfirmDetailsForm(forms.ModelForm):
             account_email = cand.email or cand.username
             self.fields["email"].initial = account_email
             self.initial["email"] = account_email
-
-        # If candidate has no resume on file yet, resume is required
-        if self.instance and not self.instance.resume:
-            self.fields["resume"].required = True
 
     def clean_email(self):
         email = (self.cleaned_data.get("email") or "").strip().lower()

@@ -309,20 +309,37 @@ class Application(models.Model):
         return f"{self.full_name} – {self.exam.title} ({self.get_status_display()})"
 
     def ensure_password(self):
-        """Ensures this application has a visible plain password for admin."""
+        """Ensures this application has a visible plain password for admin, synchronized with User password hash."""
         if not self.plain_password:
             from . import notifications
             pw = notifications.new_password()
             self.plain_password = pw
             if self.pk:
                 Application.objects.filter(pk=self.pk).update(plain_password=pw)
+            if self.candidate_id:
+                try:
+                    cand = self.candidate
+                    cand.set_password(pw)
+                    cand.save(update_fields=["password"])
+                except Exception:
+                    pass
         return self.plain_password
 
     def save(self, *args, **kwargs):
+        is_new_pw = False
         if not self.plain_password:
             from . import notifications
             self.plain_password = notifications.new_password()
+            is_new_pw = True
         super().save(*args, **kwargs)
+        if is_new_pw and self.candidate_id:
+            try:
+                cand = self.candidate
+                if not cand.has_usable_password():
+                    cand.set_password(self.plain_password)
+                    cand.save(update_fields=["password"])
+            except Exception:
+                pass
 
 
 # ---------------------------------------------------------------------------
@@ -660,6 +677,7 @@ class CodingDraft(models.Model):
 class CodingSubmission(models.Model):
     class Status(models.TextChoices):
         QUEUED = "queued", "Queued"
+        RUNNING = "running", "Running"
         COMPLETED = "completed", "Graded"
         RUNNER_ERROR = "runner_error", "Runner error"
 
@@ -671,6 +689,8 @@ class CodingSubmission(models.Model):
     status = models.CharField(max_length=14, choices=Status.choices, default=Status.QUEUED)
     submitted_at = models.DateTimeField(auto_now_add=True)
     graded_at = models.DateTimeField(null=True, blank=True)
+    claimed_at = models.DateTimeField(null=True, blank=True)
+    claimed_by = models.CharField(max_length=64, blank=True, default="")
     total_cases = models.PositiveIntegerField(default=0)
     public_passed = models.PositiveIntegerField(default=0)
     hidden_passed = models.PositiveIntegerField(default=0)

@@ -7,6 +7,7 @@ from functools import wraps
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -42,10 +43,15 @@ ERROR_STATUS = {
 
 
 def _client_ip(request):
-    forwarded = request.META.get("HTTP_X_FORWARDED_FOR")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.META.get("REMOTE_ADDR") or None
+    remote = request.META.get("REMOTE_ADDR") or None
+    trusted = getattr(settings, "TRUSTED_PROXIES", ("127.0.0.1", "::1"))
+    if remote and remote in trusted:
+        forwarded = request.META.get("HTTP_X_FORWARDED_FOR")
+        if forwarded:
+            ips = [ip.strip() for ip in forwarded.split(",") if ip.strip()]
+            if ips:
+                return ips[0]
+    return remote
 
 
 def _perform(request, pk, action):
@@ -157,12 +163,10 @@ def start_attempt_view(request, pk):
         messages.error(request, "Your application has not been approved for this assessment.")
         return redirect("home")
     if application.details_confirmed_at is None:
-        messages.info(request, "Please verify your candidate details and upload your resume before starting the assessment.")
+        messages.info(request, "Please verify your candidate details before starting the assessment.")
         return redirect("confirm_details", pk=exam.pk)
     try:
         attempt = services.start_attempt(request.user, exam)
-        if attempt.readiness_confirmed_at is None:
-            services.record_readiness(attempt, timezone.now(), snapshot_consent=exam.snapshots_enabled)
         loc_raw = request.POST.get("location")
         net_raw = request.POST.get("network")
         if loc_raw or net_raw:
@@ -196,6 +200,11 @@ def attempt_page(request, pk):
     if request.user.is_staff:
         return redirect("staff_exam_list")
     attempt = get_object_or_404(Attempt.objects.select_related("exam"), pk=pk, candidate=request.user)
+    now = timezone.now()
+    if not attempt.is_final and now >= min(attempt.deadline_at, attempt.exam.closes_at):
+        with transaction.atomic():
+            attempt = services.lock_attempt(request.user, pk)
+            services.touch(attempt, now)
     if attempt.is_final:
         return redirect("attempt_result", pk=attempt.pk)
     return render(request, "assessments/attempt.html", {"attempt": attempt, "exam": attempt.exam})

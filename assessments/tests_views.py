@@ -376,9 +376,32 @@ class StaffViewTests(TestCase):
             is_published=False,
             created_by=self.staff,
         )
-        # Even with warnings, publish with override sets is_published = True
         pub_url = reverse("staff_exam_publish", args=[draft.pk])
-        resp = self.client.post(pub_url, {"override": "true"})
+        # Structural blocker (no sections): cannot be published even with override
+        resp = self.client.post(pub_url, {"override": "true", "override_reason": "Trying to override hard blocker"})
+        self.assertEqual(resp.status_code, 302)
+        draft.refresh_from_db()
+        self.assertFalse(draft.is_published)
+
+        # Now configure valid section and question so structural checks pass
+        sec = ExamSection.objects.create(exam=draft, title="MCQ", kind="mcq", order=1, duration_minutes=30)
+        q = MCQQuestion.objects.create(exam=draft, section=sec, text="Q?", marks=2, order=1)
+        MCQOption.objects.create(question=q, text="A", is_correct=True, order=1)
+        MCQOption.objects.create(question=q, text="B", is_correct=False, order=2)
+        # Make closing time in the past (non-critical time warning) but after opens_at
+        draft.opens_at = timezone.now() - timedelta(hours=2)
+        draft.closes_at = timezone.now() - timedelta(minutes=5)
+        draft.save(update_fields=["opens_at", "closes_at"])
+
+        # Ordinary staff cannot override
+        resp = self.client.post(pub_url, {"override_reason": "Staff override attempt"})
+        draft.refresh_from_db()
+        self.assertFalse(draft.is_published)
+
+        # Superuser with valid reason can override non-structural warnings
+        self.staff.is_superuser = True
+        self.staff.save()
+        resp = self.client.post(pub_url, {"override_reason": "Testing emergency evaluation override"})
         self.assertEqual(resp.status_code, 302)
         draft.refresh_from_db()
         self.assertTrue(draft.is_published)

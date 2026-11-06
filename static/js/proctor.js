@@ -198,7 +198,7 @@ export class Proctor {
   checkOpticalPresence(video) {
     try {
       const ctx = this.analysisCanvas.getContext("2d", { willReadFrequently: true });
-      if (!ctx) return { ok: true };
+      if (!ctx) return { ok: false, status: "unavailable", reason: "canvas_context_unavailable" };
       ctx.drawImage(video, 0, 0, 64, 48);
       const img = ctx.getImageData(0, 0, 64, 48).data;
       let totalLum = 0;
@@ -225,7 +225,7 @@ export class Proctor {
 
       return { ok: true, meanLum, variance };
     } catch (_) {
-      return { ok: true };
+      return { ok: false, status: "unavailable", reason: "exception" };
     }
   }
 
@@ -254,6 +254,10 @@ export class Proctor {
       // Optical verification: detect covered camera, black lens, or blinding glare
       const optical = this.checkOpticalPresence(video);
       if (!optical.ok) {
+        if (optical.status === "unavailable") {
+          this.onFaceStatus({ status: "unavailable", count: 0, reason: optical.reason });
+          return;
+        }
         if (this.missingSince === null) this.missingSince = now;
         this.onFaceStatus({ status: "missing", count: 0, missingMs: now - this.missingSince });
         if (!this.missingReported && now - this.missingSince >= this.missingFaceSeconds * 1000) {
@@ -346,8 +350,8 @@ export class Proctor {
           }
         }
       } else {
-        // Optical check passed, camera feed is active and clear
-        this.onFaceStatus({ status: "ok", count: 1 });
+        // Face detection unavailable - represent honestly without claiming face is verified
+        this.onFaceStatus({ status: "unavailable", count: 0, reason: "detector_unavailable" });
         if (this.readyRequired && !this.reportedReady) {
           this.readyCount += 1;
           if (this.readyCount >= READY_FRAMES) {
@@ -365,7 +369,7 @@ export class Proctor {
   classifyOpticalFace() {
     try {
       const ctx = this.analysisCanvas.getContext("2d", { willReadFrequently: true });
-      if (!ctx) return [{ isTurned: false }];
+      if (!ctx) return null;
       if (this.video && this.video.readyState >= 2) {
         ctx.drawImage(this.video, 0, 0, 64, 48);
       }
@@ -413,7 +417,7 @@ export class Proctor {
 
       return [{ isTurned, yaw: yawOffset, partial: centerRatio < 0.13 }];
     } catch (_) {
-      return [{ isTurned: false }];
+      return null;
     }
   }
 

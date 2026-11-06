@@ -2,11 +2,12 @@
 
 import re
 from collections import defaultdict
+
 from django.db.models import Count, Sum
 from django.utils import timezone
 
 from .models import Application, Attempt, CodingSubmission, ProctoringEvent
-from .services import coding_score, max_score, mcq_score
+from .services import coding_score, max_score, mcq_score, touch
 
 
 def _event_label(event):
@@ -227,6 +228,11 @@ def parse_device_session(attempt):
 
 
 def build_attempt_review(attempt):
+    now = timezone.now()
+    if not attempt.is_final and now >= min(attempt.deadline_at, attempt.exam.closes_at):
+        touch(attempt, now)
+        attempt.refresh_from_db()
+
     answers = {a.question_id: a for a in attempt.answers.select_related("option")}
 
     now = timezone.now()
@@ -653,7 +659,6 @@ def attempt_csv_rows(exam, application_ids=None):
             "coding_score": coding_val,
             "total_score": total_val,
             "flagged_for_review": "yes" if attempt and attempt.flagged_for_review else "no",
-            "has_resume": "yes" if bool(application.resume and application.resume.name) else "no",
         }
         yield row
 

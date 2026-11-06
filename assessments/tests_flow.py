@@ -10,7 +10,6 @@ from unittest import mock
 
 from django.contrib.auth import get_user_model
 from django.core import mail
-from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.test import TestCase, override_settings
 from django.urls import reverse
@@ -77,12 +76,13 @@ class CredentialFlowTests(TestCase):
         return self.client.post(reverse("staff_resend_credentials", args=[application.pk]))
 
     def test_import_adds_candidates_without_emailing_them(self):
-        self._import("asha@example.com, Asha Rao, 9876543210\nravi@example.com")
+        self._import("asha@example.com, Asha Rao, 9876543210\nravi@example.com, Ravi Varma")
         application = self._application("asha@example.com")
         self.assertEqual(application.status, Application.Status.APPROVED)
         self.assertEqual(application.full_name, "Asha Rao")
         self.assertIsNone(application.credentials_sent_at)
-        self.assertFalse(application.candidate.has_usable_password())
+        self.assertTrue(application.candidate.has_usable_password())
+        self.assertTrue(application.candidate.check_password(application.plain_password))
         self.assertEqual(len(mail.outbox), 0)
 
     def test_importing_the_same_person_twice_does_not_duplicate(self):
@@ -107,7 +107,7 @@ class CredentialFlowTests(TestCase):
         self.assertIsNotNone(application.credentials_sent_at)
         self.assertTrue(application.candidate.check_password(password_in(mail.outbox[0])))
 
-    def test_resend_replaces_the_old_password(self):
+    def test_resend_preserves_current_password(self):
         self._import("asha@example.com, Asha Rao")
         application = self._application("asha@example.com")
         self._send(application)
@@ -115,9 +115,18 @@ class CredentialFlowTests(TestCase):
         self._send(application)
         second = password_in(mail.outbox[1])
         application.candidate.refresh_from_db()
-        self.assertNotEqual(first, second)
-        self.assertFalse(application.candidate.check_password(first))
-        self.assertTrue(application.candidate.check_password(second))
+        self.assertEqual(first, second)
+        self.assertTrue(application.candidate.check_password(first))
+
+    def test_explicit_regeneration_replaces_password(self):
+        self._import("asha@example.com, Asha Rao")
+        application = self._application("asha@example.com")
+        first_pw = application.plain_password
+        self.client.post(reverse("staff_regenerate_credentials", args=[application.pk]))
+        application.refresh_from_db()
+        second_pw = application.plain_password
+        self.assertNotEqual(first_pw, second_pw)
+        self.assertTrue(application.candidate.check_password(second_pw))
 
     def test_failed_send_keeps_the_previous_password(self):
         self._import("asha@example.com, Asha Rao")
@@ -131,7 +140,7 @@ class CredentialFlowTests(TestCase):
         self.assertEqual(len(mail.outbox), 1)
 
     def test_bulk_send_is_capped_per_click(self):
-        self._import("\n".join(f"cand{i}@example.com" for i in range(SEND_BATCH + 5)))
+        self._import("\n".join(f"cand{i}@example.com, Candidate {i}" for i in range(SEND_BATCH + 5)))
         self.client.post(reverse("staff_send_credentials", args=[self.exam.pk]), {"mode": "unsent"})
         self.assertEqual(len(mail.outbox), SEND_BATCH)
         self.assertEqual(Application.objects.filter(exam=self.exam, credentials_sent_at__isnull=True).count(), 5)
@@ -217,20 +226,17 @@ class CandidateSignInTests(TestCase):
 
     def test_confirming_details_saves_them(self):
         self.client.force_login(self.candidate)
-        resume = SimpleUploadedFile("resume.pdf", b"%PDF-1.4 dummy", content_type="application/pdf")
         self.client.post(
             reverse("confirm_details", args=[self.exam.pk]),
             {
                 "full_name": "Asha R. Rao",
                 "email": "asha@example.com",
                 "phone": "9876543210",
-                "resume": resume,
             },
         )
         self.application.refresh_from_db()
         self.assertEqual(self.application.full_name, "Asha R. Rao")
         self.assertEqual(self.application.phone, "9876543210")
-        self.assertTrue(bool(self.application.resume))
         self.assertIsNotNone(self.application.details_confirmed_at)
 
 

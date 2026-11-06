@@ -3793,10 +3793,18 @@ tr:hover td {
   height: 100% !important;
   min-height: 200px !important;
   position: relative !important;
-  background: #1e1e1e !important;
+  background: #1e1e1e;
   user-select: text !important;
   -webkit-user-select: text !important;
   pointer-events: auto !important;
+}
+
+#editor-slot.theme-light {
+  background: #ffffff !important;
+}
+
+#editor-slot.theme-dark {
+  background: #1e1e1e !important;
 }
 
 #editor-slot > div {
@@ -3880,8 +3888,7 @@ tr:hover td {
 #header-proctor-dock video,
 .proctor-camera-dock video,
 .proctor-preview-box video,
-video#camera,
-video#preview-video {
+video#camera {
   width: 3cm !important;
   height: 3cm !important;
   min-width: 3cm !important;
@@ -3894,12 +3901,43 @@ video#preview-video {
   padding: 0 !important;
 }
 
-/* In-App Confirmation Modal */
+video#preview-video {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: cover !important;
+  display: block !important;
+  border-radius: 0.875rem !important;
+}
+
+/* In-App Confirmation Modal (Guaranteed to be above Monaco and all elements) */
 #in-app-modal-root {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 2147483647 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background-color: rgba(2, 6, 23, 0.78) !important;
+  backdrop-filter: blur(4px) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
   transition: opacity 0.2s ease;
+  pointer-events: auto !important;
+}
+
+#in-app-modal-root.hidden {
+  display: none !important;
+  pointer-events: none !important;
 }
 
 #in-app-modal-dialog {
+  position: relative !important;
+  z-index: 2147483647 !important;
+  max-height: 90vh !important;
+  overflow-y: auto !important;
   animation: inAppModalPop 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
@@ -3925,19 +3963,12 @@ video#preview-video {
 
 @media (min-width: 1024px) {
   .exam-layout-grid {
-    grid-template-columns: minmax(0, 1fr) 440px !important;
-  }
-}
-
-@media (min-width: 1280px) {
-  .exam-layout-grid {
-    grid-template-columns: minmax(0, 1fr) 460px !important;
+    grid-template-columns: repeat(12, minmax(0, 1fr)) !important;
   }
 }
 
 .exam-right-panel {
   width: 100% !important;
-  max-width: 100% !important;
   display: flex !important;
   flex-direction: column !important;
   gap: 1.5rem !important;
@@ -3945,28 +3976,10 @@ video#preview-video {
 
 @media (min-width: 1024px) {
   .exam-right-panel {
-    max-width: 460px !important;
     position: sticky !important;
-    top: 90px !important;
+    top: 24px !important;
     align-self: flex-start !important;
-    max-height: calc(100vh - 105px) !important;
-    overflow-y: auto !important;
-    scrollbar-width: thin;
-    scrollbar-color: #cbd5e1 transparent;
-    z-index: 20 !important;
-  }
-  
-  .exam-right-panel::-webkit-scrollbar {
-    width: 6px;
-  }
-  
-  .exam-right-panel::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  
-  .exam-right-panel::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 9999px;
+    z-index: 10 !important;
   }
 }
 

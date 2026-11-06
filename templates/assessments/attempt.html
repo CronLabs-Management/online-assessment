@@ -409,27 +409,28 @@
     </div>
   </div>
 
-  <!-- In-App Modal Dialog Root (Ensures Fullscreen is never broken by native browser confirm/alert dialogs) -->
-  <div id="in-app-modal-root" class="hidden fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm transition-opacity" role="dialog" aria-modal="true" aria-labelledby="in-app-modal-title">
-    <div id="in-app-modal-dialog" class="w-full max-w-lg bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 sm:p-7 transform transition-all space-y-5">
-      <div class="flex items-start gap-4">
-        <div id="in-app-modal-icon-wrap" class="w-12 h-12 rounded-2xl bg-blue-50 text-[#2447F5] flex items-center justify-center shrink-0 text-2xl font-bold shadow-xs">
-          <span id="in-app-modal-icon">ℹ️</span>
-        </div>
-        <div class="space-y-1.5 flex-1 min-w-0">
-          <h3 id="in-app-modal-title" class="text-lg font-extrabold text-[#0F172A] leading-tight">Confirmation Required</h3>
-          <p id="in-app-modal-message" class="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium">Please confirm your action.</p>
-        </div>
-      </div>
-      <div id="in-app-modal-details" class="hidden bg-slate-50 border border-slate-100 rounded-2xl p-3.5 text-xs text-slate-600 space-y-1"></div>
-      <div class="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
-        <button type="button" id="in-app-modal-cancel" class="btn btn-secondary text-xs sm:text-sm font-bold py-2.5 px-5">Cancel</button>
-        <button type="button" id="in-app-modal-confirm" class="btn btn-primary text-xs sm:text-sm font-extrabold py-2.5 px-6 shadow-cta">Confirm &amp; Proceed</button>
-      </div>
-    </div>
-  </div>
-
   <canvas id="snapshot-canvas" class="hidden"></canvas>
 </div>
+
+<!-- In-App Modal Dialog Root (Ensures Fullscreen is never broken by native browser confirm/alert dialogs & never trapped inside attempt-root) -->
+<div id="in-app-modal-root" class="hidden fixed inset-0 z-[2147483647] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm transition-opacity" role="dialog" aria-modal="true" aria-labelledby="in-app-modal-title">
+  <div id="in-app-modal-dialog" class="w-full max-w-lg bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 sm:p-7 transform transition-all space-y-5 relative z-[2147483647]">
+    <div class="flex items-start gap-4">
+      <div id="in-app-modal-icon-wrap" class="w-12 h-12 rounded-2xl bg-blue-50 text-[#2447F5] flex items-center justify-center shrink-0 text-2xl font-bold shadow-xs">
+        <span id="in-app-modal-icon">ℹ️</span>
+      </div>
+      <div class="space-y-1.5 flex-1 min-w-0">
+        <h3 id="in-app-modal-title" class="text-lg font-extrabold text-[#0F172A] leading-tight">Confirmation Required</h3>
+        <p id="in-app-modal-message" class="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium">Please confirm your action.</p>
+      </div>
+    </div>
+    <div id="in-app-modal-details" class="hidden bg-slate-50 border border-slate-100 rounded-2xl p-3.5 text-xs text-slate-600 space-y-1"></div>
+    <div class="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
+      <button type="button" id="in-app-modal-cancel" class="btn btn-secondary text-xs sm:text-sm font-bold py-2.5 px-5 cursor-pointer">Cancel</button>
+      <button type="button" id="in-app-modal-confirm" class="btn btn-primary text-xs sm:text-sm font-extrabold py-2.5 px-6 shadow-cta cursor-pointer">Confirm &amp; Proceed</button>
+    </div>
+  </div>
+</div>
+
 <script type="module" src="{% static 'js/attempt.js' %}"></script>
 {% endblock %}

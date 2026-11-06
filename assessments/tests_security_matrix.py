@@ -1,38 +1,23 @@
-import io
 import json
-import os
-import shutil
-import tempfile
-import uuid
 from datetime import timedelta
 from unittest.mock import MagicMock, patch
 
-from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
-from django.core.checks import run_checks
-from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import Client, TestCase, override_settings
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
-from PIL import Image
 
-from . import notifications, runners, services
-from .forms import validate_resume_file
+from . import services
 from .models import (
     Application,
     Attempt,
-    AttemptCoding,
     AttemptSection,
-    AuditLog,
-    CodingProblem,
     CodingSubmission,
     CodingTestCase,
     Exam,
     ExamSection,
-    ProctoringEvent,
-    ProctoringSnapshot,
 )
 from .review import csv_safe
 from .runners import CaseOutcome, Judge0Runner, LocalRunner, RunnerError, get_runner
@@ -360,20 +345,6 @@ class CSVFormulaInjectionTests(TestCase):
 class UploadSecurityTests(TestCase):
     """Verifies file validation against spoofed extensions, decompression bombs, and safe downloads."""
 
-    def test_resume_upload_rejects_spoofed_file_extension(self):
-        # A file named resume.pdf that contains plain text without %PDF- magic bytes
-        fake_pdf = SimpleUploadedFile("resume.pdf", b"This is not a real PDF file content.")
-        with self.assertRaises(ValidationError) as ctx:
-            validate_resume_file(fake_pdf)
-        self.assertIn("Invalid PDF file", str(ctx.exception))
-
-    def test_resume_upload_accepts_valid_signatures(self):
-        valid_pdf = SimpleUploadedFile("resume.pdf", b"%PDF-1.4\n%real pdf header")
-        validate_resume_file(valid_pdf)  # should not raise
-
-        valid_docx = SimpleUploadedFile("resume.docx", b"PK\x03\x04\x14\x00\x06\x00")
-        validate_resume_file(valid_docx)  # should not raise
-
     def test_snapshot_rejects_malformed_image(self):
         staff = User.objects.create_user("staff", "st@example.com", "pw", is_staff=True)
         exam = Exam.objects.create(
@@ -424,8 +395,15 @@ class AuthenticationAndRecoveryTests(TestCase):
         self.app.setup_token_expires_at = timezone.now() + timedelta(hours=24)
         self.app.save()
 
-        # First use logs in successfully
-        res = self.client.get(reverse("setup_account", args=[raw_token]))
+        # GET only renders confirmation page without consuming token or authenticating
+        res_get = self.client.get(reverse("setup_account", args=[raw_token]))
+        self.assertEqual(res_get.status_code, 200)
+        self.assertNotIn("_auth_user_id", self.client.session)
+        self.app.refresh_from_db()
+        self.assertIsNone(self.app.setup_token_used_at)
+
+        # POST consumes token and logs in successfully
+        res = self.client.post(reverse("setup_account", args=[raw_token]))
         self.assertRedirects(res, reverse("home"))
         self.assertEqual(int(self.client.session["_auth_user_id"]), self.candidate.pk)
 
@@ -435,20 +413,18 @@ class AuthenticationAndRecoveryTests(TestCase):
 
         # Second use (replay) fails
         self.client.logout()
-        res_replay = self.client.get(reverse("setup_account", args=[raw_token]))
+        res_replay = self.client.post(reverse("setup_account", args=[raw_token]))
         self.assertRedirects(res_replay, reverse("login"))
         self.assertNotIn("_auth_user_id", self.client.session)
 
     def test_email_change_requires_verification(self):
         self.client.force_login(self.candidate)
-        resume_file = SimpleUploadedFile("resume.pdf", b"%PDF-1.4\nvalid pdf")
-        res = self.client.post(
+        self.client.post(
             reverse("confirm_details", args=[self.exam.pk]),
             data={
                 "email": "new_address@example.com",
                 "full_name": "Auth Candidate",
                 "phone": "+1234567890",
-                "resume": resume_file,
             },
         )
         self.app.refresh_from_db()

@@ -89,8 +89,28 @@ jobs:
           cache: pip
           cache-dependency-path: requirements-dev.txt
       - run: pip install -r requirements-dev.txt
+      - name: Cache Playwright browser
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('requirements-dev.txt') }}
+
       - name: Install Chromium and system dependencies
+        timeout-minutes: 8
         run: |
+          # Clean any orphaned apt/dpkg locks from earlier cancelled runs or background timers
+          sudo killall apt apt-get dpkg 2>/dev/null || true
+          sudo rm -f /var/lib/apt/lists/lock /var/cache/apt/archives/lock /var/lib/dpkg/lock* 2>/dev/null || true
+          sudo dpkg --configure -a || true
+
+          # Configure apt retries & short timeouts so Ubuntu mirrors don't hang indefinitely
+          sudo tee /etc/apt/apt.conf.d/99timeouts > /dev/null << 'EOF'
+          Acquire::Retries "3";
+          Acquire::http::Timeout "30";
+          Acquire::https::Timeout "30";
+          EOF
+
           sudo python -m playwright install-deps chromium
           python -m playwright install chromium
       - name: Run candidate flow

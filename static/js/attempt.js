@@ -112,11 +112,20 @@ function blockForSessionConflict(message) {
   if (sessionBlocked) return;
   sessionBlocked = true;
   clearInterval(refreshTimer);
-  content.innerHTML = `<div class="alert alert-bad" role="alert">
-      <p class="font-semibold">This test is open in another browser or session.</p>
-      <p class="mt-2 leading-relaxed">${escapeHtml(message || "")}</p>
-      <p class="mt-2 leading-relaxed">Close the other window. If you cannot find it, ask the administrator to allow you to continue here. Your answers so far are saved.</p>
+  const conflictHtml = `<div class="p-6 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 shadow-sm" role="alert">
+      <h3 class="text-base font-extrabold text-rose-950 flex items-center gap-2">
+        <span class="text-lg">⚠️</span> This assessment is open in another browser or tab
+      </h3>
+      <p class="mt-2 text-xs leading-relaxed text-rose-800 font-semibold">${escapeHtml(message || "This test is open in another browser session.")}</p>
+      <p class="mt-2 text-xs leading-relaxed text-slate-600">Please close the other browser window or tab. If you cannot find it, ask your administrator to allow you to resume here. All your answers and draft code so far are safely preserved.</p>
+      <button type="button" onclick="window.location.reload()" class="btn btn-secondary btn-sm mt-4 text-xs font-bold">Retry This Session</button>
     </div>`;
+  if ($("readiness")) {
+    $("readiness").innerHTML = conflictHtml;
+    $("readiness").classList.remove("hidden");
+  }
+  content.innerHTML = conflictHtml;
+  content.classList.remove("hidden");
   $("status").textContent = "";
 }
 
@@ -185,6 +194,47 @@ async function flushDrafts() {
 
 // ---------------------------------------------------------------- clock and state
 
+let isAutoSubmitting = false;
+
+async function handleAutoSubmit(reason) {
+  if (isAutoSubmitting || !state || isFinal(state)) return;
+  isAutoSubmitting = true;
+
+  const msg = reason === "overall"
+    ? "Exam time has expired. Submitting your test…"
+    : "Section time has expired. Submitting this section…";
+  showStatus(msg, "warn");
+
+  try {
+    // 2000ms safety timeout on draft and outbox flushes so pending code/events have time to flush
+    await Promise.race([
+      flushDrafts(),
+      new Promise((resolve) => setTimeout(resolve, 2000)),
+    ]);
+    await Promise.race([
+      flushOutbox(),
+      new Promise((resolve) => setTimeout(resolve, 2000)),
+    ]);
+  } catch (err) {
+    console.warn("Auto-submit flush warning:", err);
+  }
+
+  try {
+    if (state.current_section) {
+      await api("POST", "submit-section/", { section_id: state.current_section.id });
+    }
+  } catch (err) {
+    // If backend already advanced or expired via time check, this is expected
+    console.warn("Auto-submit section call:", err);
+  }
+
+  try {
+    await refresh();
+  } finally {
+    isAutoSubmitting = false;
+  }
+}
+
 function tick() {
   if (!state || !state.deadline) return;
   // Timer only runs once readiness check is complete and questions are displayed
@@ -201,11 +251,17 @@ function tick() {
     // Warn in the last five minutes and alarm in the last minute. Colour is never the only cue: the text is the timer.
     $("timer").classList.toggle("text-amber-700", section > 60 && section <= 300);
     $("timer").classList.toggle("text-red-700", section > 0 && section <= 60);
-    if (section <= 0) refresh();
+    if (section <= 0 && !isAutoSubmitting) {
+      handleAutoSubmit("section");
+      return;
+    }
   } else {
     $("timer").textContent = "--:--";
   }
-  if (overall <= 0) refresh();
+  if (overall <= 0 && !isAutoSubmitting) {
+    handleAutoSubmit("overall");
+    return;
+  }
 }
 
 async function refresh() {
@@ -484,48 +540,65 @@ async function testReadinessPing() {
     });
   }
 
-  const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-  let connType = "WiFi / Broadband";
-  if (conn && conn.effectiveType) {
-    connType = `${conn.effectiveType.toUpperCase()} / WiFi`;
-  }
-
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 3500);
   const t0 = performance.now();
   try {
     const res = await fetch(`/api/attempts/${attemptId}/state/`, {
       method: "GET",
       credentials: "same-origin",
       cache: "no-store",
+      signal: controller.signal,
     });
-    const latency = Math.max(12, Math.round(performance.now() - t0));
-    diagNetPassed = res.ok || navigator.onLine;
+    clearTimeout(timeoutId);
+    const latency = Math.max(8, Math.round(performance.now() - t0));
+    if (res.ok) {
+      diagNetPassed = true;
+      latestNetwork = {
+        server_reachable: true,
+        rtt: latency,
+        timestamp: new Date().toISOString(),
+      };
+      if (badge) {
+        badge.className = "diag-badge-verified";
+        badge.textContent = "✓ Verified";
+      }
+      if (metrics) metrics.textContent = `${latency} ms`;
+      if (detail) detail.textContent = `Server reachable • ${latency}ms latency.`;
+    } else {
+      diagNetPassed = false;
+      latestNetwork = {
+        server_reachable: false,
+        status: res.status,
+        timestamp: new Date().toISOString(),
+      };
+      if (badge) {
+        badge.className = "diag-badge-action";
+        badge.textContent = `HTTP ${res.status}`;
+      }
+      if (metrics) metrics.textContent = "Error";
+      if (detail) detail.textContent = `Server responded with status ${res.status}. Assessment not reachable.`;
+    }
+  } catch (err) {
+    clearTimeout(timeoutId);
+    diagNetPassed = false;
+    const isOnline = navigator.onLine;
     latestNetwork = {
-      type: conn ? conn.type || "wifi" : "wifi",
-      effectiveType: conn ? conn.effectiveType : "4g",
-      downlink: conn ? conn.downlink : 10,
-      rtt: latency,
-      connectionType: connType,
+      server_reachable: false,
+      online: isOnline,
+      error: err.name === "AbortError" ? "timeout" : "network_error",
+      timestamp: new Date().toISOString(),
     };
     if (badge) {
-      badge.className = "diag-badge-verified";
-      badge.textContent = "✓ Verified";
+      badge.className = "diag-badge-action";
+      badge.textContent = isOnline ? "Unreachable" : "Offline";
     }
-    if (metrics) metrics.textContent = `${latency} ms`;
-    if (detail) detail.textContent = `${connType} • ${latency}ms latency (${latency < 150 ? "Fast & Stable" : "Stable"}).`;
-  } catch (_) {
-    diagNetPassed = navigator.onLine;
-    latestNetwork = {
-      type: "wifi",
-      effectiveType: "online",
-      rtt: 45,
-      connectionType: connType,
-    };
-    if (badge) {
-      badge.className = diagNetPassed ? "diag-badge-verified" : "diag-badge-action";
-      badge.textContent = diagNetPassed ? "✓ Verified" : "Offline";
+    if (metrics) metrics.textContent = isOnline ? "Timeout" : "Offline";
+    if (detail) {
+      detail.textContent = isOnline
+        ? "Browser reports network available; application server not reachable."
+        : "No internet connection detected.";
     }
-    if (metrics) metrics.textContent = diagNetPassed ? "45 ms" : "Offline";
-    if (detail) detail.textContent = diagNetPassed ? `${connType} • Connection verified.` : "No internet connection detected.";
   }
   evaluateReadinessGate();
 }
@@ -562,19 +635,23 @@ function initReadinessGeo() {
     if (geoPendingTimer) clearTimeout(geoPendingTimer);
     diagGeoPassed = true;
     latestLocation = {
-      ip_fallback: true,
+      source: "unavailable",
       reason: reason || "timeout",
       timestamp: new Date().toISOString(),
     };
     if (badge) {
-      badge.className = "diag-badge-verified";
-      badge.textContent = "✓ IP Verified";
+      badge.className = "inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200";
+      badge.textContent = "Location Unavailable";
     }
-    if (metrics) metrics.textContent = "IP Geo";
-    if (detail) detail.textContent = "Location locked via IP & network routing.";
+    if (metrics) metrics.textContent = "N/A";
+    if (detail) {
+      detail.textContent = reason === "permission_denied"
+        ? "Browser location access was denied. Recorded for audit."
+        : "Location services unavailable. Recorded for audit.";
+    }
     if (btnRetry) {
-      btnRetry.textContent = "✓ Verified";
-      btnRetry.className = "text-xs font-bold text-emerald-600";
+      btnRetry.textContent = "Retry";
+      btnRetry.className = "text-xs font-semibold text-slate-500 hover:text-slate-800";
     }
     evaluateReadinessGate();
   };
@@ -596,6 +673,7 @@ function initReadinessGeo() {
         if (geoPendingTimer) clearTimeout(geoPendingTimer);
         diagGeoPassed = true;
         latestLocation = {
+          source: "gps",
           latitude: Number(pos.coords.latitude.toFixed(6)),
           longitude: Number(pos.coords.longitude.toFixed(6)),
           accuracy: Math.round(pos.coords.accuracy),
@@ -603,7 +681,7 @@ function initReadinessGeo() {
         };
         if (badge) {
           badge.className = "diag-badge-verified";
-          badge.textContent = "✓ Locked";
+          badge.textContent = "✓ GPS Locked";
         }
         if (metrics) metrics.textContent = `±${Math.round(pos.coords.accuracy)}m`;
         if (detail) detail.textContent = `Coordinates locked: ${pos.coords.latitude.toFixed(4)}°, ${pos.coords.longitude.toFixed(4)}°`;
@@ -785,6 +863,27 @@ function handleFaceStatus(face) {
         tone: "bad",
       });
     }
+  } else if (face.status === "unavailable") {
+    if (guide) {
+      guide.className = "camera-face-guide absolute inset-0.5 rounded-lg border border-slate-300 pointer-events-none transition-colors";
+    }
+    const camStatus = $("camera-status");
+    if (camStatus) camStatus.textContent = "Camera active; face detector unavailable";
+    if (!diagCamPassed) {
+      diagCamPassed = true;
+      const camBadge = $("diag-cam-badge");
+      if (camBadge) {
+        camBadge.className = "inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200";
+        camBadge.textContent = "Detector Unavailable";
+      }
+      const camDetail = $("diag-cam-detail");
+      if (camDetail) camDetail.textContent = "Camera feed active; face detection unavailable in this environment.";
+      evaluateReadinessGate();
+    }
+    if (lastFaceStatus === "missing" || lastFaceStatus === "turned" || lastFaceStatus === "multiple") {
+      dismissProctorPrompt();
+    }
+    lastFaceStatus = "unavailable";
   } else if (face.status === "ok") {
     if (guide) {
       guide.className = "camera-face-guide absolute inset-0.5 rounded-lg border border-emerald-400/80 pointer-events-none transition-colors";
@@ -952,10 +1051,66 @@ function ensureProctor() {
 function startProctor() {
   wireRetryCamera();
   const overlay = $("camera-error-overlay");
+  const camBadge = $("diag-cam-badge");
+  const camDetail = $("diag-cam-detail");
+
+  if (camBadge && !diagCamPassed) {
+    camBadge.className = "diag-badge-pending";
+    camBadge.textContent = "Connecting…";
+  }
+  if (camDetail && !diagCamPassed) {
+    camDetail.textContent = "Requesting webcam access. Please click 'Allow' on your browser pop-up…";
+  }
+
+  const watchdog = setTimeout(() => {
+    if (!diagCamPassed && (!proctor || !proctor.stream || !proctor.stream.active)) {
+      if (camBadge) {
+        camBadge.className = "diag-badge-action";
+        camBadge.textContent = "Action Required";
+      }
+      if (camDetail) {
+        camDetail.textContent = "Camera permission prompt pending or blocked. Please allow camera in your browser address bar and click 'Retry Camera'.";
+      }
+      if (overlay) overlay.classList.remove("hidden");
+      evaluateReadinessGate();
+    }
+  }, 8000);
+
   proctor.start().then(() => {
+    clearTimeout(watchdog);
     if (overlay) overlay.classList.add("hidden");
-  }).catch(() => {
+    if (camDetail && !diagCamPassed) {
+      camDetail.textContent = "Camera feed active. Verifying face alignment…";
+    }
+    // If stream is active, auto-verify camera within 3.5 seconds so candidate is never trapped on the hardware page
+    setTimeout(() => {
+      if (!diagCamPassed && proctor && proctor.stream && proctor.stream.active) {
+        diagCamPassed = true;
+        if (camBadge) {
+          camBadge.className = "diag-badge-verified";
+          camBadge.textContent = "✓ Verified";
+        }
+        if (camDetail) {
+          camDetail.textContent = "Camera feed active & verified.";
+        }
+        evaluateReadinessGate();
+      }
+    }, 3500);
+  }).catch((err) => {
+    clearTimeout(watchdog);
     if (overlay) overlay.classList.remove("hidden");
+    diagCamPassed = false;
+    const reason = (err && err.name === "NotAllowedError")
+      ? "Camera permission denied"
+      : ((err && err.name === "NotFoundError") ? "No camera device found" : "Camera device unavailable or busy");
+    if (camBadge) {
+      camBadge.className = "diag-badge-action";
+      camBadge.textContent = "Action Required";
+    }
+    if (camDetail) {
+      camDetail.textContent = `${reason}. Allow camera in your browser address bar, then click 'Retry Camera'.`;
+    }
+    evaluateReadinessGate();
   });
 }
 
@@ -1362,6 +1517,63 @@ function formatLanguageName(language) {
   return map[(language || "").toLowerCase()] || language;
 }
 
+let currentEditorTheme = (function() {
+  try {
+    return localStorage.getItem("editor-theme") || "dark";
+  } catch (_) {
+    return "dark";
+  }
+})();
+
+function applyEditorTheme(theme) {
+  currentEditorTheme = theme;
+  try {
+    localStorage.setItem("editor-theme", theme);
+  } catch (_) {}
+
+  // Update theme toggle button in toolbar if present
+  const toggleBtn = $("btn-theme-toggle");
+  const toggleIcon = $("theme-toggle-icon");
+  const toggleText = $("theme-toggle-text");
+  if (toggleBtn && toggleIcon && toggleText) {
+    if (theme === "light") {
+      toggleBtn.className = "flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border bg-slate-100 border-slate-300 text-slate-800 hover:bg-slate-200 transition-colors cursor-pointer select-none";
+      toggleIcon.textContent = "🌙";
+      toggleText.textContent = "Dark";
+    } else {
+      toggleBtn.className = "flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border bg-slate-900 border-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer select-none";
+      toggleIcon.textContent = "☀️";
+      toggleText.textContent = "Light";
+    }
+  }
+
+  // Update Monaco theme globally if loaded
+  if (window.monaco && window.monaco.editor && typeof window.monaco.editor.setTheme === "function") {
+    window.monaco.editor.setTheme(theme === "light" ? "vs" : "vs-dark");
+  }
+
+  // Update editor slot container background
+  const slot = $("editor-slot");
+  if (slot) {
+    slot.classList.toggle("theme-light", theme === "light");
+    slot.classList.toggle("theme-dark", theme !== "light");
+    slot.style.setProperty("background", theme === "light" ? "#ffffff" : "#1e1e1e", "important");
+  }
+
+  // Update fallback textarea and gutter if active
+  const fallbackArea = document.querySelector(".fallback-textarea");
+  const fallbackGutter = document.querySelector(".fallback-gutter");
+  if (fallbackArea) {
+    fallbackArea.style.background = theme === "light" ? "#ffffff" : "#1e1e1e";
+    fallbackArea.style.color = theme === "light" ? "#0f172a" : "#d4d4d4";
+  }
+  if (fallbackGutter) {
+    fallbackGutter.style.background = theme === "light" ? "#f8fafc" : "#181818";
+    fallbackGutter.style.color = theme === "light" ? "#94a3b8" : "#6e7681";
+    fallbackGutter.style.borderColor = theme === "light" ? "#e2e8f0" : "#334155";
+  }
+}
+
 async function makeEditor(problem, host) {
   let currentLanguage = problem.draft_language || (problem.languages && problem.languages[0]) || "python";
   let timer = null;
@@ -1381,13 +1593,32 @@ async function makeEditor(problem, host) {
     const editor = monaco.editor.create(host, {
       value: problem.draft_code || "",
       language: monacoLanguageId(currentLanguage),
-      theme: "vs-dark",
+      theme: currentEditorTheme === "light" ? "vs" : "vs-dark",
       minimap: { enabled: false },
       automaticLayout: true,
       fontSize: 14,
       lineNumbers: "on",
+      lineNumbersMinChars: 3,
+      lineDecorationsWidth: 10,
       scrollBeyondLastLine: false,
       tabSize: 4,
+      insertSpaces: true,
+      detectIndentation: false,
+      autoIndent: "full",
+      formatOnType: true,
+      formatOnPaste: true,
+      autoClosingBrackets: "always",
+      autoClosingQuotes: "always",
+      autoClosingOvertype: "always",
+      matchBrackets: "always",
+      bracketPairColorization: { enabled: true },
+      guides: {
+        indentation: true,
+        bracketPairs: true,
+        highlightActiveIndentation: true,
+      },
+      folding: true,
+      showFoldingControls: "always",
       readOnly: isLocked,
       domReadOnly: false,
       cursorBlinking: "smooth",
@@ -1457,27 +1688,199 @@ async function makeEditor(problem, host) {
     console.warn("Monaco editor fallback engaged:", err);
     host.innerHTML = "";
     const isLocked = Boolean(problem.locked);
+    
+    // Fallback Editor with Line Numbers Gutter, Auto-Indentation & Bracket Closing
+    const wrapper = document.createElement("div");
+    wrapper.className = "fallback-editor-wrapper flex w-full h-full relative overflow-hidden";
+    wrapper.style.cssText = "position: absolute; inset: 0; width: 100%; height: 100%; z-index: 20; display: flex; overflow: hidden;";
+
+    const isLight = currentEditorTheme === "light";
+    const bg = isLight ? "#ffffff" : "#1e1e1e";
+    const fg = isLight ? "#0f172a" : "#d4d4d4";
+    const gutterBg = isLight ? "#f8fafc" : "#181818";
+    const gutterFg = isLight ? "#94a3b8" : "#6e7681";
+    const gutterBorder = isLight ? "#e2e8f0" : "#334155";
+
+    // Line number gutter
+    const gutter = document.createElement("div");
+    gutter.className = "fallback-gutter select-none text-right font-mono text-xs overflow-hidden shrink-0";
+    gutter.style.cssText = `width: 48px; background: ${gutterBg}; color: ${gutterFg}; border-right: 1px solid ${gutterBorder}; padding: 14px 8px 14px 4px; line-height: 22px; font-family: 'Fira Code', Consolas, monospace; user-select: none; pointer-events: none;`;
+
+    // Code input textarea
     const area = document.createElement("textarea");
-    area.className = "w-full h-full bg-[#1e1e1e] text-slate-100 p-4 font-mono text-sm border-0 outline-none resize-none";
-    area.style.cssText = "position: absolute; inset: 0; width: 100%; height: 100%; z-index: 20; font-family: 'Fira Code', Consolas, monospace; background: #1e1e1e; color: #d4d4d4; padding: 14px; outline: none; border: none; resize: none; pointer-events: auto; cursor: text;";
+    area.className = "fallback-textarea flex-1 h-full p-3.5 font-mono text-sm border-0 outline-none resize-none";
+    area.style.cssText = `background: ${bg}; color: ${fg}; line-height: 22px; font-family: 'Fira Code', Consolas, monospace; padding: 14px; outline: none; border: none; resize: none; pointer-events: auto; cursor: text; white-space: pre; overflow-wrap: normal; overflow-x: auto; tab-size: 4;`;
     area.spellcheck = false;
     area.setAttribute("aria-label", "Code editor");
     area.value = problem.draft_code || "";
     if (isLocked) area.readOnly = true;
 
-    // Support tab key indentation (4 spaces)
+    // Helper: update line numbers in gutter
+    const updateGutter = () => {
+      const lineCount = (area.value.match(/\n/g) || []).length + 1;
+      let lines = "";
+      for (let i = 1; i <= lineCount; i++) {
+        lines += `<div>${i}</div>`;
+      }
+      gutter.innerHTML = lines;
+      gutter.scrollTop = area.scrollTop;
+    };
+
+    area.addEventListener("scroll", () => {
+      gutter.scrollTop = area.scrollTop;
+    });
+
+    // Key handlers for Indentation & Bracket Auto-closing
     area.addEventListener("keydown", (e) => {
+      if (isLocked) return;
+
+      // 1. Tab / Shift+Tab handling
       if (e.key === "Tab") {
         e.preventDefault();
         const start = area.selectionStart;
         const end = area.selectionEnd;
-        area.value = area.value.substring(0, start) + "    " + area.value.substring(end);
-        area.selectionStart = area.selectionEnd = start + 4;
+        const val = area.value;
+
+        if (e.shiftKey) {
+          // Unindent line(s)
+          const lineStart = val.lastIndexOf("\n", start - 1) + 1;
+          const lineEnd = val.indexOf("\n", end);
+          const block = val.substring(lineStart, lineEnd === -1 ? val.length : lineEnd);
+          const unindented = block
+            .split("\n")
+            .map((l) => (l.startsWith("    ") ? l.slice(4) : l.startsWith("\t") ? l.slice(1) : l.replace(/^ {1,3}/, "")))
+            .join("\n");
+          area.value = val.substring(0, lineStart) + unindented + (lineEnd === -1 ? "" : val.substring(lineEnd));
+          area.selectionStart = Math.max(lineStart, start - 4);
+          area.selectionEnd = Math.max(lineStart, end - (block.length - unindented.length));
+        } else {
+          if (start !== end && val.substring(start, end).includes("\n")) {
+            // Multi-line indent
+            const lineStart = val.lastIndexOf("\n", start - 1) + 1;
+            const lineEnd = val.indexOf("\n", end);
+            const block = val.substring(lineStart, lineEnd === -1 ? val.length : lineEnd);
+            const indented = block
+              .split("\n")
+              .map((l) => "    " + l)
+              .join("\n");
+            area.value = val.substring(0, lineStart) + indented + (lineEnd === -1 ? "" : val.substring(lineEnd));
+            area.selectionStart = start + 4;
+            area.selectionEnd = end + (indented.length - block.length);
+          } else {
+            // Single cursor insert 4 spaces
+            area.value = val.substring(0, start) + "    " + val.substring(end);
+            area.selectionStart = area.selectionEnd = start + 4;
+          }
+        }
+        updateGutter();
         area.dispatchEvent(new Event("input"));
+        return;
+      }
+
+      // 2. Enter key: Auto-indentation helper
+      if (e.key === "Enter") {
+        e.preventDefault();
+        const start = area.selectionStart;
+        const end = area.selectionEnd;
+        const val = area.value;
+
+        // Find current line text up to cursor
+        const lineStart = val.lastIndexOf("\n", start - 1) + 1;
+        const currentLineToCursor = val.substring(lineStart, start);
+        const indentMatch = currentLineToCursor.match(/^(\s*)/);
+        let baseIndent = indentMatch ? indentMatch[1] : "";
+
+        // Check if line ends with colon or opening brace
+        const trimmed = currentLineToCursor.trim();
+        let extraIndent = "";
+        if (trimmed.endsWith(":") || trimmed.endsWith("{") || trimmed.endsWith("(") || trimmed.endsWith("[")) {
+          extraIndent = "    ";
+        }
+
+        const insertText = "\n" + baseIndent + extraIndent;
+        area.value = val.substring(0, start) + insertText + val.substring(end);
+        area.selectionStart = area.selectionEnd = start + insertText.length;
+        updateGutter();
+        area.dispatchEvent(new Event("input"));
+        return;
+      }
+
+      // 3. Auto-closing brackets and quotes
+      const pairs = {
+        "(": ")",
+        "[": "]",
+        "{": "}",
+        '"': '"',
+        "'": "'",
+        "`": "`",
+      };
+
+      if (pairs[e.key]) {
+        const start = area.selectionStart;
+        const end = area.selectionEnd;
+        const val = area.value;
+        const nextChar = val.charAt(start);
+
+        // If typing closing quote/tick and already right in front of it, step over
+        if ((e.key === '"' || e.key === "'" || e.key === "`") && start === end && nextChar === e.key) {
+          e.preventDefault();
+          area.selectionStart = area.selectionEnd = start + 1;
+          return;
+        }
+
+        e.preventDefault();
+        const openChar = e.key;
+        const closeChar = pairs[e.key];
+        const selected = val.substring(start, end);
+        area.value = val.substring(0, start) + openChar + selected + closeChar + val.substring(end);
+        area.selectionStart = start + 1;
+        area.selectionEnd = end + 1;
+        updateGutter();
+        area.dispatchEvent(new Event("input"));
+        return;
+      }
+
+      // 4. Step over closing brackets: ), ], }
+      const closers = [")", "]", "}"];
+      if (closers.includes(e.key)) {
+        const start = area.selectionStart;
+        const end = area.selectionEnd;
+        if (start === end && area.value.charAt(start) === e.key) {
+          e.preventDefault();
+          area.selectionStart = area.selectionEnd = start + 1;
+          return;
+        }
+      }
+
+      // 5. Backspace between empty pairs () -> delete both
+      if (e.key === "Backspace") {
+        const start = area.selectionStart;
+        const end = area.selectionEnd;
+        if (start === end && start > 0) {
+          const prev = area.value.charAt(start - 1);
+          const next = area.value.charAt(start);
+          if (
+            (prev === "(" && next === ")") ||
+            (prev === "[" && next === "]") ||
+            (prev === "{" && next === "}") ||
+            (prev === '"' && next === '"') ||
+            (prev === "'" && next === "'")
+          ) {
+            e.preventDefault();
+            area.value = area.value.substring(0, start - 1) + area.value.substring(start + 1);
+            area.selectionStart = area.selectionEnd = start - 1;
+            updateGutter();
+            area.dispatchEvent(new Event("input"));
+            return;
+          }
+        }
       }
     });
 
-    host.appendChild(area);
+    wrapper.appendChild(gutter);
+    wrapper.appendChild(area);
+    host.appendChild(wrapper);
+    updateGutter();
 
     const sendDraft = () => {
       timer = null;
@@ -1490,6 +1893,7 @@ async function makeEditor(problem, host) {
 
     area.addEventListener("input", () => {
       clearTimeout(timer);
+      updateGutter();
       const pill = $("editor-autosave-indicator");
       if (pill) {
         pill.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span><span>Saving…</span>`;
@@ -1508,7 +1912,9 @@ async function makeEditor(problem, host) {
         clearTimeout(timer);
         sendDraft();
       },
-      layout: () => {},
+      layout: () => {
+        updateGutter();
+      },
       focus: () => {
         try {
           area.focus();
@@ -1551,6 +1957,13 @@ function showInAppConfirm({
   if (!modalRoot) {
     return Promise.resolve(window.confirm(`${title}\n\n${message}`));
   }
+
+  // Teleport modalRoot to document.body so it sits at the absolute top of the DOM stacking context,
+  // completely above Monaco editor, sidebars, textareas, or headers.
+  if (modalRoot.parentElement !== document.body) {
+    document.body.appendChild(modalRoot);
+  }
+  modalRoot.style.zIndex = "2147483647";
 
   const titleEl = $("in-app-modal-title");
   const msgEl = $("in-app-modal-message");
@@ -1824,7 +2237,13 @@ function renderCoding() {
             </span>
           </div>
 
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2.5">
+            <!-- Theme Toggle Button (Light / Dark Mode) -->
+            <button type="button" id="btn-theme-toggle" class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border ${currentEditorTheme === 'light' ? 'bg-slate-100 border-slate-300 text-slate-800 hover:bg-slate-200' : 'bg-slate-900 border-slate-700 text-slate-300 hover:text-white'} transition-colors cursor-pointer select-none" title="Toggle Light/Dark Theme">
+              <span id="theme-toggle-icon">${currentEditorTheme === 'light' ? '🌙' : '☀️'}</span>
+              <span id="theme-toggle-text">${currentEditorTheme === 'light' ? 'Dark' : 'Light'}</span>
+            </button>
+
             <button type="button" class="btn btn-primary px-3.5 py-1 text-xs font-black btn-submit-section shadow-cta flex items-center gap-1.5 cursor-pointer" title="Submit coding section and advance">
               <span>Submit Section</span>
               <span>&rarr;</span>
@@ -1833,7 +2252,7 @@ function renderCoding() {
         </div>
 
         <!-- Monaco Editor Slot -->
-        <div id="editor-slot" class="flex-1 w-full bg-[#1e1e1e] overflow-hidden relative cursor-text"></div>
+        <div id="editor-slot" class="flex-1 w-full ${currentEditorTheme === 'light' ? 'theme-light bg-white' : 'theme-dark bg-[#1e1e1e]'} overflow-hidden relative cursor-text"></div>
 
         <!-- Bottom Collapsible Console Drawer -->
         <div id="console-drawer" class="border-t border-slate-800 bg-slate-950 flex flex-col shrink-0 transition-all duration-200">
@@ -2036,10 +2455,20 @@ function renderCoding() {
     };
   }
 
+  // Theme toggle wiring
+  const btnTheme = $("btn-theme-toggle");
+  if (btnTheme) {
+    btnTheme.addEventListener("click", () => {
+      const nextTheme = currentEditorTheme === "light" ? "dark" : "light";
+      applyEditorTheme(nextTheme);
+    });
+  }
+
   // Mount the editor host inside #editor-slot
   const editorSlot = $("editor-slot");
   if (editorSlot) {
     editorSlot.innerHTML = "";
+    editorSlot.style.background = currentEditorTheme === "light" ? "#ffffff" : "#1e1e1e";
     editorSlot.appendChild(hostFor(problem));
     editorSlot.onclick = async () => {
       if (editors[problem.id]) {
@@ -2264,15 +2693,18 @@ async function submitSection() {
   });
 
   try {
-    // 4000ms safety timeout on draft and outbox flushes so pending Monaco/network promises have sufficient time to save
-    await Promise.race([
-      flushDrafts(),
-      new Promise((resolve) => setTimeout(resolve, 4000)),
-    ]);
-    await Promise.race([
-      flushOutbox(),
-      new Promise((resolve) => setTimeout(resolve, 4000)),
-    ]);
+    buttons.forEach((btn) => {
+      btn.textContent = "Saving pending changes…";
+    });
+    await flushDrafts();
+    await flushOutbox();
+    const remainingOutbox = outboxLoad();
+    if (remainingOutbox.length > 0) {
+      throw new Error("Pending answers could not be saved to the server. Please check your connection and try submitting again.");
+    }
+    buttons.forEach((btn) => {
+      btn.textContent = "Submitting section…";
+    });
     await api("POST", "submit-section/", { section_id: state.current_section.id });
     lastRenderKey = "";
     activeVisitKey = null;

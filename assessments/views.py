@@ -2,6 +2,7 @@ import hashlib
 import mimetypes
 import os
 import secrets
+import uuid
 from pathlib import Path
 
 from django.conf import settings as dj_settings
@@ -40,7 +41,7 @@ from .models import (
     MCQQuestion,
     SiteSettings,
 )
-from .services import publish_checks
+from .services import expire_due_attempts, publish_checks
 
 User = get_user_model()
 
@@ -152,6 +153,7 @@ def home(request):
         return redirect("login")
     if request.user.is_staff:
         return redirect("staff_exam_list")
+    expire_due_attempts()
     applications = (
         Application.objects.filter(candidate=request.user)
         .select_related("exam")
@@ -183,8 +185,8 @@ def candidate_state_for(application, attempt):
         return {"code": "in_progress", "label": "In progress", "tone": "blue"}
     if timezone.now() >= exam.closes_at:
         return {"code": "closed", "label": "Closed", "tone": "slate"}
-    if application.details_confirmed_at is None or not application.resume:
-        return {"code": "confirm", "label": "Verify details & resume", "tone": "blue"}
+    if application.details_confirmed_at is None:
+        return {"code": "confirm", "label": "Verify details", "tone": "blue"}
     if timezone.now() < exam.opens_at:
         return {"code": "waiting", "label": "Opens soon", "tone": "slate"}
     return {"code": "open", "label": "Ready to start", "tone": "green"}
@@ -203,9 +205,9 @@ def exam_detail(request, pk):
         return redirect("home")
     attempt = Attempt.objects.filter(candidate=request.user, exam=exam).first()
 
-    # Guard: Candidate MUST verify details and upload resume before proceeding to system check & exam
+    # Guard: Candidate MUST verify details before proceeding to system check & exam
     if attempt is None and application.details_confirmed_at is None:
-        messages.info(request, "Please verify your candidate details and upload your resume before proceeding to the system check.")
+        messages.info(request, "Please verify your candidate details before proceeding to the system check.")
         return redirect("confirm_details", pk=exam.pk)
 
     return render(
@@ -233,14 +235,17 @@ def candidate_resume(request, pk):
         if not os.path.exists(file_path):
             raise Http404("Resume file not found.")
         content_type, _ = mimetypes.guess_type(file_path)
-        response = FileResponse(open(file_path, "rb"), content_type=content_type or "application/pdf")
+        file_handle = open(file_path, "rb")  # noqa: SIM115
+        response = FileResponse(file_handle, content_type=content_type or "application/pdf")
         if request.GET.get("download") == "1":
             response["Content-Disposition"] = f'attachment; filename="{os.path.basename(file_path)}"'
         else:
             response["Content-Disposition"] = f'inline; filename="{os.path.basename(file_path)}"'
         return response
-    except Exception:
-        raise Http404("Unable to read resume.")
+    except Http404:
+        raise
+    except Exception as exc:
+        raise Http404("Unable to read resume.") from exc
 
 
 def serve_branding(request, kind):
@@ -273,11 +278,8 @@ def confirm_details(request, pk):
         return redirect("attempt_result", pk=attempt.pk)
 
     if request.method == "POST":
-        form = ConfirmDetailsForm(request.POST, request.FILES, instance=application)
+        form = ConfirmDetailsForm(request.POST, instance=application)
         if form.is_valid():
-            if not application.resume and not request.FILES.get("resume"):
-                form.add_error("resume", "Please upload your resume before proceeding.")
-                return render(request, "assessments/confirm_details.html", {"exam": exam, "application": application, "form": form})
             application = form.save(commit=False)
             application.details_confirmed_at = timezone.now()
             new_email = form.cleaned_data.get("email", "").strip().lower()
@@ -299,7 +301,7 @@ def confirm_details(request, pk):
                     pass
                 messages.info(request, f"A verification email was sent to {new_email}. Your login email will update once verified.")
             application.save()
-            messages.success(request, "Thank you. Your details and resume have been confirmed.")
+            messages.success(request, "Thank you. Your details have been confirmed.")
             return redirect("exam_detail", pk=exam.pk)
     else:
         form = ConfirmDetailsForm(instance=application)
@@ -353,12 +355,16 @@ def staff_exam_edit(request, pk):
 def staff_exam_detail(request, pk):
     exam = get_object_or_404(Exam, pk=pk)
     checks = publish_checks(exam)
-    blocking_failures = [c for c in checks if c["blocking"] and not c["ok"]]
+    hard_failures = [c["text"] for c in checks if c["blocking"] and c.get("structural") and not c["ok"]]
+    soft_failures = [c["text"] for c in checks if c["blocking"] and not c.get("structural") and not c["ok"]]
     default_sec = exam.get_default_section()
     mcq_sections = list(exam.sections.filter(kind=ExamSection.Kind.MCQ).order_by("order", "id"))
     questions = list(exam.mcq_questions.select_related("section").prefetch_related("options").order_by("order", "id"))
     for sec in mcq_sections:
         sec.assigned_questions = [q for q in questions if q.section_id == sec.pk or (not q.section_id and sec.is_default)]
+
+    can_publish = (len(hard_failures) == 0 and len(soft_failures) == 0) or (len(hard_failures) == 0 and request.user.is_superuser)
+    can_override = (len(hard_failures) == 0 and len(soft_failures) > 0 and request.user.is_superuser)
 
     context = {
         "exam": exam,
@@ -369,9 +375,14 @@ def staff_exam_detail(request, pk):
         "coding_problems": exam.coding_problems.prefetch_related("test_cases"),
         "section_form": ExamSectionForm(prefix="section"),
         "checks": checks,
-        "can_publish": True,  # User override enabled: warn instead of blocking creation/publish
-        "blocking_count": len(blocking_failures),
+        "can_publish": can_publish,
+        "can_override": can_override,
+        "hard_failures": hard_failures,
+        "soft_failures": soft_failures,
+        "blocking_count": len(hard_failures) + len(soft_failures),
+        "hard_blocking_count": len(hard_failures),
         "candidate_count": exam.applications.count(),
+        "has_attempts": exam.attempts.exists(),
     }
     return render(request, "assessments/staff/exam_detail.html", context)
 
@@ -383,21 +394,32 @@ def staff_exam_publish(request, pk):
     if exam.is_published:
         messages.info(request, "This test is already published.")
         return redirect("staff_exam_detail", pk=exam.pk)
-    failures = [c["text"] for c in publish_checks(exam) if c["blocking"] and not c["ok"]]
-    is_override = request.POST.get("override") in ("true", "1")
-    if failures and not is_override:
-        messages.error(request, "The test cannot be published yet: " + " · ".join(failures))
+    checks = publish_checks(exam)
+    hard_failures = [c["text"] for c in checks if c["blocking"] and c.get("structural") and not c["ok"]]
+    soft_failures = [c["text"] for c in checks if c["blocking"] and not c.get("structural") and not c["ok"]]
+
+    if hard_failures:
+        messages.error(request, "The test cannot be published due to structural issues: " + " · ".join(hard_failures))
         return redirect("staff_exam_detail", pk=exam.pk)
+
+    if soft_failures:
+        if not request.user.is_superuser:
+            messages.error(request, "Pre-publish warnings can only be overridden by an administrator.")
+            return redirect("staff_exam_detail", pk=exam.pk)
+        override_reason = (request.POST.get("override_reason") or "").strip()
+        if len(override_reason) < 10:
+            messages.error(request, "An explicit override reason (at least 10 characters) is required to publish with warnings.")
+            return redirect("staff_exam_detail", pk=exam.pk)
+        exam.is_published = True
+        exam.save(update_fields=["is_published"])
+        audit(request.user, "exam.published_override", f"exam:{exam.pk}", f"Reason: {override_reason}. Warnings: {' · '.join(soft_failures)}")
+        messages.warning(request, "Test published with warnings overridden: " + " · ".join(soft_failures))
+        return redirect("staff_exam_detail", pk=exam.pk)
+
     exam.is_published = True
     exam.save(update_fields=["is_published"])
     audit(request.user, "exam.published", f"exam:{exam.pk}", exam.title)
-    if failures:
-        messages.warning(
-            request,
-            "Test published with warnings overridden: " + " · ".join(failures),
-        )
-    else:
-        messages.success(request, "Test published. Candidates on the list can now see it.")
+    messages.success(request, "Test published. Candidates on the list can now see it.")
     return redirect("staff_exam_detail", pk=exam.pk)
 
 
@@ -416,6 +438,9 @@ def staff_exam_unpublish(request, pk):
 @require_POST
 def staff_section_add(request, pk):
     exam = get_object_or_404(Exam, pk=pk)
+    if exam.attempts.exists():
+        messages.error(request, "Cannot add sections to an assessment with existing candidate attempts. Content is locked for integrity.")
+        return redirect("staff_exam_detail", pk=exam.pk)
     form = ExamSectionForm(request.POST, prefix="section")
     if form.is_valid():
         section = form.save(commit=False)
@@ -437,6 +462,9 @@ def staff_section_add(request, pk):
 def staff_section_edit(request, pk):
     section = get_object_or_404(ExamSection, pk=pk)
     exam = section.exam
+    if exam.attempts.exists():
+        messages.error(request, "Cannot modify sections on an assessment with existing candidate attempts. Content is locked for integrity.")
+        return redirect("staff_exam_detail", pk=exam.pk)
     if request.method == "POST":
         form = ExamSectionForm(request.POST, instance=section)
         if form.is_valid():
@@ -463,10 +491,19 @@ def staff_section_delete(request, pk):
     section = get_object_or_404(ExamSection, pk=pk)
     exam_pk = section.exam.pk
     exam = section.exam
+    if exam.attempts.exists():
+        messages.error(request, "Cannot delete sections on an assessment with existing candidate attempts. Content is locked for integrity.")
+        return redirect("staff_exam_detail", pk=exam_pk)
     if section.is_default:
         messages.error(request, "The default section cannot be deleted.")
         return redirect("staff_exam_detail", pk=exam_pk)
     title = section.title
+    default_sec = exam.get_default_section()
+    reassigned = exam.mcq_questions.filter(section=section).update(section=default_sec)
+    section.delete()
+    audit(request.user, "section.deleted", f"exam:{exam_pk}", f"{title} (reassigned {reassigned} to default)")
+    messages.success(request, f"Section '{title}' deleted. {reassigned} question(s) moved to '{default_sec.title}'.")
+    return redirect("staff_exam_detail", pk=exam_pk)
     default_sec = exam.get_default_section()
     reassigned = exam.mcq_questions.filter(section=section).update(section=default_sec)
     section.delete()
@@ -478,6 +515,9 @@ def staff_section_delete(request, pk):
 @staff_required
 def staff_mcq_add(request, pk):
     exam = get_object_or_404(Exam, pk=pk)
+    if exam.attempts.exists():
+        messages.error(request, "Cannot add questions to an assessment with existing candidate attempts. Content is locked for integrity.")
+        return redirect("staff_exam_detail", pk=exam.pk)
     initial_sec = request.GET.get("section")
     if request.method == "POST":
         question_form = MCQQuestionForm(request.POST, exam=exam, initial_section_id=initial_sec)
@@ -531,6 +571,9 @@ def staff_mcq_add(request, pk):
 def staff_mcq_edit(request, pk):
     question = get_object_or_404(MCQQuestion, pk=pk)
     exam = question.exam
+    if exam.attempts.exists():
+        messages.error(request, "Cannot edit questions or options on an assessment with existing candidate attempts. Content is locked for integrity.")
+        return redirect("staff_exam_detail", pk=exam.pk)
     if request.method == "POST":
         question_form = MCQQuestionForm(request.POST, instance=question, exam=exam)
         option_formset = MCQOptionEditFormSet(request.POST, instance=question, prefix="options")
@@ -586,6 +629,9 @@ def staff_mcq_edit(request, pk):
 def staff_mcq_delete(request, pk):
     question = get_object_or_404(MCQQuestion, pk=pk)
     exam_pk = question.exam.pk
+    if question.exam.attempts.exists():
+        messages.error(request, "Cannot delete questions on an assessment with existing candidate attempts. Content is locked for integrity.")
+        return redirect("staff_exam_detail", pk=exam_pk)
     question.delete()
     audit(request.user, "mcq.deleted", f"exam:{exam_pk}", f"Question {pk}")
     messages.success(request, "Multiple choice question deleted.")
@@ -595,6 +641,9 @@ def staff_mcq_delete(request, pk):
 @staff_required
 def staff_coding_add(request, pk):
     exam = get_object_or_404(Exam, pk=pk)
+    if exam.attempts.exists():
+        messages.error(request, "Cannot add coding problems to an assessment with existing candidate attempts. Content is locked for integrity.")
+        return redirect("staff_exam_detail", pk=exam.pk)
     if request.method == "POST":
         problem_form = CodingProblemForm(request.POST)
         case_formset = CodingTestCaseFormSet(request.POST, prefix="cases")
@@ -632,6 +681,9 @@ def staff_coding_add(request, pk):
 def staff_coding_edit(request, pk):
     problem = get_object_or_404(CodingProblem, pk=pk)
     exam = problem.exam
+    if exam.attempts.exists():
+        messages.error(request, "Cannot edit coding problems or test cases on an assessment with existing candidate attempts. Content is locked for integrity.")
+        return redirect("staff_exam_detail", pk=exam.pk)
     if request.method == "POST":
         problem_form = CodingProblemForm(request.POST, instance=problem)
         case_formset = CodingTestCaseFormSet(request.POST, instance=problem, prefix="cases")
@@ -673,8 +725,14 @@ def staff_coding_edit(request, pk):
 def staff_coding_delete(request, pk):
     problem = get_object_or_404(CodingProblem, pk=pk)
     exam_pk = problem.exam.pk
+    if problem.exam.attempts.exists():
+        messages.error(request, "Cannot delete coding problems on an assessment with existing candidate attempts. Content is locked for integrity.")
+        return redirect("staff_exam_detail", pk=exam_pk)
     title = problem.title
     problem.delete()
+    audit(request.user, "coding.deleted", f"exam:{exam_pk}", title)
+    messages.success(request, f"Coding problem '{title}' deleted.")
+    return redirect("staff_exam_detail", pk=exam_pk)
     audit(request.user, "coding.deleted", f"exam:{exam_pk}", title)
     messages.success(request, f"Coding problem '{title}' deleted.")
     return redirect("staff_exam_detail", pk=exam_pk)
@@ -819,7 +877,7 @@ def setup_account(request, token):
         setup_token_hash=token_hash,
         setup_token_used_at__isnull=True,
         setup_token_expires_at__gte=timezone.now(),
-    ).select_related("candidate").first()
+    ).select_related("candidate", "exam").first()
 
     if application is None:
         messages.error(request, "This setup link is invalid, expired, or has already been used.")
@@ -830,21 +888,26 @@ def setup_account(request, token):
         messages.error(request, "This candidate account is inactive. Please contact the coordinator.")
         return redirect("login")
 
-    with transaction.atomic():
-        updated = Application.objects.filter(
-            pk=application.pk,
-            setup_token_used_at__isnull=True,
-        ).update(setup_token_used_at=timezone.now())
-        if not updated:
-            messages.error(request, "This setup link is invalid, expired, or has already been used.")
-            return redirect("login")
+    if request.method == "POST":
+        with transaction.atomic():
+            updated = Application.objects.filter(
+                pk=application.pk,
+                setup_token_used_at__isnull=True,
+                setup_token_expires_at__gte=timezone.now(),
+            ).update(setup_token_used_at=timezone.now())
+            if not updated:
+                messages.error(request, "This setup link is invalid, expired, or has already been used.")
+                return redirect("login")
 
-    from django.contrib.auth import login
-    login(request, candidate)
-    request.session.cycle_key()
-    audit(candidate, "auth.setup_token_login", f"candidate:{application.candidate_id}")
-    messages.success(request, f"Welcome, {application.full_name}. You have been signed in successfully.")
-    return redirect("home")
+        from django.contrib.auth import login
+        login(request, candidate)
+        request.session.cycle_key()
+        audit(candidate, "auth.setup_token_login", f"candidate:{application.candidate_id}")
+        messages.success(request, f"Welcome, {application.full_name}. You have been signed in successfully.")
+        return redirect("home")
+
+    # On GET: render confirmation page without consuming token
+    return render(request, "assessments/setup_account.html", {"application": application, "token": token})
 
 
 def health_check(request):
@@ -854,6 +917,11 @@ def health_check(request):
 
 def readiness_check(request):
     """Readiness probe: verifies critical dependencies without exposing secrets."""
+    cached_status = cache.get("readiness_probe_result")
+    if cached_status:
+        http_status = 200 if cached_status.get("status") == "ready" else 503
+        return JsonResponse(cached_status, status=http_status)
+
     status = {"database": "ok", "cache": "ok", "storage": "ok"}
     is_ready = True
 
@@ -873,16 +941,25 @@ def readiness_check(request):
         status["cache"] = "unavailable"
         is_ready = False
 
+    test_file = None
     try:
         storage_path = Path(dj_settings.PRIVATE_MEDIA_ROOT)
         storage_path.mkdir(parents=True, exist_ok=True)
-        test_file = storage_path / ".readiness_probe"
+        probe_id = uuid.uuid4().hex
+        test_file = storage_path / f".readiness_probe_{probe_id}"
         test_file.write_text("probe", encoding="utf-8")
-        test_file.unlink(missing_ok=True)
     except Exception:
         status["storage"] = "unavailable"
         is_ready = False
+    finally:
+        if test_file is not None:
+            try:
+                test_file.unlink(missing_ok=True)
+            except Exception:
+                pass
 
+    res_body = {"status": "ready" if is_ready else "degraded", "dependencies": status}
+    cache.set("readiness_probe_result", res_body, 5)
     http_status = 200 if is_ready else 503
-    return JsonResponse({"status": "ready" if is_ready else "degraded", "dependencies": status}, status=http_status)
+    return JsonResponse(res_body, status=http_status)
 

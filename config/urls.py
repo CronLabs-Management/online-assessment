@@ -1,5 +1,4 @@
 from django.contrib import admin
-from django.contrib.auth import views as auth_views
 from django.urls import include, path
 
 from assessments.views import CandidateLoginView, favicon_view, logout_view, robots_txt_view

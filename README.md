@@ -119,6 +119,7 @@ periodically (for example, a cPanel cron job every minute).
 5. Run, from the app folder:
    ```bash
    python manage.py migrate
+   python manage.py createcachetable assessment_cache_table
    python manage.py collectstatic --noinput
    python manage.py create_admin --username admin --email you@example.com
    python manage.py test_email your-email@example.com   # verify email is working

@@ -3,12 +3,11 @@ import json
 import logging
 import os
 import re
-from django.core.files.base import ContentFile
-from django.utils import timezone
+
 import requests
+from django.utils import timezone
 
 from .models import Application, SiteSettings
-from .resume_builder import build_candidate_resume_pdf
 
 logger = logging.getLogger(__name__)
 
@@ -46,30 +45,12 @@ def sort_and_enrich_questions(questions):
 
 def extract_resume_text(application: Application) -> str:
     """
-    Extract readable text from a candidate's resume (PDF, DOCX, or generated fallback).
-    Uses PyMuPDF (pymupdf) for PDF and python-docx for DOCX.
+    Extract readable text from a candidate's existing resume file if present.
+    Never fabricates resumes or candidate skills. Returns empty string if no resume exists.
     """
-    needs_generation = False
     if not application.resume or not application.resume.name:
-        needs_generation = True
-    else:
-        try:
-            if not os.path.exists(application.resume.path) or os.path.getsize(application.resume.path) < 100:
-                needs_generation = True
-        except (NotImplementedError, AttributeError, OSError):
-            needs_generation = True
+        return ""
 
-    if needs_generation:
-        candidate_name = application.full_name or application.candidate.username or f"Candidate {application.pk:04d}"
-        candidate_email = application.candidate.email or application.candidate.username
-        candidate_phone = application.phone or ""
-        pdf_bytes = build_candidate_resume_pdf(candidate_name, candidate_email, candidate_phone)
-        safe_rel_name = f"candidate_{application.pk:04d}_resume.pdf"
-        application.resume.save(safe_rel_name, ContentFile(pdf_bytes), save=True)
-
-    ext = os.path.splitext(application.resume.name)[1].lower() or ".pdf"
-
-    # Read binary bytes
     raw_bytes = None
     try:
         if hasattr(application.resume, "path") and os.path.exists(application.resume.path):
@@ -80,10 +61,12 @@ def extract_resume_text(application: Application) -> str:
             raw_bytes = application.resume.read()
     except Exception as exc:
         logger.warning("Could not read resume file for application %s: %s", application.pk, exc)
+        return ""
 
     if not raw_bytes:
-        return f"Candidate: {application.full_name}\nEmail: {application.candidate.email}\nExam: {application.exam.title}"
+        return ""
 
+    ext = os.path.splitext(application.resume.name)[1].lower() or ".pdf"
     text = ""
     if ext == ".pdf":
         try:
@@ -97,7 +80,6 @@ def extract_resume_text(application: Application) -> str:
             text = "\n".join(pages).strip()
         except Exception as exc:
             logger.warning("PyMuPDF text extraction failed for app %s: %s", application.pk, exc)
-
     elif ext in (".docx", ".doc"):
         try:
             import docx
@@ -117,16 +99,6 @@ def extract_resume_text(application: Application) -> str:
             text = raw_bytes.decode("utf-8", errors="ignore").strip()
         except Exception:
             text = ""
-
-    if len(text.strip()) < 50:
-        candidate_name = application.full_name or application.candidate.username
-        text = (
-            f"Candidate Name: {candidate_name}\n"
-            f"Role: Software Engineer / Developer\n"
-            f"Email: {application.candidate.email}\n"
-            f"Assessment: {application.exam.title}\n"
-            f"Skills: Python, Django, REST APIs, PostgreSQL, Docker, Redis, Unit Testing, System Design, Git, CI/CD"
-        )
 
     return text.strip()
 
@@ -250,9 +222,13 @@ FALLBACK_KEYWORD_CATALOG = [
 
 def generate_fallback_questions(resume_text: str, candidate_name: str):
     """
-    Intelligently generates keyword-grounded interview questions sorted strictly by
+    Generates keyword-grounded interview questions sorted strictly by
     Easy, Intermediate, and Hard by scanning the candidate's extracted resume text.
+    Returns empty list if no resume text is provided.
     """
+    if not resume_text or not resume_text.strip():
+        return []
+
     matched = []
     text_lower = resume_text.lower()
 
@@ -337,13 +313,26 @@ def generate_interview_questions_with_gemini(
     api_key_override: str = None,
     model_override: str = None,
     force: bool = False,
+    candidate_text_override: str = None,
 ):
     """
     Extracts candidate resume text and calls the Google Gemini REST API using the key
     configured in Platform Settings.
     Produces questions sorted strictly by Easy, Intermediate, and Hard with explicit keywords.
     """
-    resume_text = extract_resume_text(application)
+    resume_text = candidate_text_override or extract_resume_text(application)
+    if not resume_text:
+        application.ai_interview_questions = []
+        application.ai_questions_generated_at = timezone.now()
+        application.ai_questions_error = "No verified candidate resume found. Resume-derived AI questions are disabled."
+        application.save(update_fields=["ai_interview_questions", "ai_questions_generated_at", "ai_questions_error"])
+        return {
+            "success": False,
+            "error": "No verified candidate resume found. Resume-derived AI questions are disabled.",
+            "count": 0,
+            "questions": [],
+        }
+
     configured_key, configured_model = get_gemini_config()
     api_key = (api_key_override or configured_key or "").strip()
     model = (model_override or configured_model or "gemini-1.5-flash").strip()
