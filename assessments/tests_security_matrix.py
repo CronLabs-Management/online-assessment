@@ -588,9 +588,10 @@ class EmailUniquenessSecurityTests(TestCase):
 
 class SiteSettingsUploadSecurityTests(TestCase):
     def test_site_settings_form_rejects_malicious_svg(self):
+        base_data = {"site_name": "Test", "snapshot_retention_days": 30}
         bad_svg = b"<svg><script>alert(1)</script></svg>"
         form = SiteSettingsForm(
-            data={"site_name": "Test"},
+            data=base_data,
             files={"site_logo": SimpleUploadedFile("bad.svg", bad_svg, content_type="image/svg+xml")},
         )
         self.assertFalse(form.is_valid())
@@ -598,7 +599,7 @@ class SiteSettingsUploadSecurityTests(TestCase):
 
         handler_svg = b"<svg onload='alert(1)'></svg>"
         form2 = SiteSettingsForm(
-            data={"site_name": "Test"},
+            data=base_data,
             files={"favicon": SimpleUploadedFile("bad_fav.svg", handler_svg, content_type="image/svg+xml")},
         )
         self.assertFalse(form2.is_valid())
@@ -606,7 +607,7 @@ class SiteSettingsUploadSecurityTests(TestCase):
 
         padded_svg = (b"<!-- " + b"A" * 5000 + b" --><svg><foreignObject><body><script>alert(1)</script></body></foreignObject></svg>")
         form3 = SiteSettingsForm(
-            data={"site_name": "Test"},
+            data=base_data,
             files={"site_logo": SimpleUploadedFile("padded.svg", padded_svg, content_type="image/svg+xml")},
         )
         self.assertFalse(form3.is_valid())
@@ -614,7 +615,7 @@ class SiteSettingsUploadSecurityTests(TestCase):
 
         clean_svg = b"<svg xmlns='http://www.w3.org/2000/svg'><circle cx='50' cy='50' r='40'/></svg>"
         form4 = SiteSettingsForm(
-            data={"site_name": "Test"},
+            data=base_data,
             files={"site_logo": SimpleUploadedFile("clean.svg", clean_svg, content_type="image/svg+xml")},
         )
         self.assertTrue(form4.is_valid())
