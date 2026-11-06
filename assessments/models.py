@@ -308,6 +308,16 @@ class Application(models.Model):
     def __str__(self):
         return f"{self.full_name} – {self.exam.title} ({self.get_status_display()})"
 
+    @property
+    def has_resume_file(self):
+        """Returns True only if a resume is attached and the file exists on storage."""
+        if not self.resume or not getattr(self.resume, "name", None):
+            return False
+        try:
+            return bool(self.resume.storage.exists(self.resume.name))
+        except Exception:
+            return False
+
     def ensure_password(self):
         """Ensures this application has a visible plain password for admin, synchronized with User password hash."""
         if not self.plain_password:

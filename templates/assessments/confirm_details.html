@@ -2,7 +2,7 @@
 {% block title %}Verify Candidate Details | {{ exam.title }}{% endblock %}
 
 {% block content %}
-<div class="mx-auto max-w-2xl py-6 sm:py-10 space-y-8">
+<div class="mx-auto max-w-3xl py-6 sm:py-10 space-y-8">
   
   <!-- Stepper & Top Navigation -->
   <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
@@ -33,94 +33,190 @@
   </div>
 
   <!-- Verification Card -->
-  <div class="bg-white border-[1.5px] border-slate-200 rounded-3xl p-7 sm:p-10 shadow-card">
+  <div class="bg-white border-[1.5px] border-slate-200 rounded-3xl p-6 sm:p-10 shadow-card">
     
     <!-- Card Header Banner -->
     <div class="border-b border-slate-100 pb-6 mb-7">
       <div class="flex flex-wrap items-center justify-between gap-3 mb-2.5">
         <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-[#EEF1FE] text-[#2447F5] border border-blue-200">
           <span class="w-1.5 h-1.5 rounded-full bg-[#2447F5]"></span>
-          Step 1 of 3: Identity Verification
+          Step 1 of 3: Identity &amp; Profile Verification
         </span>
-        <span class="text-xs text-slate-500 font-bold bg-slate-100 px-3 py-1 rounded-full border border-slate-200">{{ exam.title }}</span>
+        <span class="text-xs text-slate-600 font-bold bg-slate-100 px-3 py-1 rounded-full border border-slate-200">{{ exam.title }}</span>
       </div>
       <h1 class="text-2xl sm:text-3xl font-extrabold text-[#0F172A] tracking-tight">Verify Your Information</h1>
       <p class="mt-2 text-sm text-slate-600 leading-relaxed font-medium">
-        Please review and confirm your candidate details before proceeding to the live hardware and proctoring check.
+        Please review and confirm your candidate details and upload your resume before proceeding to the live hardware and proctoring check.
       </p>
 
       <!-- Trust & Security Banner -->
-      <div class="mt-4 flex items-center gap-3 rounded-2xl bg-[#EEF1FE]/70 border border-blue-200/80 px-4 py-3 text-xs text-slate-700">
-        <div class="w-7 h-7 rounded-lg bg-blue-100 text-[#2447F5] flex items-center justify-center shrink-0">
+      <div class="mt-4 flex items-center gap-3 rounded-2xl bg-[#EEF1FE]/80 border border-blue-200/90 px-4 py-3 text-xs text-slate-700">
+        <div class="w-8 h-8 rounded-xl bg-blue-100 text-[#2447F5] flex items-center justify-center shrink-0">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
           </svg>
         </div>
-        <span class="leading-relaxed">
-          Your details are encrypted and securely authenticated. If your name or phone number has changed, update them below.
+        <span class="leading-relaxed font-medium">
+          Your details are encrypted and securely authenticated. If your legal name, phone number, or resume has changed, update them below.
         </span>
       </div>
     </div>
 
     <!-- Form -->
-    <form method="post" enctype="multipart/form-data" class="space-y-6">
+    <form method="post" enctype="multipart/form-data" class="space-y-7">
       {% csrf_token %}
 
       <!-- Section: Personal Details -->
-      <div class="space-y-4">
-        <h2 class="text-xs font-extrabold uppercase tracking-wider text-slate-400">Personal Information</h2>
+      <div class="space-y-5">
+        <div class="flex items-center gap-2 border-b border-slate-100 pb-2">
+          <span class="w-2 h-2 rounded-full bg-[#2447F5]"></span>
+          <h2 class="text-xs font-extrabold uppercase tracking-wider text-slate-400">Personal Information</h2>
+        </div>
         
-        <!-- Full Legal Name -->
-        <div class="space-y-1.5">
-          <label for="{{ form.full_name.id_for_label }}" class="text-sm font-bold text-[#0F172A] flex items-center justify-between">
-            <span>Full Legal Name <span class="text-rose-600" aria-hidden="true">*</span></span>
-            <span class="text-[11px] font-semibold text-slate-400">As shown on Photo ID</span>
-          </label>
-          <div class="relative rounded-xl">
-            {{ form.full_name }}
-          </div>
-          {% if form.full_name.errors %}
-            <div class="text-xs font-semibold text-rose-600 mt-1">{{ form.full_name.errors }}</div>
-          {% endif %}
-          <p class="text-xs text-slate-500 font-medium">Must match the legal name on your government-issued ID card.</p>
-        </div>
-
-        <!-- Phone Number -->
-        <div class="space-y-1.5">
-          <label for="{{ form.phone.id_for_label }}" class="text-sm font-bold text-[#0F172A] flex items-center justify-between">
-            <span>Mobile Phone Number <span class="text-rose-600" aria-hidden="true">*</span></span>
-            <span class="text-[11px] font-semibold text-slate-400">With Country Code</span>
-          </label>
-          <div class="relative rounded-xl">
-            {{ form.phone }}
-          </div>
-          {% if form.phone.errors %}
-            <div class="text-xs font-semibold text-rose-600 mt-1">{{ form.phone.errors }}</div>
-          {% endif %}
-          <p class="text-xs text-slate-500 font-medium">Include your country calling code (e.g., +1 for US/CA, +91 for India).</p>
-        </div>
-
-        <!-- Registered Email (Locked) -->
-        <div class="space-y-1.5">
-          <div class="flex items-center justify-between">
-            <label for="{{ form.email.id_for_label }}" class="text-sm font-bold text-[#0F172A] flex items-center gap-1.5">
-              <span>Account Email Address</span>
-              <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <!-- Full Legal Name -->
+          <div class="space-y-1.5 sm:col-span-2">
+            <label for="{{ form.full_name.id_for_label }}" class="text-sm font-bold text-[#0F172A] flex items-center justify-between">
+              <span>Full Legal Name <span class="text-rose-600" aria-hidden="true">*</span></span>
+              <span class="text-[11px] font-semibold text-slate-400">As shown on Photo ID</span>
             </label>
-            <span class="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
-              🔒 Locked &amp; Verified
-            </span>
+            <div class="relative rounded-xl">
+              {{ form.full_name }}
+            </div>
+            {% if form.full_name.errors %}
+              <div class="text-xs font-semibold text-rose-600 mt-1">{{ form.full_name.errors }}</div>
+            {% endif %}
+            <p class="text-[11px] text-slate-500 font-medium">Must match the legal name on your government-issued ID card.</p>
           </div>
-          <div class="relative rounded-xl opacity-90">
-            {{ form.email }}
+
+          <!-- Phone Number -->
+          <div class="space-y-1.5">
+            <label for="{{ form.phone.id_for_label }}" class="text-sm font-bold text-[#0F172A] flex items-center justify-between">
+              <span>Mobile Phone Number <span class="text-rose-600" aria-hidden="true">*</span></span>
+            </label>
+            <div class="relative rounded-xl">
+              {{ form.phone }}
+            </div>
+            {% if form.phone.errors %}
+              <div class="text-xs font-semibold text-rose-600 mt-1">{{ form.phone.errors }}</div>
+            {% endif %}
+            <p class="text-[11px] text-slate-500 font-medium">Include country calling code (e.g. +1, +91).</p>
           </div>
-          <p class="text-xs text-slate-500 font-medium">This email is permanently bound to your candidate login credentials.</p>
+
+          <!-- Registered Email (Locked) -->
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between">
+              <label for="{{ form.email.id_for_label }}" class="text-sm font-bold text-[#0F172A] flex items-center gap-1.5">
+                <span>Account Email</span>
+              </label>
+              <span class="inline-flex items-center gap-1 text-[10px] font-extrabold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                🔒 Locked
+              </span>
+            </div>
+            <div class="relative rounded-xl opacity-90">
+              {{ form.email }}
+            </div>
+            <p class="text-[11px] text-slate-500 font-medium">Permanently bound to your candidate credentials.</p>
+          </div>
         </div>
       </div>
 
+      <!-- Section: Resume / CV Upload -->
+      <div class="space-y-4 pt-2">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-[#2447F5]"></span>
+            <h2 class="text-xs font-extrabold uppercase tracking-wider text-slate-400">Resume / Curriculum Vitae</h2>
+          </div>
+          <span class="text-[11px] font-bold text-slate-400">PDF, DOC, DOCX up to 10 MB</span>
+        </div>
+
+        {% if application.has_resume_file %}
+          <!-- Current Resume on File -->
+          <div class="p-4 rounded-2xl border border-emerald-200 bg-emerald-50/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                <svg width="20" height="20" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+              </div>
+              <div class="min-w-0">
+                <div class="text-xs font-bold text-emerald-900 truncate">
+                  Current Resume on File
+                </div>
+                <div class="text-[11px] text-emerald-700 font-medium">
+                  Candidate resume is verified and attached to this application.
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <a href="{% url 'candidate_resume' exam.pk %}" target="_blank" class="btn btn-secondary text-xs font-bold py-1.5 px-3 rounded-lg border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-50 shadow-2xs inline-flex items-center gap-1">
+                <svg width="14" height="14" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                <span>View Current</span>
+              </a>
+              <button type="button" onclick="document.getElementById('id_resume').click();" class="btn btn-secondary text-xs font-bold py-1.5 px-3 rounded-lg border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-2xs">
+                Replace File
+              </button>
+              <button type="submit" name="action" value="remove_resume" class="btn btn-secondary text-xs font-bold py-1.5 px-3 rounded-lg border-rose-200 bg-white text-rose-700 hover:bg-rose-50 shadow-2xs inline-flex items-center gap-1" title="Remove resume from application">
+                <svg width="14" height="14" class="w-3.5 h-3.5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                <span>Remove</span>
+              </button>
+            </div>
+          </div>
+        {% else %}
+          <!-- No Resume Attached Advisory Card -->
+          <div class="p-4 rounded-2xl border border-amber-200 bg-amber-50/70 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 border border-amber-200 flex items-center justify-center shrink-0">
+                <svg width="20" height="20" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+              </div>
+              <div class="min-w-0">
+                <div class="text-xs font-extrabold text-amber-950 flex items-center gap-2">
+                  <span>No Resume Attached</span>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-amber-200 text-amber-900 border border-amber-300">
+                    Not Uploaded
+                  </span>
+                </div>
+                <div class="text-[11px] text-amber-800 font-medium mt-0.5">
+                  No CV or resume file is currently linked to your application. Please select a document below.
+                </div>
+              </div>
+            </div>
+            <button type="button" onclick="document.getElementById('id_resume').click();" class="btn btn-primary text-xs font-bold py-1.5 px-3.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white shadow-2xs shrink-0 whitespace-nowrap inline-flex items-center gap-1.5">
+              <svg width="14" height="14" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              <span>Upload Resume</span>
+            </button>
+          </div>
+        {% endif %}
+
+        <!-- Modern Upload Dropzone -->
+        <div id="resume-dropzone" onclick="document.getElementById('id_resume').click();" class="border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-2xl p-6 text-center cursor-pointer bg-slate-50/60 hover:bg-blue-50/30 transition-all select-none">
+          {{ form.resume }}
+          <div class="mx-auto w-12 h-12 rounded-2xl bg-blue-50 text-[#2447F5] flex items-center justify-center mb-3">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+            </svg>
+          </div>
+          <div class="text-sm font-bold text-slate-800">
+            <span class="text-[#2447F5] hover:underline">Click to browse</span> or drag and drop your resume here
+          </div>
+          <p class="text-xs text-slate-500 mt-1 font-medium">
+            Accepted file formats: <strong>PDF (.pdf)</strong>, <strong>Word (.docx, .doc)</strong> up to 10 MB
+          </p>
+
+          <!-- Selected File Preview Badge -->
+          <div id="resume-selected-display" class="hidden mt-4 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-emerald-50 border border-emerald-300 text-xs font-bold text-emerald-800 shadow-2xs">
+            <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+            <span id="resume-filename-label">filename.pdf</span>
+            <span id="resume-filesize-label" class="font-normal text-emerald-600 text-[11px]">(0 KB)</span>
+          </div>
+        </div>
+        {% if form.resume.errors %}
+          <div class="text-xs font-semibold text-rose-600 mt-1">{{ form.resume.errors }}</div>
+        {% endif %}
+      </div>
+
       <!-- Action Button -->
-      <div class="pt-4 border-t border-slate-100 space-y-2">
-        <button type="submit" class="btn btn-primary h-[58px] w-full text-base font-extrabold shadow-cta flex items-center justify-center gap-2">
+      <div class="pt-6 border-t border-slate-100 space-y-2.5">
+        <button type="submit" class="btn btn-primary h-[56px] w-full text-base font-extrabold shadow-cta flex items-center justify-center gap-2 cursor-pointer">
           <span>Save Details &amp; Proceed to System Check</span>
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
@@ -134,4 +230,52 @@
     </form>
   </div>
 </div>
+
+<script>
+  (function() {
+    const fileInput = document.getElementById('id_resume');
+    const display = document.getElementById('resume-selected-display');
+    const nameLabel = document.getElementById('resume-filename-label');
+    const sizeLabel = document.getElementById('resume-filesize-label');
+    const dropzone = document.getElementById('resume-dropzone');
+
+    if (fileInput) {
+      fileInput.addEventListener('change', function() {
+        if (fileInput.files && fileInput.files[0]) {
+          const file = fileInput.files[0];
+          if (nameLabel) nameLabel.textContent = file.name;
+          if (sizeLabel) {
+            const kb = Math.round(file.size / 1024);
+            const mb = (file.size / (1024 * 1024)).toFixed(1);
+            sizeLabel.textContent = kb > 1024 ? `(${mb} MB)` : `(${kb} KB)`;
+          }
+          if (display) display.classList.remove('hidden');
+        }
+      });
+    }
+
+    if (dropzone) {
+      ['dragenter', 'dragover'].forEach(eventName => {
+        dropzone.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dropzone.classList.add('border-blue-500', 'bg-blue-50/50');
+        });
+      });
+      ['dragleave', 'drop'].forEach(eventName => {
+        dropzone.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dropzone.classList.remove('border-blue-500', 'bg-blue-50/50');
+        });
+      });
+      dropzone.addEventListener('drop', (e) => {
+        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0] && fileInput) {
+          fileInput.files = e.dataTransfer.files;
+          fileInput.dispatchEvent(new Event('change'));
+        }
+      });
+    }
+  })();
+</script>
 {% endblock %}

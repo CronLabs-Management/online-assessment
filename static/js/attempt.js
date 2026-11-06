@@ -58,10 +58,64 @@ function remainingFor(iso) {
   return (new Date(iso).getTime() - (Date.now() + serverOffsetMs)) / 1000;
 }
 
+let statusToastTimer = null;
 function showStatus(message, tone = "info") {
+  // Update aria-live status element if present
   const el = $("status");
-  el.textContent = message;
-  el.className = `text-sm ${tone === "error" ? "text-red-700" : tone === "ok" ? "text-green-700" : "text-slate-600"}`;
+  if (el) {
+    el.textContent = message;
+    el.className = `text-sm ${tone === "error" ? "text-red-700" : tone === "ok" ? "text-green-700" : "text-slate-600"}`;
+  }
+
+  // Floating Unmissable Status Toast (placed safely below sticky header at top: 84px)
+  let toast = $("global-status-toast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "global-status-toast";
+    toast.className = "fixed left-1/2 -translate-x-1/2 z-[100000] px-5 py-3 rounded-2xl shadow-elevated border flex items-center gap-3 text-xs sm:text-sm font-extrabold transition-all duration-300 max-w-md w-[calc(100vw-2rem)] select-none pointer-events-auto";
+    toast.style.top = "84px";
+    document.body.appendChild(toast);
+  }
+
+  const icons = {
+    ok: "✓",
+    error: "✕",
+    warn: "⚠️",
+    info: "ℹ️"
+  };
+
+  const bgStyles = {
+    ok: "background: #ECFDF5; border-color: #10B981; color: #065F46; box-shadow: 0 10px 25px -5px rgba(16, 185, 129, 0.3);",
+    error: "background: #FEF2F2; border-color: #EF4444; color: #991B1B; box-shadow: 0 10px 25px -5px rgba(239, 68, 68, 0.3);",
+    warn: "background: #FFFBEB; border-color: #F59E0B; color: #92400E; box-shadow: 0 10px 25px -5px rgba(245, 158, 11, 0.3);",
+    info: "background: #EFF6FF; border-color: #3B82F6; color: #1E40AF; box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.3);"
+  };
+
+  toast.style.cssText = `top: 84px; ${bgStyles[tone] || bgStyles.info} transform: translateX(-50%) translateY(0); opacity: 1; z-index: 100000;`;
+  toast.innerHTML = `
+    <span class="w-6 h-6 rounded-full flex items-center justify-center shrink-0 font-black text-xs ${tone === 'ok' ? 'bg-emerald-200 text-emerald-800' : tone === 'error' ? 'bg-rose-200 text-rose-800' : 'bg-amber-200 text-amber-800'}">${icons[tone] || icons.info}</span>
+    <span class="flex-1">${escapeHtml(message)}</span>
+    <button type="button" class="ml-2 text-current opacity-70 hover:opacity-100 font-black text-xs cursor-pointer p-1">✕</button>
+  `;
+
+  const closeBtn = toast.querySelector("button");
+  if (closeBtn) {
+    closeBtn.onclick = () => {
+      toast.style.opacity = "0";
+      toast.style.transform = "translateX(-50%) translateY(-10px)";
+      setTimeout(() => toast.classList.add("hidden"), 300);
+    };
+  }
+
+  toast.classList.remove("hidden");
+  if (statusToastTimer) clearTimeout(statusToastTimer);
+  statusToastTimer = setTimeout(() => {
+    if (toast) {
+      toast.style.opacity = "0";
+      toast.style.transform = "translateX(-50%) translateY(-10px)";
+      setTimeout(() => toast.classList.add("hidden"), 300);
+    }
+  }, 4500);
 }
 
 function setOffline(isOffline) {
@@ -915,6 +969,8 @@ function handleFaceStatus(face) {
 
 function showReadiness() {
   $("attempt-root")?.classList.remove("is-coding-page");
+  document.body.classList.remove("theme-dark");
+  document.body.style.backgroundColor = "";
   $("header-submit-section")?.classList.add("hidden");
   $("section-title").textContent = "Candidate Verification & Pre-Assessment Setup";
   $("readiness").classList.remove("hidden");
@@ -1328,6 +1384,8 @@ function openVisit(kind, itemId) {
 
 function renderMcq() {
   $("attempt-root")?.classList.remove("is-coding-page");
+  document.body.classList.remove("theme-dark");
+  document.body.style.backgroundColor = "";
   $("header-submit-section")?.classList.add("hidden");
   content.classList.remove("is-coding-view");
   const layoutRoot = document.querySelector(".attempt-layout");
@@ -1519,9 +1577,9 @@ function formatLanguageName(language) {
 
 let currentEditorTheme = (function() {
   try {
-    return localStorage.getItem("editor-theme") || "dark";
+    return localStorage.getItem("editor-theme") || "light";
   } catch (_) {
-    return "dark";
+    return "light";
   }
 })();
 
@@ -1530,6 +1588,23 @@ function applyEditorTheme(theme) {
   try {
     localStorage.setItem("editor-theme", theme);
   } catch (_) {}
+
+  // Update root container theme classes
+  const attemptRoot = $("attempt-root");
+  if (attemptRoot) {
+    attemptRoot.classList.toggle("theme-light", theme === "light");
+    attemptRoot.classList.toggle("theme-dark", theme === "dark");
+  }
+  const ideLayout = document.querySelector(".coding-ide-layout");
+  if (ideLayout) {
+    ideLayout.classList.toggle("theme-light", theme === "light");
+    ideLayout.classList.toggle("theme-dark", theme === "dark");
+  }
+  if (attemptRoot && attemptRoot.classList.contains("is-coding-page")) {
+    document.body.classList.toggle("theme-light", theme === "light");
+    document.body.classList.toggle("theme-dark", theme === "dark");
+    document.body.style.backgroundColor = theme === "dark" ? "#020617" : "#f4f6fb";
+  }
 
   // Update theme toggle button in toolbar if present
   const toggleBtn = $("btn-theme-toggle");
@@ -1541,7 +1616,7 @@ function applyEditorTheme(theme) {
       toggleIcon.textContent = "🌙";
       toggleText.textContent = "Dark";
     } else {
-      toggleBtn.className = "flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border bg-slate-900 border-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer select-none";
+      toggleBtn.className = "flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700 transition-colors cursor-pointer select-none";
       toggleIcon.textContent = "☀️";
       toggleText.textContent = "Light";
     }
@@ -2077,33 +2152,31 @@ function renderCoding() {
     .map((p, i) => {
       const isCurrent = p.id === problem.id;
       return `<button type="button" data-id="${p.id}" class="problem-tab-btn flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-        isCurrent
-          ? "bg-[#2447F5] text-white shadow-xs"
-          : "bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white"
+        isCurrent ? "active" : ""
       }">
         <span>Problem ${i + 1}</span>
-        ${p.locked ? '<span class="text-emerald-400 font-black">✓</span>' : ""}
+        ${p.locked ? '<span class="text-emerald-500 font-black">✓</span>' : ""}
       </button>`;
     })
     .join("");
 
   const examplesHtml = problem.public_cases
     .map((c, i) => `
-      <div class="rounded-xl border border-slate-800 bg-slate-950/80 p-3.5 space-y-2.5">
-        <div class="flex items-center justify-between text-xs font-extrabold text-slate-300">
+      <div class="example-card rounded-xl p-3.5 space-y-2.5">
+        <div class="flex items-center justify-between text-xs font-extrabold">
           <span>Example ${i + 1}</span>
-          <button type="button" data-copy-input="${escapeHtml(c.input)}" class="btn-copy-input text-[11px] font-bold text-blue-400 hover:text-blue-300 flex items-center gap-1 cursor-pointer">
+          <button type="button" data-copy-input="${escapeHtml(c.input)}" class="btn-copy-input text-[11px] font-bold text-blue-600 hover:underline flex items-center gap-1 cursor-pointer">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
             <span>Copy Input</span>
           </button>
         </div>
         <div class="space-y-1.5">
-          <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Input</div>
-          <pre class="rounded-lg bg-slate-900 border border-slate-800 p-2.5 font-mono text-xs text-slate-200 overflow-x-auto whitespace-pre-wrap">${escapeHtml(c.input)}</pre>
+          <div class="text-[10px] font-bold uppercase tracking-wider spec-box-label">Input</div>
+          <pre class="p-2.5 font-mono text-xs rounded-lg overflow-x-auto whitespace-pre-wrap">${escapeHtml(c.input)}</pre>
         </div>
         <div class="space-y-1.5">
-          <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Expected Output</div>
-          <pre class="rounded-lg bg-slate-900 border border-slate-800 p-2.5 font-mono text-xs text-emerald-300 overflow-x-auto whitespace-pre-wrap">${escapeHtml(c.expected)}</pre>
+          <div class="text-[10px] font-bold uppercase tracking-wider spec-box-label">Expected Output</div>
+          <pre class="p-2.5 font-mono text-xs text-emerald-600 rounded-lg overflow-x-auto whitespace-pre-wrap">${escapeHtml(c.expected)}</pre>
         </div>
       </div>
     `)
@@ -2119,7 +2192,7 @@ function renderCoding() {
 
   const consoleCasesTabs = problem.public_cases
     .map((c, i) => `
-      <button type="button" data-case-idx="${i}" class="case-chip-btn px-2.5 py-1 rounded-lg text-[11px] font-extrabold ${i === 0 ? 'bg-slate-700 text-white' : 'bg-slate-800/80 text-slate-400 hover:text-slate-200'}">
+      <button type="button" data-case-idx="${i}" class="case-chip-btn px-2.5 py-1 rounded-lg text-[11px] font-extrabold cursor-pointer ${i === 0 ? 'active' : ''}">
         Case ${i + 1}
       </button>
     `)
@@ -2129,64 +2202,64 @@ function renderCoding() {
 
   content.innerHTML = `
     <!-- Top-level Coding IDE Container (HackerRank Edge-to-Edge Full-Page Layout) -->
-    <div class="coding-ide-layout flex flex-col lg:flex-row w-full h-full bg-[#020617] text-white overflow-hidden">
+    <div class="coding-ide-layout flex flex-col lg:flex-row w-full h-full overflow-hidden">
 
       <!-- LEFT PANE: Problem Description, Spec, Examples, Submissions (44% Width) -->
-      <section class="problem-pane flex flex-col bg-[#0b1120] border-r border-slate-800/90 overflow-hidden" aria-label="Problem Description">
+      <section class="problem-pane flex flex-col overflow-hidden" aria-label="Problem Description">
         
         <!-- Multi-problem selector tabs -->
-        <div class="flex items-center gap-2 px-3 py-2 bg-slate-950/90 border-b border-slate-800/80 overflow-x-auto shrink-0 select-none">
-          <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 px-1">Problems:</span>
+        <div class="problem-pane-header flex items-center gap-2 px-3 py-2 overflow-x-auto shrink-0 select-none">
+          <span class="text-[10px] font-extrabold uppercase tracking-wider opacity-70 px-1">Problems:</span>
           ${problemTabs}
         </div>
 
         <!-- Problem Title & Badges Bar -->
-        <div class="px-5 pt-3 pb-2.5 border-b border-slate-800/60 shrink-0">
+        <div class="problem-title-bar px-5 pt-3 pb-2.5 shrink-0">
           <div class="flex items-center justify-between gap-3">
-            <h2 class="text-base sm:text-lg font-extrabold text-white tracking-tight truncate">${escapeHtml(problem.title)}</h2>
+            <h2 class="text-base sm:text-lg font-extrabold tracking-tight truncate">${escapeHtml(problem.title)}</h2>
             <div class="flex items-center gap-1.5 shrink-0">
-              <span class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-blue-500/15 text-blue-400 border border-blue-500/30">
+              <span class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-blue-500/15 text-blue-500 border border-blue-500/30">
                 ${problem.marks || 10} pts
               </span>
-              ${locked ? '<span class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">✓ Submitted</span>' : '<span class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-slate-800 text-slate-400 border border-slate-700">In Progress</span>'}
+              ${locked ? '<span class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-500/15 text-emerald-500 border border-emerald-500/30 flex items-center gap-1">✓ Submitted</span>' : '<span class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold opacity-70 border border-current">In Progress</span>'}
             </div>
           </div>
 
           <!-- Problem Navigation Sub-tabs -->
-          <div class="flex items-center gap-2 mt-2.5 text-xs font-bold border-b border-slate-800/50 -mb-2.5 pb-2 select-none">
-            <button type="button" id="tab-btn-desc" class="subtab-btn ${activeProblemSubTab === 'description' ? 'text-white border-b-2 border-blue-500 pb-1.5 font-black' : 'text-slate-400 hover:text-slate-200'}">Description</button>
-            <button type="button" id="tab-btn-examples" class="subtab-btn ${activeProblemSubTab === 'examples' ? 'text-white border-b-2 border-blue-500 pb-1.5 font-black' : 'text-slate-400 hover:text-slate-200'}">Examples (${problem.public_cases.length})</button>
-            <button type="button" id="tab-btn-subs" class="subtab-btn ${activeProblemSubTab === 'submissions' ? 'text-white border-b-2 border-blue-500 pb-1.5 font-black' : 'text-slate-400 hover:text-slate-200'}">Submissions</button>
+          <div class="flex items-center gap-2 mt-2.5 text-xs font-bold -mb-2.5 pb-2 select-none">
+            <button type="button" id="tab-btn-desc" class="subtab-btn ${activeProblemSubTab === 'description' ? 'active' : ''}">Description</button>
+            <button type="button" id="tab-btn-examples" class="subtab-btn ${activeProblemSubTab === 'examples' ? 'active' : ''}">Examples (${problem.public_cases.length})</button>
+            <button type="button" id="tab-btn-subs" class="subtab-btn ${activeProblemSubTab === 'submissions' ? 'active' : ''}">Submissions</button>
           </div>
         </div>
 
         <!-- Left Pane Scrollable Body -->
-        <div class="flex-1 overflow-y-auto p-5 space-y-4 custom-scrollbar text-sm leading-relaxed text-slate-200">
+        <div class="problem-body flex-1 overflow-y-auto p-5 space-y-4 custom-scrollbar text-sm leading-relaxed">
           
           <!-- Subtab 1: Description -->
           <div id="subtab-content-desc" class="${activeProblemSubTab === 'description' ? '' : 'hidden'} space-y-4">
-            <div class="whitespace-pre-line font-medium text-slate-300 leading-relaxed text-sm">${escapeHtml(problem.statement)}</div>
+            <div class="whitespace-pre-line font-medium leading-relaxed text-sm">${escapeHtml(problem.statement)}</div>
 
             ${problem.input_spec ? `
-              <div class="p-3.5 bg-slate-900/80 rounded-xl border border-slate-800/80 space-y-1">
-                <span class="text-xs font-extrabold uppercase tracking-wider text-slate-400">Input Format</span>
-                <p class="whitespace-pre-line text-xs sm:text-sm text-slate-300 font-medium">${escapeHtml(problem.input_spec)}</p>
+              <div class="spec-box p-3.5 rounded-xl space-y-1">
+                <span class="spec-box-label text-xs font-extrabold uppercase tracking-wider">Input Format</span>
+                <p class="whitespace-pre-line text-xs sm:text-sm font-medium">${escapeHtml(problem.input_spec)}</p>
               </div>
             ` : ""}
 
             ${problem.output_spec ? `
-              <div class="p-3.5 bg-slate-900/80 rounded-xl border border-slate-800/80 space-y-1">
-                <span class="text-xs font-extrabold uppercase tracking-wider text-slate-400">Output Format</span>
-                <p class="whitespace-pre-line text-xs sm:text-sm text-slate-300 font-medium">${escapeHtml(problem.output_spec)}</p>
+              <div class="spec-box p-3.5 rounded-xl space-y-1">
+                <span class="spec-box-label text-xs font-extrabold uppercase tracking-wider">Output Format</span>
+                <p class="whitespace-pre-line text-xs sm:text-sm font-medium">${escapeHtml(problem.output_spec)}</p>
               </div>
             ` : ""}
 
             ${problem.constraints ? `
-              <div class="p-3.5 bg-slate-900/80 rounded-xl border border-slate-800/80 space-y-1">
-                <span class="text-xs font-extrabold uppercase tracking-wider text-amber-400 flex items-center gap-1">
+              <div class="constraints-box p-3.5 rounded-xl space-y-1">
+                <span class="text-xs font-extrabold uppercase tracking-wider flex items-center gap-1 font-bold">
                   <span>⚡</span> Constraints
                 </span>
-                <pre class="whitespace-pre-line font-mono text-xs text-amber-200/90 overflow-x-auto">${escapeHtml(problem.constraints)}</pre>
+                <pre class="whitespace-pre-line font-mono text-xs overflow-x-auto">${escapeHtml(problem.constraints)}</pre>
               </div>
             ` : ""}
           </div>
@@ -2199,18 +2272,18 @@ function renderCoding() {
           <!-- Subtab 3: Submissions -->
           <div id="subtab-content-subs" class="${activeProblemSubTab === 'submissions' ? '' : 'hidden'} space-y-3">
             ${locked ? `
-              <div class="p-4 rounded-xl bg-emerald-950/40 border border-emerald-500/40 text-emerald-300 space-y-1.5">
-                <div class="flex items-center gap-2 font-extrabold text-sm text-emerald-200">
-                  <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+              <div class="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/40 text-emerald-600 dark:text-emerald-300 space-y-1.5">
+                <div class="flex items-center gap-2 font-extrabold text-sm text-emerald-600 dark:text-emerald-200">
+                  <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
                   <span>Final Solution Submitted &amp; Locked</span>
                 </div>
-                <p class="text-xs text-emerald-400/90 font-medium">Submitted language: <strong>${escapeHtml(formatLanguageName(problem.latest_submission?.language || problem.draft_language))}</strong></p>
-                <p class="text-[11px] text-emerald-500 font-mono">${escapeHtml(problem.latest_submission?.submitted_at || 'Just now')}</p>
+                <p class="text-xs font-medium">Submitted language: <strong>${escapeHtml(formatLanguageName(problem.latest_submission?.language || problem.draft_language))}</strong></p>
+                <p class="text-[11px] font-mono opacity-80">${escapeHtml(problem.latest_submission?.submitted_at || 'Just now')}</p>
               </div>
             ` : `
-              <div class="p-8 text-center text-slate-400 space-y-2">
-                <p class="font-extrabold text-sm text-slate-300">No Final Submission Yet</p>
-                <p class="text-xs text-slate-500 font-medium max-w-xs mx-auto">When your code passes sample test cases, click <strong>"Submit final answer"</strong> on the right pane to record and lock your solution.</p>
+              <div class="p-8 text-center opacity-70 space-y-2">
+                <p class="font-extrabold text-sm">No Final Submission Yet</p>
+                <p class="text-xs font-medium max-w-xs mx-auto">When your code passes sample test cases, click <strong>"Submit final answer"</strong> on the right pane to record and lock your solution.</p>
               </div>
             `}
           </div>
@@ -2220,26 +2293,26 @@ function renderCoding() {
       </section>
 
       <!-- RIGHT PANE: Monaco Editor + Interactive Console Drawer (56% Width) -->
-      <section class="editor-pane flex-1 flex flex-col bg-[#020617] overflow-hidden" aria-label="Code Editor & Console">
+      <section class="editor-pane flex-1 flex flex-col overflow-hidden" aria-label="Code Editor & Console">
         
         <!-- Editor Header Toolbar -->
-        <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-2 bg-slate-950 border-b border-slate-800 shrink-0">
+        <div class="editor-toolbar flex flex-wrap items-center justify-between gap-3 px-4 py-2 shrink-0">
           <div class="flex items-center gap-3">
-            <label class="flex items-center gap-2 text-xs font-bold text-slate-400">
-              <span class="uppercase tracking-wider text-[10px] text-slate-400">Language:</span>
-              <select id="lang" class="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs font-bold text-white focus:outline-none focus:border-blue-500 cursor-pointer" ${locked ? "disabled" : ""}>
+            <label class="flex items-center gap-2 text-xs font-bold">
+              <span class="uppercase tracking-wider text-[10px] opacity-70">Language:</span>
+              <select id="lang" class="rounded-lg px-2.5 py-1 text-xs font-bold focus:outline-none focus:border-blue-500 cursor-pointer" ${locked ? "disabled" : ""}>
                 ${languages}
               </select>
             </label>
-            <span id="editor-autosave-indicator" class="flex items-center gap-1.5 text-[11px] text-slate-400 font-mono select-none">
-              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-              <span>Saved</span>
+            <span id="editor-autosave-indicator" class="flex items-center gap-1.5 text-[11px] opacity-70 font-mono select-none">
+              <span class="w-1.5 h-1.5 rounded-full ${locked ? 'bg-emerald-500' : 'bg-emerald-500'}"></span>
+              <span>${locked ? 'Locked' : 'Saved'}</span>
             </span>
           </div>
 
           <div class="flex items-center gap-2.5">
             <!-- Theme Toggle Button (Light / Dark Mode) -->
-            <button type="button" id="btn-theme-toggle" class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border ${currentEditorTheme === 'light' ? 'bg-slate-100 border-slate-300 text-slate-800 hover:bg-slate-200' : 'bg-slate-900 border-slate-700 text-slate-300 hover:text-white'} transition-colors cursor-pointer select-none" title="Toggle Light/Dark Theme">
+            <button type="button" id="btn-theme-toggle" class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors cursor-pointer select-none" title="Toggle Light/Dark Theme">
               <span id="theme-toggle-icon">${currentEditorTheme === 'light' ? '🌙' : '☀️'}</span>
               <span id="theme-toggle-text">${currentEditorTheme === 'light' ? 'Dark' : 'Light'}</span>
             </button>
@@ -2251,42 +2324,53 @@ function renderCoding() {
           </div>
         </div>
 
+        <!-- Locked Solution Banner (Unmissable visual indicator) -->
+        ${locked ? `
+          <div id="editor-locked-banner" class="flex items-center justify-between px-4 py-2 bg-emerald-500/10 border-b border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs font-bold shrink-0 select-none">
+            <div class="flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+              <span>Final Solution Submitted &amp; Locked &bull; Read-Only</span>
+            </div>
+            <span class="text-[11px] opacity-75 font-mono">Code is permanently recorded</span>
+          </div>
+        ` : ""}
+
         <!-- Monaco Editor Slot -->
-        <div id="editor-slot" class="flex-1 w-full ${currentEditorTheme === 'light' ? 'theme-light bg-white' : 'theme-dark bg-[#1e1e1e]'} overflow-hidden relative cursor-text"></div>
+        <div id="editor-slot" class="flex-1 w-full overflow-hidden relative cursor-text"></div>
 
         <!-- Bottom Collapsible Console Drawer -->
-        <div id="console-drawer" class="border-t border-slate-800 bg-slate-950 flex flex-col shrink-0 transition-all duration-200">
+        <div id="console-drawer" class="flex flex-col shrink-0 transition-all duration-200">
           
           <!-- Console Drawer Top Bar: Tabs & Action Buttons -->
-          <div class="flex items-center justify-between px-3 sm:px-4 py-2 border-b border-slate-800/80 bg-slate-950/90 select-none">
+          <div class="console-topbar flex items-center justify-between px-3 sm:px-4 py-2 select-none">
             <div class="flex items-center gap-2">
-              <button type="button" id="console-tab-cases" class="px-2.5 py-1 rounded-lg text-xs font-bold transition-colors ${activeConsoleTab === 'cases' ? 'bg-slate-800 text-white font-extrabold' : 'text-slate-400 hover:text-slate-200'}">
+              <button type="button" id="console-tab-cases" class="console-tab-btn px-2.5 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer ${activeConsoleTab === 'cases' ? 'active' : ''}">
                 Sample Cases
               </button>
-              <button type="button" id="console-tab-result" class="px-2.5 py-1 rounded-lg text-xs font-bold transition-colors ${activeConsoleTab === 'result' ? 'bg-slate-800 text-white font-extrabold' : 'text-slate-400 hover:text-slate-200'}">
+              <button type="button" id="console-tab-result" class="console-tab-btn px-2.5 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer ${activeConsoleTab === 'result' ? 'active' : ''}">
                 Test Result
               </button>
             </div>
 
             <div class="flex items-center gap-2">
               <!-- Run & Submit Buttons -->
-              <button type="button" id="run-code" class="btn btn-secondary py-1.5 px-4 text-xs font-extrabold text-slate-200 bg-slate-800 hover:bg-slate-700 border border-slate-700 flex items-center gap-1.5 cursor-pointer disabled:opacity-50" ${locked ? "disabled" : ""}>
+              <button type="button" id="run-code" class="btn btn-secondary py-1.5 px-4 text-xs font-extrabold flex items-center gap-1.5 cursor-pointer disabled:opacity-50" ${locked ? "disabled" : ""}>
                 <span>▶ Run Code</span>
               </button>
 
               <button type="button" id="submit-code" class="btn btn-primary py-1.5 px-5 text-xs font-black shadow-cta flex items-center gap-1.5 cursor-pointer disabled:opacity-50" ${locked ? "disabled" : ""}>
-                <span>🚀 Submit Final Answer</span>
+                <span>${locked ? "✓ Solution Submitted &amp; Locked" : "🚀 Submit Final Answer"}</span>
               </button>
 
               <!-- Collapse Toggle Button -->
-              <button type="button" id="btn-toggle-console" class="p-1 rounded-lg text-slate-400 hover:text-slate-200 text-xs font-bold" title="Toggle console height">
+              <button type="button" id="btn-toggle-console" class="p-1 rounded-lg opacity-70 hover:opacity-100 text-xs font-bold cursor-pointer" title="Toggle console height">
                 ${consoleExpanded ? '⌄' : '⌃'}
               </button>
             </div>
           </div>
 
           <!-- Console Body Viewport -->
-          <div id="console-body" class="${consoleExpanded ? 'h-40' : 'h-0'} overflow-y-auto px-4 py-3 custom-scrollbar text-xs transition-all duration-200">
+          <div id="console-body" class="console-body ${consoleExpanded ? 'h-40' : 'h-0'} overflow-y-auto px-4 py-3 custom-scrollbar text-xs transition-all duration-200">
             
             <!-- Tab View 1: Sample Cases -->
             <div id="console-view-cases" class="${activeConsoleTab === 'cases' ? '' : 'hidden'} space-y-2.5">
@@ -2295,19 +2379,19 @@ function renderCoding() {
               </div>
               <div id="console-active-case-detail" class="space-y-2">
                 <div>
-                  <div class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 mb-1">Input:</div>
-                  <pre class="p-2.5 rounded-lg bg-slate-900 border border-slate-800 font-mono text-xs text-slate-200 overflow-x-auto whitespace-pre-wrap">${escapeHtml(firstCase.input)}</pre>
+                  <div class="text-[10px] font-extrabold uppercase tracking-wider opacity-70 mb-1">Input:</div>
+                  <pre class="console-pre p-2.5 rounded-lg font-mono text-xs overflow-x-auto whitespace-pre-wrap">${escapeHtml(firstCase.input)}</pre>
                 </div>
                 <div>
-                  <div class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 mb-1">Expected Output:</div>
-                  <pre class="p-2.5 rounded-lg bg-slate-900 border border-slate-800 font-mono text-xs text-emerald-400 overflow-x-auto whitespace-pre-wrap">${escapeHtml(firstCase.expected)}</pre>
+                  <div class="text-[10px] font-extrabold uppercase tracking-wider opacity-70 mb-1">Expected Output:</div>
+                  <pre class="console-pre p-2.5 rounded-lg font-mono text-xs text-emerald-600 dark:text-emerald-400 overflow-x-auto whitespace-pre-wrap">${escapeHtml(firstCase.expected)}</pre>
                 </div>
               </div>
             </div>
 
             <!-- Tab View 2: Test Result -->
             <div id="console-view-result" class="${activeConsoleTab === 'result' ? '' : 'hidden'}">
-              <div id="code-result" class="text-xs text-slate-300">
+              <div id="code-result" class="text-xs opacity-80">
                 Click <strong>"Run Code"</strong> to test your solution against example test cases.
               </div>
             </div>
@@ -2329,7 +2413,7 @@ function renderCoding() {
       const pane = $(`subtab-content-${t}`);
       const isActive = (tab === "description" && t === "desc") || tab === t || (tab === "submissions" && t === "subs");
       if (btn) {
-        btn.className = `subtab-btn ${isActive ? 'text-white border-b-2 border-blue-500 pb-1.5 font-black' : 'text-slate-400 hover:text-slate-200'}`;
+        btn.classList.toggle("active", isActive);
       }
       if (pane) pane.classList.toggle("hidden", !isActive);
     });
@@ -2346,7 +2430,7 @@ function renderCoding() {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(text).then(() => {
           const orig = btn.innerHTML;
-          btn.innerHTML = `<span class="text-emerald-400 font-extrabold">✓ Copied</span>`;
+          btn.innerHTML = `<span class="text-emerald-500 font-extrabold">✓ Copied</span>`;
           setTimeout(() => (btn.innerHTML = orig), 1500);
         }).catch(() => {});
       }
@@ -2361,8 +2445,8 @@ function renderCoding() {
     const viewCases = $("console-view-cases");
     const viewResult = $("console-view-result");
     if (tabCases && tabResult) {
-      tabCases.className = `px-2.5 py-1 rounded-lg text-xs font-bold transition-colors ${tab === 'cases' ? 'bg-slate-800 text-white font-extrabold' : 'text-slate-400 hover:text-slate-200'}`;
-      tabResult.className = `px-2.5 py-1 rounded-lg text-xs font-bold transition-colors ${tab === 'result' ? 'bg-slate-800 text-white font-extrabold' : 'text-slate-400 hover:text-slate-200'}`;
+      tabCases.classList.toggle("active", tab === "cases");
+      tabResult.classList.toggle("active", tab === "result");
     }
     if (viewCases && viewResult) {
       viewCases.classList.toggle("hidden", tab !== 'cases');
@@ -2379,7 +2463,7 @@ function renderCoding() {
   if (toggleBtn && consoleBody) {
     toggleBtn.addEventListener("click", () => {
       consoleExpanded = !consoleExpanded;
-      consoleBody.className = `${consoleExpanded ? 'h-40' : 'h-0'} overflow-y-auto px-4 py-3 custom-scrollbar text-xs transition-all duration-200`;
+      consoleBody.className = `console-body ${consoleExpanded ? 'h-40' : 'h-0'} overflow-y-auto px-4 py-3 custom-scrollbar text-xs transition-all duration-200`;
       toggleBtn.textContent = consoleExpanded ? '⌄' : '⌃';
       setTimeout(() => {
         if (editors[problem.id]) {
@@ -2398,19 +2482,19 @@ function renderCoding() {
       const targetCase = problem.public_cases[idx];
       if (!targetCase) return;
       content.querySelectorAll(".case-chip-btn").forEach((b) => {
-        b.className = "case-chip-btn px-2.5 py-1 rounded-lg text-[11px] font-extrabold bg-slate-800/80 text-slate-400 hover:text-slate-200";
+        b.classList.remove("active");
       });
-      btn.className = "case-chip-btn px-2.5 py-1 rounded-lg text-[11px] font-extrabold bg-slate-700 text-white";
+      btn.classList.add("active");
       const detail = $("console-active-case-detail");
       if (detail) {
         detail.innerHTML = `
           <div>
-            <div class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 mb-1">Input:</div>
-            <pre class="p-2.5 rounded-lg bg-slate-900 border border-slate-800 font-mono text-xs text-slate-200 overflow-x-auto whitespace-pre-wrap">${escapeHtml(targetCase.input)}</pre>
+            <div class="text-[10px] font-extrabold uppercase tracking-wider opacity-70 mb-1">Input:</div>
+            <pre class="console-pre p-2.5 rounded-lg font-mono text-xs overflow-x-auto whitespace-pre-wrap">${escapeHtml(targetCase.input)}</pre>
           </div>
           <div>
-            <div class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 mb-1">Expected Output:</div>
-            <pre class="p-2.5 rounded-lg bg-slate-900 border border-slate-800 font-mono text-xs text-emerald-400 overflow-x-auto whitespace-pre-wrap">${escapeHtml(targetCase.expected)}</pre>
+            <div class="text-[10px] font-extrabold uppercase tracking-wider opacity-70 mb-1">Expected Output:</div>
+            <pre class="console-pre p-2.5 rounded-lg font-mono text-xs text-emerald-600 dark:text-emerald-400 overflow-x-auto whitespace-pre-wrap">${escapeHtml(targetCase.expected)}</pre>
           </div>
         `;
       }
@@ -2464,6 +2548,9 @@ function renderCoding() {
     });
   }
 
+  // Ensure universal theme is applied to full page and elements
+  applyEditorTheme(currentEditorTheme);
+
   // Mount the editor host inside #editor-slot
   const editorSlot = $("editor-slot");
   if (editorSlot) {
@@ -2473,7 +2560,9 @@ function renderCoding() {
     editorSlot.onclick = async () => {
       if (editors[problem.id]) {
         const editor = await editors[problem.id];
-        if (!locked && editor && typeof editor.focus === "function") {
+        if (locked) {
+          showStatus("This solution has been submitted and locked. You can no longer edit your code for this problem.", "warn");
+        } else if (editor && typeof editor.focus === "function") {
           editor.focus();
         }
       }
@@ -2516,15 +2605,15 @@ function renderSubmissionSummary(problem) {
   const target = $("code-result");
   if (!target) return;
   if (!problem.locked) {
-    target.innerHTML = `<span class="text-slate-400">Click <strong>"Run Code"</strong> to test sample cases, or <strong>"Submit Final Answer"</strong> when ready.</span>`;
+    target.innerHTML = `<span class="opacity-80">Click <strong>"Run Code"</strong> to test sample cases, or <strong>"Submit Final Answer"</strong> when ready.</span>`;
     return;
   }
   const sub = problem.latest_submission;
   if (sub && sub.status === "runner_error") {
-    target.innerHTML = `<p class="text-amber-400 font-bold">Your final answer is recorded. It will be reviewed by the evaluator.</p>`;
+    target.innerHTML = `<p class="text-amber-500 dark:text-amber-400 font-bold">Your final answer is recorded. It will be reviewed by the evaluator.</p>`;
     return;
   }
-  target.innerHTML = `<p class="text-emerald-400 font-bold">Final solution recorded${sub ? ` (${escapeHtml(sub.language)})` : ""}. Code is locked.</p>`;
+  target.innerHTML = `<p class="text-emerald-600 dark:text-emerald-400 font-bold">Final solution recorded${sub ? ` (${escapeHtml(sub.language)})` : ""}. Code is locked.</p>`;
 }
 
 async function runCode(problem, editor) {
@@ -2537,22 +2626,22 @@ async function runCode(problem, editor) {
   consoleExpanded = true;
   const consoleBody = $("console-body");
   if (consoleBody) {
-    consoleBody.className = "h-40 overflow-y-auto px-4 py-3 custom-scrollbar text-xs transition-all duration-200";
+    consoleBody.className = "console-body h-40 overflow-y-auto px-4 py-3 custom-scrollbar text-xs transition-all duration-200";
   }
   const tabCases = $("console-tab-cases");
   const tabResult = $("console-tab-result");
   const viewCases = $("console-view-cases");
   const viewResult = $("console-view-result");
   if (tabCases && tabResult) {
-    tabCases.className = "px-2.5 py-1 rounded-lg text-xs font-bold transition-colors text-slate-400 hover:text-slate-200";
-    tabResult.className = "px-2.5 py-1 rounded-lg text-xs font-bold transition-colors bg-slate-800 text-white font-extrabold";
+    tabCases.classList.remove("active");
+    tabResult.classList.add("active");
   }
   if (viewCases && viewResult) {
     viewCases.classList.add("hidden");
     viewResult.classList.remove("hidden");
   }
 
-  if (target) target.innerHTML = `<div class="flex items-center gap-2 text-slate-400 text-xs py-2"><span class="w-3.5 h-3.5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></span><span>Running solution against sample test cases…</span></div>`;
+  if (target) target.innerHTML = `<div class="flex items-center gap-2 opacity-80 text-xs py-2"><span class="w-3.5 h-3.5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></span><span>Running solution against sample test cases…</span></div>`;
 
   try {
     const data = await api("POST", "code-runs/", {
@@ -2575,12 +2664,12 @@ async function runCode(problem, editor) {
 function renderRunResults(data) {
   if (data.compile_output) {
     return `
-      <div class="rounded-xl border border-rose-500/40 bg-rose-950/30 p-3.5 space-y-2">
-        <div class="font-extrabold text-xs text-rose-400 flex items-center gap-1.5">
+      <div class="run-result-box fail rounded-xl p-3.5 space-y-2 border">
+        <div class="font-extrabold text-xs flex items-center gap-1.5">
           <span>❌</span>
           <span>Compilation / Syntax Error</span>
         </div>
-        <pre class="whitespace-pre-wrap font-mono text-xs text-rose-300 bg-slate-950/80 p-3 rounded-lg border border-rose-900/40 max-h-40 overflow-y-auto">${escapeHtml(data.compile_output)}</pre>
+        <pre class="run-result-pre whitespace-pre-wrap font-mono text-xs p-3 rounded-lg max-h-40 overflow-y-auto">${escapeHtml(data.compile_output)}</pre>
       </div>
     `;
   }
@@ -2589,42 +2678,42 @@ function renderRunResults(data) {
   const allPassed = cases.length > 0 && cases.every((c) => c.passed);
 
   const statusHeader = allPassed
-    ? `<div class="flex items-center gap-2 p-2.5 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 font-extrabold text-xs mb-3">
-         <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+    ? `<div class="run-result-box pass flex items-center gap-2 p-2.5 rounded-xl border font-extrabold text-xs mb-3">
+         <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
          <span>Accepted — All Sample Test Cases Passed!</span>
        </div>`
-    : `<div class="flex items-center gap-2 p-2.5 rounded-xl bg-rose-950/40 border border-rose-500/30 text-rose-300 font-extrabold text-xs mb-3">
+    : `<div class="run-result-box fail flex items-center gap-2 p-2.5 rounded-xl border font-extrabold text-xs mb-3">
          <span>⚠️</span>
          <span>Test Cases Failed — Check your output below</span>
        </div>`;
 
   const rows = cases
     .map((r, i) => `
-      <div class="rounded-xl border ${r.passed ? 'border-emerald-500/30 bg-emerald-950/20' : 'border-rose-500/30 bg-rose-950/20'} p-3 space-y-2">
-        <div class="flex items-center justify-between text-xs font-extrabold ${r.passed ? 'text-emerald-400' : 'text-rose-400'}">
+      <div class="run-result-box ${r.passed ? 'pass' : 'fail'} rounded-xl border p-3 space-y-2">
+        <div class="flex items-center justify-between text-xs font-extrabold">
           <span>Example Case ${i + 1}</span>
-          <span class="text-[10px] uppercase font-black px-2 py-0.5 rounded ${r.passed ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}">
+          <span class="text-[10px] uppercase font-black px-2 py-0.5 rounded ${r.passed ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-300' : 'bg-rose-500/20 text-rose-600 dark:text-rose-300'}">
             ${r.passed ? 'Passed ✓' : 'Failed ✕'}
           </span>
         </div>
         ${!r.passed ? `
           <div class="grid gap-2 sm:grid-cols-2 text-xs">
             <div>
-              <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Your Output</div>
-              <pre class="mt-1 p-2 rounded bg-slate-900 font-mono text-xs text-rose-300 border border-slate-800 overflow-x-auto whitespace-pre-wrap">${escapeHtml(r.output || "(no output)")}</pre>
+              <div class="text-[10px] font-bold uppercase tracking-wider opacity-70">Your Output</div>
+              <pre class="run-result-pre mt-1 p-2 rounded font-mono text-xs overflow-x-auto whitespace-pre-wrap">${escapeHtml(r.output || "(no output)")}</pre>
             </div>
             <div>
-              <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Expected Output</div>
-              <pre class="mt-1 p-2 rounded bg-slate-900 font-mono text-xs text-emerald-300 border border-slate-800 overflow-x-auto whitespace-pre-wrap">${escapeHtml(r.expected)}</pre>
+              <div class="text-[10px] font-bold uppercase tracking-wider opacity-70">Expected Output</div>
+              <pre class="run-result-pre mt-1 p-2 rounded font-mono text-xs overflow-x-auto whitespace-pre-wrap">${escapeHtml(r.expected)}</pre>
             </div>
           </div>
-          ${r.error ? `<pre class="mt-1.5 p-2 rounded bg-slate-900 font-mono text-xs text-amber-300 border border-slate-800 whitespace-pre-wrap">${escapeHtml(r.error)}</pre>` : ""}
+          ${r.error ? `<pre class="run-result-pre mt-1.5 p-2 rounded font-mono text-xs whitespace-pre-wrap text-amber-600 dark:text-amber-300">${escapeHtml(r.error)}</pre>` : ""}
         ` : ""}
       </div>
     `)
     .join("");
 
-  return statusHeader + `<div class="space-y-2">${rows || '<p class="text-slate-400 text-xs">No sample cases evaluated.</p>'}</div>`;
+  return statusHeader + `<div class="space-y-2">${rows || '<p class="opacity-70 text-xs">No sample cases evaluated.</p>'}</div>`;
 }
 
 async function submitCode(problem, editor) {

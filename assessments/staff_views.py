@@ -300,7 +300,7 @@ def staff_candidates_import(request, pk):
             duplicates = []
             with transaction.atomic():
                 for row in rows:
-                    user = User.objects.filter(username=row["email"]).first()
+                    user = User.objects.filter(Q(username__iexact=row["email"]) | Q(email__iexact=row["email"])).first()
                     if user is not None and user.is_staff:
                         problems.append(f"{row['email']} belongs to a staff account and was skipped.")
                         continue
@@ -531,7 +531,7 @@ def staff_candidate_edit(request, pk):
                 new_email = form.cleaned_data["email"].strip().lower()
                 user = app.candidate
                 if user.email != new_email or user.username != new_email:
-                    if User.objects.exclude(pk=user.pk).filter(username=new_email).exists():
+                    if User.objects.exclude(pk=user.pk).filter(Q(username__iexact=new_email) | Q(email__iexact=new_email)).exists():
                         messages.error(request, f"Email {new_email} is already in use by another account.")
                         return render(request, "assessments/staff/candidate_edit.html", {"form": form, "application": application})
                     user.username = new_email
@@ -1028,6 +1028,7 @@ def staff_application_resume(request, pk):
     response["Content-Disposition"] = f'{disposition}; filename="{download_filename}"'
     response["X-Content-Type-Options"] = "nosniff"
     response["Content-Security-Policy"] = "default-src 'none'"
+    response["Cache-Control"] = "private, no-store"
     audit(request.user, "resume.downloaded" if as_attachment else "resume.viewed", f"application:{application.pk}", download_filename)
     return response
 

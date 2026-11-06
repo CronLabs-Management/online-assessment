@@ -73,34 +73,36 @@
 
   <!-- Production-Grade Smart Batch Credential Dispatch Notification Banner -->
   {% if counts.unsent > 0 %}
-    <div class="bg-gradient-to-r from-amber-50 to-orange-50/60 border border-amber-200/90 rounded-xl p-4 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3.5">
-      <div class="flex items-start gap-3">
-        <div class="w-9 h-9 rounded-xl bg-amber-100 border border-amber-200 text-amber-800 flex items-center justify-center shrink-0 text-base shadow-2xs">
+    <div class="credential-dispatch-banner" style="display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: space-between !important; gap: 20px !important; width: 100% !important; box-sizing: border-box !important;">
+      <div class="credential-dispatch-content" style="display: flex !important; align-items: center !important; gap: 14px !important; flex: 1 1 auto !important; min-width: 260px !important;">
+        <div class="credential-dispatch-icon">
           ✉️
         </div>
-        <div>
-          <div class="text-xs font-extrabold text-amber-950 flex items-center gap-2">
-            <span>{{ counts.unsent }} Candidate{{ counts.unsent|pluralize }} Awaiting Login Credentials</span>
-            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-200 text-amber-950 border border-amber-300">
+        <div class="credential-dispatch-text" style="flex: 1 1 auto !important; min-width: 240px !important;">
+          <div class="credential-dispatch-title-row" style="display: flex !important; align-items: center !important; gap: 10px !important; flex-wrap: wrap !important;">
+            <h3 class="credential-dispatch-title" style="margin: 0 !important; font-size: 15px !important; font-weight: 800 !important; color: #78350F !important; line-height: 1.3 !important; white-space: normal !important;">
+              {{ counts.unsent }} Candidate{{ counts.unsent|pluralize }} Awaiting Login Credentials
+            </h3>
+            <span class="credential-dispatch-badge">
               Action Required
             </span>
           </div>
-          <p class="text-xs text-amber-800/90 mt-0.5">
+          <p class="credential-dispatch-desc" style="margin: 4px 0 0 0 !important; font-size: 13px !important; color: #92400E !important; line-height: 1.5 !important;">
             These candidates are enrolled in <strong>{{ exam.title }}</strong> but have not yet received invitation emails with their password and assessment link.
           </p>
         </div>
       </div>
-      <div class="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end flex-wrap">
+      <div class="credential-dispatch-actions" style="display: flex !important; align-items: center !important; gap: 10px !important; flex-shrink: 0 !important;">
         <form method="post" action="{% url 'staff_send_credentials' exam.pk %}">
           {% csrf_token %}
           <input type="hidden" name="mode" value="unsent">
-          <button type="submit" class="btn btn-primary text-xs font-bold py-2 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 text-white shadow-2xs inline-flex items-center gap-1.5">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
-            Send to {{ counts.unsent }} Candidate{{ counts.unsent|pluralize }}
+          <button type="submit" class="btn-dispatch-primary">
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+            <span>Send to {{ counts.unsent }} Candidate{{ counts.unsent|pluralize }}</span>
           </button>
         </form>
-        <button type="button" onclick="openBatchModal()" class="btn btn-secondary text-xs font-bold py-2 px-3 rounded-lg border-amber-200 bg-white/80 hover:bg-white text-amber-950 shadow-2xs">
-          Batch Options ▾
+        <button type="button" onclick="openBatchModal()" class="btn-dispatch-secondary">
+          <span>Batch Options ▾</span>
         </button>
       </div>
     </div>
@@ -126,6 +128,166 @@
   </div>
 
   <style>
+    /* Credential Dispatch Banner */
+    .credential-dispatch-banner {
+      display: flex !important;
+      flex-direction: row !important;
+      align-items: center !important;
+      justify-content: space-between !important;
+      gap: 20px !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+      padding: 16px 20px !important;
+      border-radius: 14px !important;
+      background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 50%, #FFF7ED 100%) !important;
+      border: 1px solid #FCD34D !important;
+      box-shadow: 0 2px 8px rgba(217, 119, 6, 0.08) !important;
+    }
+    @media (max-width: 767px) {
+      .credential-dispatch-banner {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 14px !important;
+        padding: 14px 16px !important;
+      }
+    }
+    .credential-dispatch-content {
+      display: flex !important;
+      align-items: center !important;
+      gap: 14px !important;
+      flex: 1 1 auto !important;
+      min-width: 0 !important;
+    }
+    .credential-dispatch-icon {
+      width: 44px !important;
+      height: 44px !important;
+      min-width: 44px !important;
+      flex-shrink: 0 !important;
+      border-radius: 12px !important;
+      background-color: #FDE68A !important;
+      border: 1px solid #FCD34D !important;
+      color: #78350F !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      font-size: 20px !important;
+      line-height: 1 !important;
+      box-shadow: 0 1px 3px rgba(180, 83, 9, 0.12) !important;
+    }
+    .credential-dispatch-text {
+      flex: 1 1 auto !important;
+      min-width: 0 !important;
+      width: 100% !important;
+    }
+    .credential-dispatch-title-row {
+      display: flex !important;
+      align-items: center !important;
+      gap: 10px !important;
+      flex-wrap: wrap !important;
+    }
+    .credential-dispatch-title {
+      margin: 0 !important;
+      padding: 0 !important;
+      font-size: 15px !important;
+      font-weight: 800 !important;
+      color: #78350F !important;
+      line-height: 1.3 !important;
+      letter-spacing: -0.01em !important;
+    }
+    .credential-dispatch-badge {
+      display: inline-flex !important;
+      align-items: center !important;
+      padding: 2px 9px !important;
+      border-radius: 9999px !important;
+      font-size: 10px !important;
+      font-weight: 900 !important;
+      text-transform: uppercase !important;
+      letter-spacing: 0.05em !important;
+      background-color: #FEF3C7 !important;
+      color: #92400E !important;
+      border: 1px solid #F59E0B !important;
+      white-space: nowrap !important;
+      flex-shrink: 0 !important;
+    }
+    .credential-dispatch-desc {
+      margin: 4px 0 0 0 !important;
+      padding: 0 !important;
+      font-size: 13px !important;
+      color: #92400E !important;
+      line-height: 1.5 !important;
+    }
+    .credential-dispatch-actions {
+      display: flex !important;
+      align-items: center !important;
+      gap: 10px !important;
+      flex-shrink: 0 !important;
+      flex-wrap: nowrap !important;
+    }
+    @media (max-width: 767px) {
+      .credential-dispatch-actions {
+        width: 100% !important;
+        flex-wrap: wrap !important;
+      }
+      .credential-dispatch-actions form {
+        flex: 1 1 auto !important;
+      }
+      .credential-dispatch-actions form button {
+        width: 100% !important;
+      }
+      .credential-dispatch-actions .btn-dispatch-secondary {
+        width: 100% !important;
+      }
+    }
+    .btn-dispatch-primary {
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 8px !important;
+      padding: 9px 18px !important;
+      border-radius: 9px !important;
+      font-size: 13px !important;
+      font-weight: 700 !important;
+      color: #ffffff !important;
+      background-color: #D97706 !important;
+      border: 1px solid #B45309 !important;
+      box-shadow: 0 1px 3px rgba(180, 83, 9, 0.25) !important;
+      cursor: pointer !important;
+      white-space: nowrap !important;
+      transition: all 0.15s ease !important;
+      text-decoration: none !important;
+    }
+    .btn-dispatch-primary:hover {
+      background-color: #B45309 !important;
+      border-color: #92400E !important;
+      transform: translateY(-1px) !important;
+      box-shadow: 0 3px 8px rgba(180, 83, 9, 0.3) !important;
+    }
+    .btn-dispatch-secondary {
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 6px !important;
+      padding: 9px 15px !important;
+      border-radius: 9px !important;
+      font-size: 13px !important;
+      font-weight: 700 !important;
+      color: #78350F !important;
+      background-color: #FFFFFF !important;
+      border: 1px solid #FCD34D !important;
+      box-shadow: 0 1px 2px rgba(180, 83, 9, 0.1) !important;
+      cursor: pointer !important;
+      white-space: nowrap !important;
+      transition: all 0.15s ease !important;
+      text-decoration: none !important;
+    }
+    .btn-dispatch-secondary:hover {
+      background-color: #FFFBEB !important;
+      border-color: #F59E0B !important;
+      color: #92400E !important;
+      transform: translateY(-1px) !important;
+      box-shadow: 0 2px 6px rgba(180, 83, 9, 0.15) !important;
+    }
+
     .quick-pill {
       display: inline-flex;
       align-items: center;
@@ -457,7 +619,7 @@
                           <span>•</span>
                           <span class="text-emerald-700 font-medium" title="Candidate verified onboarding details">✓ Verified</span>
                         {% endif %}
-                        {% if app.resume %}
+                        {% if app.has_resume_file %}
                           <span>•</span>
                           <a href="{% url 'staff_application_resume' app.pk %}" target="_blank" class="font-bold text-[#335eea] hover:underline inline-flex items-center gap-0.5" title="View resume PDF">
                             ▤ Resume
@@ -656,7 +818,7 @@
                           <span class="text-xs">✏️</span>
                           <span>Edit Details</span>
                         </a>
-                        {% if app.resume %}
+                        {% if app.has_resume_file %}
                           <a href="{% url 'staff_application_resume' app.pk %}" target="_blank" class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-slate-700 hover:bg-slate-50 font-medium transition-colors">
                             <span class="text-xs">▤</span>
                             <span>View Resume PDF</span>

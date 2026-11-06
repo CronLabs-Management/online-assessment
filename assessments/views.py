@@ -13,10 +13,12 @@ from django.contrib.auth.views import LoginView
 from django.core.cache import cache
 from django.core.mail import send_mail
 from django.db import transaction
+from django.db.models import Q
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.text import slugify
 from django.views.decorators.http import require_POST
 
 from .forms import (
@@ -41,7 +43,7 @@ from .models import (
     MCQQuestion,
     SiteSettings,
 )
-from .services import expire_due_attempts, publish_checks
+from .services import expire_due_attempts, get_client_ip, publish_checks
 
 User = get_user_model()
 
@@ -102,7 +104,7 @@ class CandidateLoginView(LoginView):
         return (self.request.POST.get("username") or "").strip().lower()
 
     def _client_ip(self):
-        return self.request.META.get("REMOTE_ADDR", "")
+        return get_client_ip(self.request)
 
     def post(self, request, *args, **kwargs):
         # A blocked address is refused before the password is checked, so a correct password
@@ -225,7 +227,7 @@ def exam_detail(request, pk):
 
 @login_required
 def candidate_resume(request, pk):
-    """Allow an authenticated candidate to view or download their uploaded resume."""
+    """Allow an authenticated candidate to view or download their uploaded resume with defensive headers."""
     exam = get_object_or_404(Exam, pk=pk, is_published=True)
     application = get_object_or_404(Application, candidate=request.user, exam=exam)
     if not application.resume or not application.resume.name:
@@ -235,12 +237,22 @@ def candidate_resume(request, pk):
         if not os.path.exists(file_path):
             raise Http404("Resume file not found.")
         content_type, _ = mimetypes.guess_type(file_path)
+        content_type = content_type or "application/pdf"
         file_handle = open(file_path, "rb")  # noqa: SIM115
-        response = FileResponse(file_handle, content_type=content_type or "application/pdf")
-        if request.GET.get("download") == "1":
-            response["Content-Disposition"] = f'attachment; filename="{os.path.basename(file_path)}"'
-        else:
-            response["Content-Disposition"] = f'inline; filename="{os.path.basename(file_path)}"'
+
+        slug_name = slugify(application.full_name or application.candidate.username or f"candidate_{application.pk}").replace("-", "_")
+        ext = os.path.splitext(application.resume.name)[1].lower() or ".pdf"
+        safe_filename = f"Resume_{slug_name}_{application.pk}{ext}"
+
+        as_attachment = request.GET.get("download") == "1"
+        response = FileResponse(file_handle, content_type=content_type, as_attachment=as_attachment, filename=safe_filename)
+        disposition = "attachment" if as_attachment else "inline"
+        response["Content-Disposition"] = f'{disposition}; filename="{safe_filename}"'
+        response["X-Content-Type-Options"] = "nosniff"
+        response["Content-Security-Policy"] = "default-src 'none'"
+        response["Cache-Control"] = "private, no-store"
+
+        audit(request.user, "candidate_resume.downloaded" if as_attachment else "candidate_resume.viewed", f"application:{application.pk}", safe_filename)
         return response
     except Http404:
         raise
@@ -249,7 +261,7 @@ def candidate_resume(request, pk):
 
 
 def serve_branding(request, kind):
-    """Serve uploaded site logo or favicon publicly."""
+    """Serve uploaded site logo or favicon publicly with strict MIME and CSP isolation."""
     if kind not in ("site_logo", "favicon"):
         raise Http404("Unknown branding asset.")
     site = SiteSettings.load()
@@ -257,7 +269,12 @@ def serve_branding(request, kind):
     if not field or not field.name or not os.path.exists(field.path):
         raise Http404("Branding asset not uploaded.")
     content_type, _ = mimetypes.guess_type(field.name)
-    return FileResponse(open(field.path, "rb"), content_type=content_type or "image/png")
+    content_type = content_type or "image/png"
+    response = FileResponse(open(field.path, "rb"), content_type=content_type)  # noqa: SIM115
+    response["X-Content-Type-Options"] = "nosniff"
+    response["Content-Security-Policy"] = "default-src 'none'; style-src 'unsafe-inline'"
+    response["Cache-Control"] = "public, max-age=86400"
+    return response
 
 
 @login_required
@@ -278,12 +295,23 @@ def confirm_details(request, pk):
         return redirect("attempt_result", pk=attempt.pk)
 
     if request.method == "POST":
-        form = ConfirmDetailsForm(request.POST, instance=application)
+        if request.POST.get("action") == "remove_resume":
+            if application.resume:
+                application.resume.delete(save=False)
+                application.resume = None
+                application.save(update_fields=["resume"])
+            messages.success(request, "Resume removed from your application.")
+            return redirect("confirm_details", pk=exam.pk)
+
+        form = ConfirmDetailsForm(request.POST, request.FILES, instance=application)
         if form.is_valid():
             application = form.save(commit=False)
             application.details_confirmed_at = timezone.now()
             new_email = form.cleaned_data.get("email", "").strip().lower()
             if new_email and application.candidate.email != new_email:
+                if User.objects.filter(Q(email__iexact=new_email) | Q(username__iexact=new_email)).exclude(pk=application.candidate_id).exists():
+                    messages.error(request, "This email address is already registered to another account.")
+                    return redirect("confirm_details", pk=exam.pk)
                 raw_token = secrets.token_urlsafe(32)
                 application.pending_email = new_email
                 application.email_verification_token = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
@@ -853,6 +881,9 @@ def verify_email(request, token):
         old_email = application.candidate.email
         new_email = application.pending_email
         if new_email:
+            if User.objects.filter(Q(email__iexact=new_email) | Q(username__iexact=new_email)).exclude(pk=application.candidate_id).exists():
+                messages.error(request, "This email address is already in use by another account.")
+                return redirect("home")
             application.candidate.email = new_email
             # Sync username if candidate username was old email
             if application.candidate.username == old_email or not application.candidate.username:

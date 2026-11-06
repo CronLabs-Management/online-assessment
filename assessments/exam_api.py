@@ -43,15 +43,7 @@ ERROR_STATUS = {
 
 
 def _client_ip(request):
-    remote = request.META.get("REMOTE_ADDR") or None
-    trusted = getattr(settings, "TRUSTED_PROXIES", ("127.0.0.1", "::1"))
-    if remote and remote in trusted:
-        forwarded = request.META.get("HTTP_X_FORWARDED_FOR")
-        if forwarded:
-            ips = [ip.strip() for ip in forwarded.split(",") if ip.strip()]
-            if ips:
-                return ips[0]
-    return remote
+    return services.get_client_ip(request)
 
 
 def _perform(request, pk, action):

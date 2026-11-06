@@ -10,6 +10,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from . import services
+from .forms import SiteSettingsForm
 from .models import (
     Application,
     Attempt,
@@ -18,6 +19,7 @@ from .models import (
     CodingTestCase,
     Exam,
     ExamSection,
+    SiteSettings,
 )
 from .review import csv_safe
 from .runners import CaseOutcome, Judge0Runner, LocalRunner, RunnerError, get_runner
@@ -453,3 +455,182 @@ class SecurityHeadersAndHealthTests(TestCase):
         self.assertEqual(res.headers.get("X-Content-Type-Options"), "nosniff")
         self.assertIn("Permissions-Policy", res.headers)
         self.assertIn("X-Request-ID", res.headers)
+
+
+@override_settings(PRIVATE_MEDIA_ROOT=TMP_MEDIA)
+class CandidateResumeSecurityTests(TestCase):
+    def setUp(self):
+        self.staff = User.objects.create_user("staff_resume", "staff_resume@example.com", "pw-admin", is_staff=True)
+        self.exam = Exam.objects.create(
+            title="Resume Exam",
+            opens_at=timezone.now(),
+            closes_at=timezone.now() + timedelta(hours=1),
+            duration_minutes=30,
+            is_published=True,
+            created_by=self.staff,
+        )
+        self.candidate1 = User.objects.create_user("cand_res_1", "cand_res_1@example.com", "pw-cand-1")
+        self.candidate2 = User.objects.create_user("cand_res_2", "cand_res_2@example.com", "pw-cand-2")
+
+        pdf_content = b"%PDF-1.4 sample pdf content for resume test"
+        self.app1 = Application.objects.create(
+            candidate=self.candidate1,
+            exam=self.exam,
+            full_name="Alice Smith",
+            status=Application.Status.APPROVED,
+            resume=SimpleUploadedFile("alice_resume.pdf", pdf_content, content_type="application/pdf"),
+        )
+        self.app2 = Application.objects.create(
+            candidate=self.candidate2,
+            exam=self.exam,
+            full_name="Bob Jones",
+            status=Application.Status.APPROVED,
+        )
+
+    def test_candidate_resume_defensive_headers_and_filename(self):
+        self.client.force_login(self.candidate1)
+        res = self.client.get(reverse("candidate_resume", args=[self.exam.pk]))
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.headers.get("X-Content-Type-Options"), "nosniff")
+        self.assertEqual(res.headers.get("Content-Security-Policy"), "default-src 'none'")
+        self.assertEqual(res.headers.get("Cache-Control"), "private, no-store")
+        disposition = res.headers.get("Content-Disposition", "")
+        self.assertIn("inline", disposition)
+        self.assertIn(f"Resume_alice_smith_{self.app1.pk}.pdf", disposition)
+
+    def test_candidate_resume_download_attachment_header(self):
+        self.client.force_login(self.candidate1)
+        res = self.client.get(reverse("candidate_resume", args=[self.exam.pk]) + "?download=1")
+        self.assertEqual(res.status_code, 200)
+        disposition = res.headers.get("Content-Disposition", "")
+        self.assertIn("attachment", disposition)
+        self.assertIn(f"Resume_alice_smith_{self.app1.pk}.pdf", disposition)
+
+    def test_candidate_cannot_access_missing_resume_or_other_candidate_resume(self):
+        self.client.force_login(self.candidate2)
+        res = self.client.get(reverse("candidate_resume", args=[self.exam.pk]))
+        self.assertEqual(res.status_code, 404)
+
+        self.client.logout()
+        res_unauth = self.client.get(reverse("candidate_resume", args=[self.exam.pk]))
+        self.assertEqual(res_unauth.status_code, 302)
+
+    def test_staff_application_resume_defensive_headers(self):
+        self.client.force_login(self.staff)
+        res = self.client.get(reverse("staff_application_resume", args=[self.app1.pk]))
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.headers.get("X-Content-Type-Options"), "nosniff")
+        self.assertEqual(res.headers.get("Content-Security-Policy"), "default-src 'none'")
+        self.assertEqual(res.headers.get("Cache-Control"), "private, no-store")
+        self.assertIn(f"Resume_alice_smith_{self.app1.pk}.pdf", res.headers.get("Content-Disposition", ""))
+
+
+@override_settings(PRIVATE_MEDIA_ROOT=TMP_MEDIA)
+class BrandingSecurityTests(TestCase):
+    def setUp(self):
+        self.site = SiteSettings.load()
+        svg_content = b"<svg xmlns='http://www.w3.org/2000/svg'><circle r='10'/></svg>"
+        self.site.site_logo = SimpleUploadedFile("clean_logo.svg", svg_content, content_type="image/svg+xml")
+        self.site.save()
+
+    def test_serve_branding_csp_and_cache_headers(self):
+        res = self.client.get(reverse("serve_branding", args=["site_logo"]))
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.headers.get("X-Content-Type-Options"), "nosniff")
+        self.assertEqual(res.headers.get("Content-Security-Policy"), "default-src 'none'; style-src 'unsafe-inline'")
+        self.assertEqual(res.headers.get("Cache-Control"), "public, max-age=86400")
+
+
+class EmailUniquenessSecurityTests(TestCase):
+    def setUp(self):
+        self.staff = User.objects.create_user("staff_email", "staff_email@example.com", "pw-admin", is_staff=True)
+        self.exam = Exam.objects.create(
+            title="Email Exam",
+            opens_at=timezone.now(),
+            closes_at=timezone.now() + timedelta(hours=1),
+            duration_minutes=30,
+            is_published=True,
+            created_by=self.staff,
+        )
+        self.cand_a = User.objects.create_user("cand_a", "canda@example.com", "pw-cand-a")
+        self.cand_b = User.objects.create_user("cand_b", "candb@example.com", "pw-cand-b")
+        self.app_a = Application.objects.create(
+            candidate=self.cand_a, exam=self.exam, full_name="Candidate A", status=Application.Status.APPROVED
+        )
+        self.app_b = Application.objects.create(
+            candidate=self.cand_b, exam=self.exam, full_name="Candidate B", status=Application.Status.APPROVED
+        )
+
+    def test_confirm_details_duplicate_email_rejected_without_crash(self):
+        self.client.force_login(self.cand_a)
+        res = self.client.post(
+            reverse("confirm_details", args=[self.exam.pk]),
+            data={"email": "candb@example.com", "full_name": "Candidate A", "phone": "+1234567890"},
+        )
+        self.assertRedirects(res, reverse("confirm_details", args=[self.exam.pk]))
+        self.app_a.refresh_from_db()
+        self.assertEqual(self.app_a.pending_email, "")
+
+    def test_verify_email_collision_rejected_without_crash(self):
+        import hashlib
+        raw_token = "valid-verify-token-abcdef123456"
+        self.app_a.pending_email = "candb@example.com"
+        self.app_a.email_verification_token = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+        self.app_a.email_verification_sent_at = timezone.now()
+        self.app_a.save()
+
+        self.client.force_login(self.cand_a)
+        res = self.client.get(reverse("verify_email", args=[raw_token]))
+        self.assertRedirects(res, reverse("home"))
+        self.cand_a.refresh_from_db()
+        self.assertEqual(self.cand_a.email, "canda@example.com")
+
+
+class SiteSettingsUploadSecurityTests(TestCase):
+    def test_site_settings_form_rejects_malicious_svg(self):
+        bad_svg = b"<svg><script>alert(1)</script></svg>"
+        form = SiteSettingsForm(
+            data={"site_name": "Test"},
+            files={"site_logo": SimpleUploadedFile("bad.svg", bad_svg, content_type="image/svg+xml")},
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("site_logo", form.errors)
+
+        handler_svg = b"<svg onload='alert(1)'></svg>"
+        form2 = SiteSettingsForm(
+            data={"site_name": "Test"},
+            files={"favicon": SimpleUploadedFile("bad_fav.svg", handler_svg, content_type="image/svg+xml")},
+        )
+        self.assertFalse(form2.is_valid())
+        self.assertIn("favicon", form2.errors)
+
+        padded_svg = (b"<!-- " + b"A" * 5000 + b" --><svg><foreignObject><body><script>alert(1)</script></body></foreignObject></svg>")
+        form3 = SiteSettingsForm(
+            data={"site_name": "Test"},
+            files={"site_logo": SimpleUploadedFile("padded.svg", padded_svg, content_type="image/svg+xml")},
+        )
+        self.assertFalse(form3.is_valid())
+        self.assertIn("site_logo", form3.errors)
+
+        clean_svg = b"<svg xmlns='http://www.w3.org/2000/svg'><circle cx='50' cy='50' r='40'/></svg>"
+        form4 = SiteSettingsForm(
+            data={"site_name": "Test"},
+            files={"site_logo": SimpleUploadedFile("clean.svg", clean_svg, content_type="image/svg+xml")},
+        )
+        self.assertTrue(form4.is_valid())
+
+
+class CsvSafeSecurityTests(TestCase):
+    def test_csv_safe_formula_injection_prevention(self):
+        self.assertEqual(csv_safe("=1+1"), "'=1+1")
+        self.assertEqual(csv_safe("+SUM(A1:A10)"), "'+SUM(A1:A10)")
+        self.assertEqual(csv_safe("-cmd|'/c calc'!A1"), "'-cmd|'/c calc'!A1")
+        self.assertEqual(csv_safe("@HYPERLINK('http://evil.com')"), "'@HYPERLINK('http://evil.com')")
+
+        self.assertEqual(csv_safe("   =1+1"), "'   =1+1")
+        self.assertEqual(csv_safe("\t\t+2+2"), "'\t\t+2+2")
+        self.assertEqual(csv_safe("  \t  -test"), "'  \t  -test")
+
+        self.assertEqual(csv_safe("Rahul Sharma"), "Rahul Sharma")
+        self.assertEqual(csv_safe("john.doe@example.com"), "john.doe@example.com")
+        self.assertEqual(csv_safe(123), 123)

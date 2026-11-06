@@ -1,3 +1,4 @@
+import os
 import re
 
 from django import forms
@@ -363,20 +364,53 @@ class CandidateImportForm(forms.Form):
         return rows, errors
 
 
+def validate_resume_file(uploaded):
+    if not uploaded:
+        return
+    ext = os.path.splitext(uploaded.name)[1].lower()
+    allowed = [".pdf", ".doc", ".docx"]
+    if ext not in allowed:
+        raise ValidationError(f"Resume must be a PDF or Word document ({', '.join(allowed)}).")
+    if uploaded.size > 10 * 1024 * 1024:
+        raise ValidationError("Resume file size must not exceed 10 MB.")
+
+    pos = uploaded.tell() if hasattr(uploaded, "tell") else 0
+    header = uploaded.read(8)
+    if hasattr(uploaded, "seek"):
+        uploaded.seek(pos)
+
+    if ext == ".pdf":
+        if not header.startswith(b"%PDF-"):
+            raise ValidationError("Invalid PDF file: file signature does not match PDF format.")
+    elif ext == ".docx":
+        if not header.startswith(b"PK\x03\x04"):
+            raise ValidationError("Invalid Word document: file signature does not match DOCX format.")
+    elif ext == ".doc":
+        if not header.startswith(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"):
+            raise ValidationError("Invalid Word document: file signature does not match legacy DOC format.")
+
+
 class CandidateEditForm(forms.ModelForm):
     email = forms.EmailField(
         label="Login Email ID",
         required=True,
         widget=forms.EmailInput(attrs={"class": "w-full rounded border px-3 py-2"}),
     )
+    resume = forms.FileField(
+        label="Candidate Resume (PDF/Word)",
+        required=False,
+        validators=[validate_resume_file],
+        widget=forms.FileInput(attrs={"accept": ".pdf,.doc,.docx", "class": "w-full text-xs"}),
+    )
 
     class Meta:
         model = Application
-        fields = ["full_name", "phone", "plain_password"]
+        fields = ["full_name", "phone", "plain_password", "resume"]
         labels = {
             "full_name": "Full Legal Name",
             "phone": "Mobile Number",
             "plain_password": "Candidate Login Password (Always Visible to Admin)",
+            "resume": "Candidate Resume",
         }
         widgets = {
             "full_name": forms.TextInput(attrs={"class": "w-full rounded border px-3 py-2"}),
@@ -400,38 +434,43 @@ class ConfirmDetailsForm(forms.ModelForm):
         widget=forms.EmailInput(attrs={
             "autocomplete": "email",
             "readonly": "readonly",
-            "class": "w-full rounded-xl border border-slate-300 bg-slate-100 text-slate-500 font-medium px-3 py-2 cursor-not-allowed",
-            "style": "width: 100%; border-radius: 12px; border: 1.5px solid #CBD5E1; background-color: #F1F5F9; color: #64748B; font-weight: 600; padding: 10px 14px; font-size: 14px; box-sizing: border-box; cursor: not-allowed;",
+            "class": "w-full rounded-xl border border-slate-300 bg-slate-100 text-slate-500 font-semibold px-4 py-3 cursor-not-allowed text-sm",
         }),
         help_text="Your account email address is locked and cannot be changed.",
+    )
+    resume = forms.FileField(
+        label="Resume / Curriculum Vitae",
+        required=False,
+        validators=[validate_resume_file],
+        widget=forms.FileInput(attrs={
+            "accept": ".pdf,.doc,.docx",
+            "id": "id_resume",
+            "class": "hidden",
+        }),
+        help_text="Upload your resume in PDF or Word format (up to 10 MB).",
     )
 
     class Meta:
         model = Application
-        fields = ["full_name", "phone"]
+        fields = ["full_name", "phone", "resume"]
         labels = {
             "full_name": "Full legal name",
             "phone": "Mobile number",
+            "resume": "Resume / CV",
         }
         widgets = {
             "full_name": forms.TextInput(attrs={
-                "placeholder": "Full legal name",
-                "class": "w-full rounded-xl border border-slate-300 px-3 py-2 text-slate-900 font-medium focus:border-blue-600 focus:ring-1 focus:ring-blue-600",
-                "style": "width: 100%; border-radius: 12px; border: 1.5px solid #CBD5E1; color: #0F172A; font-weight: 600; padding: 10px 14px; font-size: 14px; box-sizing: border-box;",
+                "placeholder": "Enter your full legal name",
+                "class": "w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 font-semibold text-sm focus:border-blue-600 focus:ring-2 focus:ring-blue-100 focus:outline-none transition-all",
             }),
             "phone": forms.TextInput(attrs={
-                "placeholder": "Mobile number with country code",
-                "class": "w-full rounded-xl border border-slate-300 px-3 py-2 text-slate-900 font-medium focus:border-blue-600 focus:ring-1 focus:ring-blue-600",
-                "style": "width: 100%; border-radius: 12px; border: 1.5px solid #CBD5E1; color: #0F172A; font-weight: 600; padding: 10px 14px; font-size: 14px; box-sizing: border-box;",
+                "placeholder": "e.g. +1 555-0199 or +91 9876543210",
+                "class": "w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 font-semibold text-sm focus:border-blue-600 focus:ring-2 focus:ring-blue-100 focus:outline-none transition-all",
             }),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        for name, field in self.fields.items():
-            if name != "email":
-                field.widget.attrs.setdefault("class", "w-full rounded-xl border border-slate-300 px-3 py-2 text-slate-900 font-medium focus:border-blue-600 focus:ring-1 focus:ring-blue-600")
-
         self.fields["full_name"].required = True
         self.fields["phone"].required = True
 
@@ -460,6 +499,22 @@ class RevokeForm(forms.Form):
         max_length=500,
         widget=forms.TextInput(attrs={"class": "w-full rounded border px-2 py-1 text-sm", "placeholder": "Reason (optional)"}),
     )
+
+
+def _validate_svg_content(uploaded, label="SVG file"):
+    pos = uploaded.tell() if hasattr(uploaded, "tell") else 0
+    content = uploaded.read()
+    if hasattr(uploaded, "seek"):
+        uploaded.seek(pos)
+    content_str = content.decode("utf-8", errors="ignore").lower()
+    dangerous_tags = ["<script", "<foreignobject", "<iframe", "<embed", "<object"]
+    for tag in dangerous_tags:
+        if tag in content_str:
+            raise ValidationError(f"{label} contains disallowed tag: {tag[1:]}.")
+    if "javascript:" in content_str or "vbscript:" in content_str or "data:text/html" in content_str:
+        raise ValidationError(f"{label} contains disallowed script URI or embedded HTML.")
+    if re.search(r"\bon[a-z]+\s*=", content_str):
+        raise ValidationError(f"{label} contains disallowed inline event handlers.")
 
 
 class SiteSettingsForm(forms.ModelForm):
@@ -512,6 +567,34 @@ class SiteSettingsForm(forms.ModelForm):
                 field.widget.attrs.setdefault("class", "w-32 rounded border px-3 py-2")
             else:
                 field.widget.attrs.setdefault("class", "w-full rounded border px-3 py-2")
+
+    def clean_site_logo(self):
+        logo = self.cleaned_data.get("site_logo")
+        if not logo or not hasattr(logo, "name"):
+            return logo
+        ext = os.path.splitext(logo.name)[1].lower()
+        allowed = [".png", ".jpg", ".jpeg", ".svg", ".webp"]
+        if ext not in allowed:
+            raise ValidationError(f"Logo must be an image ({', '.join(allowed)}).")
+        if logo.size > 2 * 1024 * 1024:
+            raise ValidationError("Site logo must not exceed 2 MB.")
+        if ext == ".svg":
+            _validate_svg_content(logo, "SVG logo")
+        return logo
+
+    def clean_favicon(self):
+        fav = self.cleaned_data.get("favicon")
+        if not fav or not hasattr(fav, "name"):
+            return fav
+        ext = os.path.splitext(fav.name)[1].lower()
+        allowed = [".ico", ".png", ".svg", ".jpg", ".jpeg", ".webp"]
+        if ext not in allowed:
+            raise ValidationError(f"Favicon must be an image or icon ({', '.join(allowed)}).")
+        if fav.size > 512 * 1024:
+            raise ValidationError("Favicon must not exceed 512 KB.")
+        if ext == ".svg":
+            _validate_svg_content(fav, "SVG favicon")
+        return fav
 
 
 class DecisionForm(forms.Form):

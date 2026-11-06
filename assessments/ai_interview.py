@@ -386,8 +386,12 @@ Return a strict JSON array of objects conforming to:
 ]
 """
 
-    gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
-    headers = {"Content-Type": "application/json"}
+    clean_model = re.sub(r"[^a-zA-Z0-9._-]", "", model) or "gemini-1.5-flash"
+    gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{clean_model}:generateContent"
+    headers = {
+        "Content-Type": "application/json",
+        "x-goog-api-key": api_key,
+    }
     payload = {
         "contents": [
             {

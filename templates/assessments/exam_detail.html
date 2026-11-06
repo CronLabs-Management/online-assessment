@@ -3,7 +3,7 @@
 {% block title %}{{ exam.title }} | System Check & Instructions{% endblock %}
 
 {% block content %}
-<div class="space-y-8 max-w-7xl mx-auto">
+<div class="space-y-7 max-w-7xl mx-auto pb-12">
   
   <!-- Stepper & Top Navigation -->
   <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
@@ -25,27 +25,27 @@
       <span class="text-slate-300">&bull;</span>
       <li class="flex items-center gap-2 text-[#0F172A]">
         <span class="w-7 h-7 rounded-full bg-[#2447F5] text-white flex items-center justify-center font-extrabold text-xs shadow-xs ring-4 ring-blue-100">2</span>
-        <span class="text-[#2447F5] font-extrabold">System Check</span>
+        <span class="text-[#2447F5] font-extrabold">Rules &amp; Guidelines</span>
       </li>
       <span class="text-slate-300">&bull;</span>
       <li class="flex items-center gap-2 text-slate-400">
         <span class="w-7 h-7 rounded-full bg-slate-100 border-2 border-slate-300 text-slate-400 flex items-center justify-center font-extrabold text-xs">3</span>
-        <span class="hidden sm:inline">Start Test</span>
+        <span class="hidden sm:inline">Device Diagnostics &amp; Test</span>
       </li>
     </ol>
   </div>
 
   <!-- Header Banner -->
-  <div class="flex flex-col gap-2.5">
-    <div class="flex items-center gap-2.5">
+  <div class="flex flex-col gap-2">
+    <div class="flex items-center gap-2.5 flex-wrap">
       <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-[#EEF1FE] text-[#2447F5] border border-blue-200">
         <span class="w-1.5 h-1.5 rounded-full bg-[#2447F5]"></span>
-        Step 2 of 3: System Diagnostics &amp; Rules
+        Step 2 of 3: Assessment Briefing &amp; Rules
       </span>
       {% include "assessments/partials/state_badge.html" with state=state %}
     </div>
     <h1 class="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#0F172A] tracking-tight">
-      Review Rules &amp; Verify Your Setup
+      Review Rules &amp; Assessment Guidelines
     </h1>
     <p class="text-sm sm:text-base text-slate-600 font-medium">
       <strong>{{ exam.title }}</strong> &bull; <span class="font-mono font-bold text-slate-900">{{ exam.duration_minutes }} minutes total</span> &bull; 
@@ -59,17 +59,24 @@
 
   <!-- Candidate Verified Profile Banner -->
   <div class="rounded-2xl border-[1.5px] border-slate-200 bg-white p-4 sm:p-5 shadow-card flex flex-col md:flex-row md:items-center justify-between gap-4">
-    <div class="flex items-center gap-3.5">
-      <div class="w-10 h-10 min-w-10 rounded-xl bg-blue-100 text-[#2447F5] font-black flex items-center justify-center text-sm shadow-2xs">
+    <div class="flex items-center gap-3.5 flex-1 min-w-0">
+      <div class="w-11 h-11 min-w-11 rounded-2xl bg-blue-100 text-[#2447F5] font-black flex items-center justify-center text-base shadow-2xs shrink-0">
         {{ application.full_name|default:application.candidate.email|slice:":1"|upper }}
       </div>
-      <div>
-        <div class="flex items-center gap-2">
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-2 flex-wrap">
           <span class="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Candidate Identity</span>
-          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#E3F5EC] text-[#0B6B43] border border-emerald-200 text-[11px] font-bold">
-            <svg class="w-3 h-3 text-[#0B6B43]" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-            Verified Credentials &amp; Resume
-          </span>
+          {% if application.has_resume_file %}
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#E3F5EC] text-[#0B6B43] border border-emerald-200 text-[11px] font-bold shrink-0">
+              <svg width="12" height="12" class="w-3 h-3 text-[#0B6B43] shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+              <span>Verified Credentials &amp; Resume</span>
+            </span>
+          {% else %}
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 text-[11px] font-bold shrink-0">
+              <svg width="12" height="12" class="w-3 h-3 text-slate-600 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+              <span>Verified Credentials &bull; No Resume</span>
+            </span>
+          {% endif %}
         </div>
         <div class="text-xs sm:text-sm font-extrabold text-[#0F172A] mt-1 flex flex-wrap items-center gap-2 sm:gap-3">
           <span>{{ application.full_name }}</span>
@@ -79,19 +86,24 @@
             <span class="text-slate-300">&bull;</span>
             <span class="font-medium text-slate-600">{{ application.phone }}</span>
           {% endif %}
-          {% if application.resume %}
-            <span class="text-slate-300">&bull;</span>
+          <span class="text-slate-300">&bull;</span>
+          {% if application.has_resume_file %}
             <a href="{% url 'candidate_resume' exam.pk %}" target="_blank" class="inline-flex items-center gap-1 text-xs font-bold text-[#2447F5] hover:underline">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+              <svg width="14" height="14" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
               <span>View Resume &rarr;</span>
             </a>
+          {% else %}
+            <span class="inline-flex items-center gap-1.5 text-xs text-amber-800 font-bold bg-amber-50 px-2.5 py-0.5 rounded-lg border border-amber-200">
+              <span>⚠️ No resume attached</span>
+              <a href="{% url 'confirm_details' exam.pk %}" class="text-[#2447F5] underline ml-1 font-extrabold">Upload now</a>
+            </span>
           {% endif %}
         </div>
       </div>
     </div>
-    <a href="{% url 'confirm_details' exam.pk %}" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-50 border border-slate-300 hover:bg-slate-100 transition-colors shrink-0">
+    <a href="{% url 'confirm_details' exam.pk %}" class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold text-slate-700 bg-slate-50 border border-slate-300 hover:bg-slate-100 transition-colors shrink-0 whitespace-nowrap shadow-2xs">
       <span>Edit Details &amp; Resume</span>
-      <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+      <svg width="14" height="14" class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
     </a>
   </div>
 
@@ -201,14 +213,41 @@
   </div>
   {% endif %}
 
-  <!-- Main 2-Column Section: Rules (Left) and System Check (Right) -->
-  <div class="exam-layout-grid grid grid-cols-1 lg:grid-cols-12 gap-8 items-start w-full">
+  <style>
+    .exam-layout-grid {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 24px !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+    }
+    @media (min-width: 1024px) {
+      .exam-layout-grid {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1.35fr) minmax(380px, 1fr) !important;
+        gap: 32px !important;
+        align-items: start !important;
+        width: 100% !important;
+      }
+    }
+    .exam-left-panel {
+      width: 100% !important;
+      min-width: 0 !important;
+    }
+    .exam-right-panel {
+      width: 100% !important;
+      min-width: 0 !important;
+    }
+  </style>
+
+  <!-- Main 2-Column Responsive Layout: Rules (Left) and System Diagnostics (Right) -->
+  <div class="exam-layout-grid">
     
-    <!-- Left Column: Rules & Guidelines (7 cols on lg+) -->
-    <div class="w-full min-w-0 lg:col-span-7 xl:col-span-7 flex flex-col gap-6">
+    <!-- Left Column: Rules & Guidelines -->
+    <div class="exam-left-panel flex flex-col gap-6">
 
       <!-- Test Rules Card -->
-      <section class="bg-white border-[1.5px] border-slate-200 rounded-3xl p-6 sm:p-8 lg:p-9 flex flex-col gap-6 shadow-card">
+      <section class="bg-white border-[1.5px] border-slate-200 rounded-3xl p-6 sm:p-8 flex flex-col gap-6 shadow-card">
         <div class="border-b border-slate-100 pb-4">
           <span class="text-xs font-extrabold uppercase tracking-wider text-slate-400">Code of Conduct</span>
           <h2 class="text-xl sm:text-2xl font-extrabold text-[#0F172A] tracking-tight mt-0.5">Rules &amp; Guidelines</h2>
@@ -216,54 +255,54 @@
         
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <!-- Rule 1 -->
-          <div class="flex gap-3.5 p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
-            <span class="w-7 h-7 rounded-lg bg-[#0F172A] text-[#FFB020] font-extrabold text-xs flex items-center justify-center shrink-0">1</span>
-            <div>
+          <div class="flex items-start gap-3.5 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 hover:bg-slate-100/70 transition-colors">
+            <span class="w-7 h-7 rounded-lg bg-[#0F172A] text-[#FFB020] font-extrabold text-xs flex items-center justify-center shrink-0 shadow-xs">1</span>
+            <div class="min-w-0 flex-1">
               <div class="text-sm font-bold text-[#0F172A]">Continuous Full Screen</div>
               <div class="text-xs text-slate-600 font-medium mt-0.5 leading-relaxed">Leaving full screen is recorded and flagged for human review.</div>
             </div>
           </div>
 
           <!-- Rule 2 -->
-          <div class="flex gap-3.5 p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
-            <span class="w-7 h-7 rounded-lg bg-[#0F172A] text-[#FFB020] font-extrabold text-xs flex items-center justify-center shrink-0">2</span>
-            <div>
+          <div class="flex items-start gap-3.5 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 hover:bg-slate-100/70 transition-colors">
+            <span class="w-7 h-7 rounded-lg bg-[#0F172A] text-[#FFB020] font-extrabold text-xs flex items-center justify-center shrink-0 shadow-xs">2</span>
+            <div class="min-w-0 flex-1">
               <div class="text-sm font-bold text-[#0F172A]">Keep Face Visible</div>
               <div class="text-xs text-slate-600 font-medium mt-0.5 leading-relaxed">Sit in good lighting and face the camera throughout the test.</div>
             </div>
           </div>
 
           <!-- Rule 3 -->
-          <div class="flex gap-3.5 p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
-            <span class="w-7 h-7 rounded-lg bg-[#0F172A] text-[#FFB020] font-extrabold text-xs flex items-center justify-center shrink-0">3</span>
-            <div>
+          <div class="flex items-start gap-3.5 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 hover:bg-slate-100/70 transition-colors">
+            <span class="w-7 h-7 rounded-lg bg-[#0F172A] text-[#FFB020] font-extrabold text-xs flex items-center justify-center shrink-0 shadow-xs">3</span>
+            <div class="min-w-0 flex-1">
               <div class="text-sm font-bold text-[#0F172A]">Work Independently</div>
               <div class="text-xs text-slate-600 font-medium mt-0.5 leading-relaxed">No secondary monitors, mobile phones, or notes allowed in the room.</div>
             </div>
           </div>
 
           <!-- Rule 4 -->
-          <div class="flex gap-3.5 p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
-            <span class="w-7 h-7 rounded-lg bg-[#0F172A] text-[#FFB020] font-extrabold text-xs flex items-center justify-center shrink-0">4</span>
-            <div>
+          <div class="flex items-start gap-3.5 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 hover:bg-slate-100/70 transition-colors">
+            <span class="w-7 h-7 rounded-lg bg-[#0F172A] text-[#FFB020] font-extrabold text-xs flex items-center justify-center shrink-0 shadow-xs">4</span>
+            <div class="min-w-0 flex-1">
               <div class="text-sm font-bold text-[#0F172A]">Stay on Assessment Tab</div>
               <div class="text-xs text-slate-600 font-medium mt-0.5 leading-relaxed">Tab switches and window focus loss trigger integrity penalty events.</div>
             </div>
           </div>
 
           <!-- Rule 5 -->
-          <div class="flex gap-3.5 p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
-            <span class="w-7 h-7 rounded-lg bg-[#0F172A] text-[#FFB020] font-extrabold text-xs flex items-center justify-center shrink-0">5</span>
-            <div>
+          <div class="flex items-start gap-3.5 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 hover:bg-slate-100/70 transition-colors">
+            <span class="w-7 h-7 rounded-lg bg-[#0F172A] text-[#FFB020] font-extrabold text-xs flex items-center justify-center shrink-0 shadow-xs">5</span>
+            <div class="min-w-0 flex-1">
               <div class="text-sm font-bold text-[#0F172A]">Server-Synced Timers</div>
               <div class="text-xs text-slate-600 font-medium mt-0.5 leading-relaxed">Time counts continuously on the server; submit before expiration.</div>
             </div>
           </div>
 
           <!-- Rule 6 -->
-          <div class="flex gap-3.5 p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
-            <span class="w-7 h-7 rounded-lg bg-[#0F172A] text-[#FFB020] font-extrabold text-xs flex items-center justify-center shrink-0">6</span>
-            <div>
+          <div class="flex items-start gap-3.5 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 hover:bg-slate-100/70 transition-colors">
+            <span class="w-7 h-7 rounded-lg bg-[#0F172A] text-[#FFB020] font-extrabold text-xs flex items-center justify-center shrink-0 shadow-xs">6</span>
+            <div class="min-w-0 flex-1">
               <div class="text-sm font-bold text-[#0F172A]">Continuous Auto-Save</div>
               <div class="text-xs text-slate-600 font-medium mt-0.5 leading-relaxed">Answers and code drafts are backed up locally and automatically synchronized.</div>
             </div>
@@ -273,7 +312,7 @@
         {% if exam.instructions %}
         <div class="pt-3 border-t border-slate-100">
           <div class="text-xs font-extrabold uppercase tracking-wider text-slate-500 mb-1.5">Special Instructions from Instructor:</div>
-          <div class="whitespace-pre-line text-xs sm:text-sm leading-relaxed text-slate-700 bg-slate-50 p-4 rounded-xl border border-slate-200">
+          <div class="whitespace-pre-line text-xs sm:text-sm leading-relaxed text-slate-700 bg-amber-50/70 p-4 rounded-2xl border border-amber-200/80">
             {{ exam.instructions }}
           </div>
         </div>
@@ -286,7 +325,7 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
             </svg>
           </div>
-          <div>
+          <div class="min-w-0 flex-1">
             <div class="text-sm font-extrabold text-[#1E3AC8]">Proctoring &amp; Privacy Assurance</div>
             <p class="text-xs text-slate-600 font-medium leading-relaxed mt-0.5">
               Snapshots are captured only when an unexpected anomaly is detected. Full video is not permanently stored, and an authorized recruitment reviewer inspects any flagged events before any decision.
@@ -343,165 +382,124 @@
 
     </div>
 
-    <!-- Right Column: Interactive System & Hardware Check (5 cols on lg+) -->
-    <div class="exam-right-panel w-full min-w-0 lg:col-span-5 xl:col-span-5 flex flex-col gap-6">
+    <!-- Right Column: Technical Prerequisites & Entry Check -->
+    <div class="exam-right-panel flex flex-col gap-6">
       
       <section class="bg-white border-[1.5px] border-slate-200 rounded-3xl p-6 sm:p-7 flex flex-col gap-5 shadow-card">
         
         <!-- Header -->
-        <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+        <div class="flex items-start sm:items-center justify-between border-b border-slate-100 pb-4 gap-3 flex-wrap sm:flex-nowrap">
           <div>
-            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase tracking-wider bg-blue-100 text-[#2447F5]">
-              <span class="w-1.5 h-1.5 rounded-full bg-[#2447F5] animate-pulse"></span>
-              Live Diagnostics
-            </span>
-            <h2 class="text-xl font-extrabold text-[#0F172A] tracking-tight mt-1">System &amp; Device Check</h2>
+            <div class="flex items-center gap-2 mb-1">
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase tracking-wider bg-blue-100 text-[#2447F5]">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#2447F5]"></span>
+                Pre-Flight Checklist
+              </span>
+              <span class="text-xs text-slate-500 font-bold">Step 2 Prerequisites</span>
+            </div>
+            <h2 class="text-xl font-extrabold text-[#0F172A] tracking-tight">Technical Prerequisites</h2>
+            <p class="text-xs text-slate-500 font-medium mt-0.5">Review equipment requirements before entering the live assessment room.</p>
           </div>
-          <button type="button" id="btn-retest-camera" class="text-xs font-bold text-[#2447F5] hover:underline cursor-pointer">
-            Re-test all
-          </button>
         </div>
 
-        {% if exam.camera_required %}
-        <!-- 1. Responsive Camera & Face Proctoring Card (Non-overlapping layout) -->
-        <div class="p-4 rounded-2xl border-[1.5px] border-slate-200 bg-slate-50/80 flex flex-col sm:flex-row items-center sm:items-start gap-4">
-          
-          <!-- Video Preview Box (Flexible responsive container) -->
-          <div class="relative w-28 h-28 sm:w-32 sm:h-32 rounded-2xl overflow-hidden bg-[#0B1120] border-2 border-blue-500/40 shadow-sm shrink-0 flex items-center justify-center select-none">
-            <video id="preview-video" muted playsinline autoplay class="w-full h-full object-cover"></video>
-            
-            <!-- Live Pulse Badge (Top-Left) -->
-            <div class="absolute top-1 left-1 z-10 flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-slate-950/85 backdrop-blur-xs text-[9px] font-black text-emerald-400 border border-emerald-500/30 pointer-events-none">
-              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span>Live</span>
-            </div>
-
-            <!-- Proportional Face Guide Oval SVG -->
-            <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <svg width="72" height="90" viewBox="0 0 72 90" fill="none" aria-hidden="true">
-                <ellipse id="preview-face-oval" cx="36" cy="45" rx="25" ry="35" stroke="#38BDF8" stroke-width="2" stroke-dasharray="5 3" style="filter: drop-shadow(0 0 5px rgba(56, 189, 248, 0.5)); transition: all 0.3s ease;"></ellipse>
-              </svg>
-            </div>
-          </div>
-
-          <!-- Camera Status & Guidance Beside Video -->
-          <div class="flex-1 min-w-0 flex flex-col justify-between self-stretch space-y-2.5 w-full">
-            <div class="flex items-start justify-between gap-2">
-              <div class="min-w-0">
-                <h3 class="text-sm font-extrabold text-[#0F172A] leading-tight">Webcam &amp; Proctor</h3>
-                <div id="status-camera-sub" class="text-xs text-slate-500 font-medium leading-relaxed mt-0.5 break-words">Connecting to feed…</div>
-              </div>
-              <span id="status-camera" class="diag-badge-pending shrink-0">Testing…</span>
-            </div>
-
-            <!-- Real-time Face Status Pill -->
-            <div id="preview-face-guide-badge" class="inline-flex items-center gap-1.5 bg-white border border-slate-200 px-2.5 py-1 rounded-lg text-[11px] font-bold text-slate-700 shadow-2xs max-w-full">
-              <span id="preview-face-dot" class="w-2 h-2 rounded-full bg-amber-400 shrink-0"></span>
-              <span id="preview-face-text" class="truncate">Center face in outline</span>
-            </div>
-
-            <!-- Sub info -->
-            <div class="flex items-center justify-between pt-1 border-t border-slate-200/70 text-[11px]">
-              <span id="preview-badge" class="text-slate-500 font-semibold truncate">Initializing…</span>
-            </div>
-          </div>
-
-        </div>
-        {% else %}
-        <!-- Camera Not Required Card -->
-        <div class="flex items-center justify-between gap-3 border-[1.5px] border-slate-200 rounded-2xl px-4 py-3 bg-white">
-          <div class="flex items-center gap-3 min-w-0">
-            <div class="w-8 h-8 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center shrink-0">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-            </div>
-            <div class="min-w-0">
-              <div class="font-bold text-slate-900 text-xs sm:text-sm">Webcam Proctoring</div>
-              <div class="text-xs text-slate-500 font-medium">Camera proctoring is not required for this assessment</div>
-            </div>
-          </div>
-          <span class="inline-flex items-center gap-1 text-[11px] font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded border border-slate-200 shrink-0">
-            ✓ Not Required
-          </span>
-        </div>
-        {% endif %}
-
-        <!-- Diagnostic Cards: Clean structured rows preventing any card text overlap -->
+        <!-- 4 Prerequisites Cards (Clean informative checklist) -->
         <div class="flex flex-col gap-3">
           
-          <!-- 2. Geolocation & Location Lock -->
-          <div class="border-[1.5px] border-slate-200 rounded-2xl p-3.5 sm:p-4 bg-white hover:border-slate-300 transition-colors flex flex-col gap-1.5">
-            <div class="flex items-center justify-between gap-3">
-              <div class="flex items-center gap-3 min-w-0">
-                <div class="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-                </div>
-                <div class="font-bold text-slate-900 text-xs sm:text-sm">Geolocation &amp; Location Lock</div>
-              </div>
-              <div class="flex items-center gap-2 shrink-0">
-                <span id="status-geo" class="diag-badge-pending shrink-0">Detecting…</span>
-                <button type="button" id="btn-retry-geo" class="text-[11px] font-bold text-[#2447F5] hover:underline cursor-pointer shrink-0">
-                  Detect
-                </button>
-              </div>
+          <!-- 1. Webcam & Audio -->
+          <div class="border-[1.5px] border-slate-200 rounded-2xl p-4 bg-white flex items-start gap-3.5 shadow-2xs">
+            <div class="w-9 h-9 rounded-xl {% if exam.camera_required %}bg-blue-100 text-[#2447F5]{% else %}bg-slate-100 text-slate-500{% endif %} flex items-center justify-center shrink-0">
+              <svg width="18" height="18" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
             </div>
-            <div id="status-geo-sub" class="text-xs text-slate-500 font-medium pl-11 leading-relaxed break-words">Detecting GPS / browser location…</div>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center justify-between gap-2">
+                <div class="font-bold text-slate-900 text-sm">Webcam &amp; Proctor Feed</div>
+                {% if exam.camera_required %}
+                  <span class="inline-flex items-center gap-1 text-[11px] font-bold text-[#2447F5] bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200 shrink-0">Required</span>
+                {% else %}
+                  <span class="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200 shrink-0">Optional</span>
+                {% endif %}
+              </div>
+              <p class="text-xs text-slate-500 font-medium mt-1 leading-relaxed">
+                {% if exam.camera_required %}
+                  Working webcam required for live integrity verification. You will preview and align your camera in the next step before beginning.
+                {% else %}
+                  Camera proctoring is not enforced for this assessment.
+                {% endif %}
+              </p>
+            </div>
           </div>
 
-          <!-- 3. WiFi & Network Latency -->
-          <div class="border-[1.5px] border-slate-200 rounded-2xl p-3.5 sm:p-4 bg-white hover:border-slate-300 transition-colors flex flex-col gap-1.5">
-            <div class="flex items-center justify-between gap-3">
-              <div class="flex items-center gap-3 min-w-0">
-                <div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                </div>
-                <div class="font-bold text-slate-900 text-xs sm:text-sm">WiFi &amp; Network Connection</div>
-              </div>
-              <div class="flex items-center gap-2 shrink-0">
-                <span id="status-net" class="diag-badge-pending shrink-0">Testing…</span>
-                <button type="button" id="btn-retest-net" class="text-[11px] font-bold text-[#2447F5] hover:underline cursor-pointer shrink-0">
-                  Re-test
-                </button>
-              </div>
+          <!-- 2. Stable Internet Connection -->
+          <div class="border-[1.5px] border-slate-200 rounded-2xl p-4 bg-white flex items-start gap-3.5 shadow-2xs">
+            <div class="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+              <svg width="18" height="18" class="w-4 h-4 text-emerald-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
             </div>
-            <div id="status-net-sub" class="text-xs text-slate-500 font-medium pl-11 leading-relaxed break-words">Measuring ping &amp; connection…</div>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center justify-between gap-2">
+                <div class="font-bold text-slate-900 text-sm">Internet Connection</div>
+                <span class="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 shrink-0">&ge; 1.0 Mbps</span>
+              </div>
+              <p class="text-xs text-slate-500 font-medium mt-1 leading-relaxed">
+                Broadband connection recommended. Code answers and telemetry auto-save continuously in real time.
+              </p>
+            </div>
           </div>
 
-          <!-- 4. Fullscreen Mode Lockdown -->
-          <div class="border-[1.5px] border-slate-200 rounded-2xl p-3.5 sm:p-4 bg-white hover:border-slate-300 transition-colors flex flex-col gap-1.5">
-            <div class="flex items-center justify-between gap-3">
-              <div class="flex items-center gap-3 min-w-0">
-                <div class="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
-                </div>
-                <div class="font-bold text-slate-900 text-xs sm:text-sm">Fullscreen Mode Lockdown</div>
-              </div>
-              <span class="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded border border-emerald-200 shrink-0">
-                ✓ Enforced on Start
-              </span>
+          <!-- 3. Fullscreen Window Lockdown -->
+          <div class="border-[1.5px] border-slate-200 rounded-2xl p-4 bg-white flex items-start gap-3.5 shadow-2xs">
+            <div class="w-9 h-9 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
+              <svg width="18" height="18" class="w-4 h-4 text-purple-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>
             </div>
-            <div class="text-xs text-slate-500 font-medium pl-11 leading-relaxed">Continuous lock activates upon test entry</div>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center justify-between gap-2">
+                <div class="font-bold text-slate-900 text-sm">Fullscreen Mode</div>
+                <span class="inline-flex items-center gap-1 text-[11px] font-bold text-purple-800 bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-200 shrink-0">Enforced</span>
+              </div>
+              <p class="text-xs text-slate-500 font-medium mt-1 leading-relaxed">
+                Your browser must remain locked in full-screen mode throughout the test session. Exiting fullscreen triggers warnings.
+              </p>
+            </div>
+          </div>
+
+          <!-- 4. Environment & Integrity -->
+          <div class="border-[1.5px] border-slate-200 rounded-2xl p-4 bg-white flex items-start gap-3.5 shadow-2xs">
+            <div class="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
+              <svg width="18" height="18" class="w-4 h-4 text-amber-800" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            </div>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center justify-between gap-2">
+                <div class="font-bold text-slate-900 text-sm">Quiet Environment</div>
+                <span class="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200 shrink-0">Strict</span>
+              </div>
+              <p class="text-xs text-slate-500 font-medium mt-1 leading-relaxed">
+                Please remain alone in a well-lit room. Secondary monitors, phones, and unapproved applications must be closed.
+              </p>
+            </div>
           </div>
 
         </div>
 
-        <!-- Rules Agreement Checkbox -->
-        <div class="flex items-start gap-3 pt-1">
-          <input id="agree" type="checkbox" class="mt-1 h-4 w-4 rounded accent-[#2447F5] cursor-pointer">
-          <label for="agree" class="text-xs text-slate-700 font-semibold leading-relaxed cursor-pointer select-none">
-            I agree to the test rules and consent to proctoring telemetry snapshots during this assessment session.
-          </label>
+        <!-- Live Diagnostics Notice Box -->
+        <div class="p-3.5 rounded-2xl bg-blue-50/80 border border-blue-200/90 text-xs text-slate-700 flex items-start gap-2.5">
+          <span class="w-5 h-5 rounded-full bg-blue-100 text-[#2447F5] flex items-center justify-center shrink-0 font-black text-[11px] mt-0.5">ℹ</span>
+          <div class="leading-relaxed">
+            <strong class="text-[#0F172A] font-extrabold">Next Step: Live Hardware Diagnostics</strong><br>
+            When you enter the assessment room, your live webcam, geolocation, and network latency will be calibrated and locked before your test timer begins.
+          </div>
         </div>
 
-        <!-- System Gate Notice Banner -->
-        <div id="system-gate-alert" class="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 font-semibold flex items-center gap-2.5 transition-all">
-          <span id="system-gate-icon" class="text-amber-600 font-extrabold text-base shrink-0">⚠️</span>
-          <span id="system-gate-text">Please complete all hardware checks above to start.</span>
-        </div>
+        <!-- Rules Agreement Checkbox Card -->
+        <label for="agree" class="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-start gap-3 cursor-pointer hover:bg-slate-100/70 transition-colors select-none">
+          <input id="agree" type="checkbox" class="mt-0.5 h-4 w-4 rounded accent-[#2447F5] cursor-pointer shrink-0">
+          <span class="text-xs text-slate-700 font-semibold leading-relaxed">
+            I confirm that I have reviewed the assessment rules, honor code, and technical requirements, and I agree to proceed to live diagnostics.
+          </span>
+        </label>
 
         <!-- Launch / Action Button -->
         {% if state.code == "confirm" and not attempt %}
           <div class="pt-1">
-            <a href="{% url 'confirm_details' exam.pk %}" class="btn btn-primary h-[58px] w-full text-base font-extrabold shadow-cta flex items-center justify-center gap-2">
+            <a href="{% url 'confirm_details' exam.pk %}" class="btn btn-primary h-[56px] w-full text-base font-extrabold shadow-cta flex items-center justify-center gap-2">
               <span>Verify Candidate Details &rarr;</span>
             </a>
           </div>
@@ -510,20 +508,20 @@
             {% csrf_token %}
             <input type="hidden" name="location" id="input-start-loc">
             <input type="hidden" name="network" id="input-start-net">
-            <button type="submit" id="btn-start-test" disabled class="btn btn-primary h-[58px] w-full text-base font-extrabold shadow-cta cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2">
-              <span id="btn-start-text">Start Assessment</span>
+            <button type="submit" id="btn-start-test" disabled class="btn btn-primary h-[56px] w-full text-base font-extrabold shadow-cta cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2">
+              <span id="btn-start-text">Enter Assessment Room</span>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M5 12h14"></path>
                 <path d="M13 6l6 6-6 6"></path>
               </svg>
             </button>
             <div class="text-[11px] text-slate-500 font-medium text-center">
-              Timer starts immediately upon entering the test room.
+              Timer starts only after pre-flight device diagnostics are verified.
             </div>
           </form>
         {% elif state.code == "in_progress" %}
           <div class="pt-1">
-            <a href="{% url 'attempt_page' attempt.pk %}" class="btn btn-primary h-[58px] w-full text-base font-extrabold shadow-cta flex items-center justify-center gap-2">
+            <a href="{% url 'attempt_page' attempt.pk %}" class="btn btn-primary h-[56px] w-full text-base font-extrabold shadow-cta flex items-center justify-center gap-2">
               <span>Continue Assessment &rarr;</span>
             </a>
           </div>
@@ -535,16 +533,16 @@
           </div>
         {% elif state.code == "waiting" and not attempt %}
           <div class="pt-1 space-y-2">
-            <button type="button" disabled class="btn btn-secondary h-[58px] w-full text-base font-extrabold opacity-60 cursor-not-allowed flex items-center justify-center gap-2">
+            <button type="button" disabled class="btn btn-secondary h-[56px] w-full text-base font-extrabold opacity-60 cursor-not-allowed flex items-center justify-center gap-2">
               <span>Assessment Opens at {{ exam.opens_at|localtime|date:"H:i" }}</span>
             </button>
             <div class="text-[11px] text-slate-500 font-medium text-center">
-              You can test your camera, location, and network speed while waiting.
+              Please wait until the scheduled assessment window begins.
             </div>
           </div>
         {% elif state.code == "closed" and not attempt %}
           <div class="pt-1">
-            <button type="button" disabled class="btn btn-secondary h-[58px] w-full text-base font-extrabold opacity-60 cursor-not-allowed flex items-center justify-center gap-2">
+            <button type="button" disabled class="btn btn-secondary h-[56px] w-full text-base font-extrabold opacity-60 cursor-not-allowed flex items-center justify-center gap-2">
               <span>Assessment Window Has Closed</span>
             </button>
           </div>
@@ -558,327 +556,46 @@
 
 </div>
 
-<!-- Interactive Diagnostic Suite & Full Screen Enabler Script -->
+<!-- Lightweight Step 2 Checkbox Enabler & Background Telemetry -->
 <script>
   (function() {
-    const video = document.getElementById('preview-video');
-    const badge = document.getElementById('preview-badge');
-    const faceText = document.getElementById('preview-face-text');
-    const faceDot = document.getElementById('preview-face-dot');
-    const faceOval = document.getElementById('preview-face-oval');
-    const retestBtn = document.getElementById('btn-retest-camera');
-    const agreeCb = document.getElementById('agree');
-    const startBtn = document.getElementById('btn-start-test');
-    const gateAlert = document.getElementById('system-gate-alert');
-    const gateText = document.getElementById('system-gate-text');
-    const gateIcon = document.getElementById('system-gate-icon');
-
-    // Status badges & details
-    const statusCam = document.getElementById('status-camera');
-    const statusCamSub = document.getElementById('status-camera-sub');
-    const statusGeo = document.getElementById('status-geo');
-    const statusGeoSub = document.getElementById('status-geo-sub');
-    const btnRetryGeo = document.getElementById('btn-retry-geo');
-    const statusNet = document.getElementById('status-net');
-    const statusNetSub = document.getElementById('status-net-sub');
-    const btnRetestNet = document.getElementById('btn-retest-net');
-
-    const cameraRequired = {{ exam.camera_required|yesno:'true,false' }};
-    let camVerified = !cameraRequired;
-    let geoVerified = false;
-    let netVerified = false;
-
-    // Helper: update gate status & start button state
-    function evaluateGate() {
-      const allPassed = (cameraRequired ? camVerified : true) && geoVerified && netVerified;
-      const agreed = agreeCb ? agreeCb.checked : true;
-
-      if (startBtn) {
-        startBtn.disabled = !(allPassed && agreed);
-        if (allPassed && agreed) {
-          startBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-          startBtn.classList.add('shadow-cta');
-          const startText = document.getElementById('btn-start-text');
-          if (startText) startText.textContent = 'Start Assessment';
-        } else {
-          startBtn.classList.add('opacity-50', 'cursor-not-allowed');
-          const startText = document.getElementById('btn-start-text');
-          if (startText) startText.textContent = 'Complete Verification to Start';
-        }
-      }
-
-      if (gateAlert && gateText && gateIcon) {
-        if (allPassed) {
-          gateAlert.className = 'p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 font-semibold flex items-center gap-2.5 transition-all';
-          gateIcon.textContent = '✓';
-          gateIcon.className = 'text-emerald-600 font-extrabold text-base shrink-0';
-          gateText.textContent = 'All diagnostics passed! Full screen lockdown activates on entry.';
-        } else {
-          gateAlert.className = 'p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 font-semibold flex items-center gap-2.5 transition-all';
-          gateIcon.textContent = '⚠️';
-          gateIcon.className = 'text-amber-600 font-extrabold text-base shrink-0';
-          const missing = [];
-          if (cameraRequired && !camVerified) missing.push('Camera');
-          if (!geoVerified) missing.push('Location');
-          if (!netVerified) missing.push('Internet');
-          gateText.textContent = `Action required: Please complete ${missing.join(', ')} verification.`;
-        }
-      }
+    const agree = document.getElementById('agree');
+    const btn = document.getElementById('btn-start-test');
+    if (agree && btn) {
+      agree.addEventListener('change', function() {
+        btn.disabled = !agree.checked;
+      });
     }
 
-    if (agreeCb) {
-      agreeCb.addEventListener('change', evaluateGate);
-    }
-
-    // 1. Camera Initialization & Optical Verification
-    let camTimeout = null;
-    async function initCamera() {
-      if (statusCam) {
-        statusCam.className = 'diag-badge-pending';
-        statusCam.textContent = 'Connecting…';
-      }
-      if (statusCamSub) statusCamSub.textContent = 'Connecting to webcam… Please click Allow in your browser';
-
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        if (statusCam) {
-          statusCam.className = 'diag-badge-action';
-          statusCam.textContent = 'Action Required';
-        }
-        if (statusCamSub) statusCamSub.textContent = 'Camera API not supported in browser';
-        evaluateGate();
-        return;
-      }
-
-      if (camTimeout) clearTimeout(camTimeout);
-      camTimeout = setTimeout(() => {
-        if (!camVerified) {
-          if (statusCam) {
-            statusCam.className = 'diag-badge-action';
-            statusCam.textContent = 'Action Required';
+    // Capture geolocation in the background if granted, without blocking UI
+    try {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(function(pos) {
+          const locEl = document.getElementById('input-start-loc');
+          if (locEl) {
+            locEl.value = JSON.stringify({
+              latitude: Number(pos.coords.latitude.toFixed(6)),
+              longitude: Number(pos.coords.longitude.toFixed(6)),
+              accuracy: Math.round(pos.coords.accuracy),
+              timestamp: new Date().toISOString()
+            });
           }
-          if (statusCamSub) statusCamSub.textContent = 'Camera permission pending. Please allow camera in your browser address bar';
-          evaluateGate();
-        }
-      }, 7000);
-
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 320, facingMode: 'user' }, audio: false });
-        if (camTimeout) clearTimeout(camTimeout);
-        if (video) {
-          video.srcObject = stream;
-          video.play().catch(() => {});
-        }
-        camVerified = true;
-        if (badge) {
-          badge.className = 'text-emerald-700 font-bold';
-          badge.textContent = 'Feed active & ready';
-        }
-        if (statusCam) {
-          statusCam.className = 'diag-badge-verified';
-          statusCam.textContent = '✓ Verified';
-        }
-        if (statusCamSub) statusCamSub.textContent = 'Webcam stream active';
-        if (faceText) faceText.textContent = 'Webcam active — position face in outline';
-        if (faceDot) faceDot.className = 'w-2 h-2 rounded-full bg-sky-400 shrink-0';
-        if (faceOval) {
-          faceOval.setAttribute('stroke', '#38BDF8');
-          faceOval.style.filter = 'drop-shadow(0 0 5px rgba(56, 189, 248, 0.5))';
-        }
-      } catch (err) {
-        if (camTimeout) clearTimeout(camTimeout);
-        console.warn('Camera error:', err);
-        camVerified = false;
-        if (badge) {
-          badge.className = 'text-rose-600 font-bold';
-          badge.textContent = 'Camera unavailable or permission denied';
-        }
-        if (statusCam) {
-          statusCam.className = 'diag-badge-action';
-          statusCam.textContent = 'Action Required';
-        }
-        if (statusCamSub) {
-          const reason = (err && err.name === 'NotAllowedError')
-            ? 'Camera permission denied'
-            : ((err && err.name === 'NotFoundError') ? 'No camera device found' : 'Camera device unavailable or busy');
-          statusCamSub.textContent = reason;
-        }
-        if (faceText) faceText.textContent = 'Camera access required';
-        if (faceDot) faceDot.className = 'w-2 h-2 rounded-full bg-rose-500 shrink-0';
+        }, function() {}, { timeout: 3500, maximumAge: 300000 });
       }
-      evaluateGate();
-    }
+    } catch (_) {}
 
-    // 2. Geolocation Verification
-    let geoTimer = null;
-    function initGeolocation() {
-      if (geoVerified) return;
-      if (statusGeo) {
-        statusGeo.className = 'diag-badge-pending';
-        statusGeo.textContent = 'Detecting…';
-      }
-      if (statusGeoSub) statusGeoSub.textContent = 'Requesting coordinates…';
-
-      if (geoTimer) clearTimeout(geoTimer);
-      let settled = false;
-
-      const resolveGeoFallback = (reason) => {
-        if (settled) return;
-        settled = true;
-        if (geoTimer) clearTimeout(geoTimer);
-        geoVerified = true;
-        const locInput = document.getElementById('input-start-loc');
-        if (locInput) {
-          locInput.value = JSON.stringify({
-            ip_fallback: true,
-            reason: reason || 'fallback',
-            timestamp: new Date().toISOString()
-          });
-        }
-        if (statusGeo) {
-          statusGeo.className = 'diag-badge-verified';
-          statusGeo.textContent = '✓ IP Verified';
-        }
-        if (statusGeoSub) statusGeoSub.textContent = 'Candidate location resolved via IP';
-        evaluateGate();
-      };
-
-      geoTimer = setTimeout(() => resolveGeoFallback('timeout'), 3500);
-
-      if (!navigator.geolocation) {
-        resolveGeoFallback('unsupported');
-        return;
-      }
-
-      try {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            if (settled) return;
-            settled = true;
-            if (geoTimer) clearTimeout(geoTimer);
-            geoVerified = true;
-            const lat = pos.coords.latitude.toFixed(2);
-            const lon = pos.coords.longitude.toFixed(2);
-            const locInput = document.getElementById('input-start-loc');
-            if (locInput) {
-              locInput.value = JSON.stringify({
-                latitude: Number(pos.coords.latitude.toFixed(6)),
-                longitude: Number(pos.coords.longitude.toFixed(6)),
-                accuracy: Math.round(pos.coords.accuracy),
-                timestamp: new Date().toISOString()
-              });
-            }
-            if (statusGeo) {
-              statusGeo.className = 'diag-badge-verified';
-              statusGeo.textContent = '✓ Verified';
-            }
-            if (statusGeoSub) statusGeoSub.textContent = `Location verified (${lat}°, ${lon}°)`;
-            evaluateGate();
-          },
-          (err) => {
-            console.warn('Geolocation notice:', err);
-            resolveGeoFallback(err.code === 1 ? 'permission_denied' : 'unavailable');
-          },
-          { enableHighAccuracy: false, timeout: 3000, maximumAge: 300000 }
-        );
-      } catch (err) {
-        resolveGeoFallback('exception');
-      }
-    }
-
-    if (btnRetryGeo) {
-      btnRetryGeo.addEventListener('click', initGeolocation);
-    }
-
-    // 3. WiFi & Internet Latency Ping
-    async function testInternetPing() {
-      if (statusNet) {
-        statusNet.className = 'diag-badge-pending';
-        statusNet.textContent = 'Testing…';
-      }
-      if (statusNetSub) statusNetSub.textContent = 'Checking WiFi / network speed…';
-
+    // Capture connection details in the background
+    try {
       const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-      let connType = 'WiFi / Broadband';
-      if (conn && conn.effectiveType) {
-        connType = `${conn.effectiveType.toUpperCase()} / WiFi`;
+      const netEl = document.getElementById('input-start-net');
+      if (netEl && conn) {
+        netEl.value = JSON.stringify({
+          effectiveType: conn.effectiveType || '4g',
+          downlink: conn.downlink || 10,
+          rtt: conn.rtt || 50
+        });
       }
-
-      const controller = new AbortController();
-      const fetchTimer = setTimeout(() => controller.abort(), 3500);
-      const t0 = performance.now();
-      try {
-        await fetch('/', { method: 'HEAD', cache: 'no-store', signal: controller.signal });
-        clearTimeout(fetchTimer);
-        const latency = Math.max(15, Math.round(performance.now() - t0));
-        netVerified = true;
-        const netInput = document.getElementById('input-start-net');
-        if (netInput) {
-          netInput.value = JSON.stringify({
-            type: conn ? conn.type || 'wifi' : 'wifi',
-            effectiveType: conn ? conn.effectiveType : '4g',
-            downlink: conn ? conn.downlink : 10,
-            rtt: latency,
-            connectionType: connType
-          });
-        }
-        if (statusNet) {
-          statusNet.className = 'diag-badge-verified';
-          statusNet.textContent = `✓ Active (${latency}ms)`;
-        }
-        if (statusNetSub) {
-          const speed = latency < 120 ? 'Fast' : latency < 300 ? 'Good' : 'Acceptable';
-          statusNetSub.textContent = `${connType} • ${latency}ms latency (${speed})`;
-        }
-      } catch (_) {
-        netVerified = navigator.onLine;
-        const netInput = document.getElementById('input-start-net');
-        if (netInput) {
-          netInput.value = JSON.stringify({
-            type: 'wifi',
-            effectiveType: 'online',
-            rtt: 50,
-            connectionType: connType
-          });
-        }
-        if (netVerified) {
-          if (statusNet) {
-            statusNet.className = 'diag-badge-verified';
-            statusNet.textContent = '✓ Online';
-          }
-          if (statusNetSub) statusNetSub.textContent = 'Network connection active';
-        } else {
-          if (statusNet) {
-            statusNet.className = 'diag-badge-action';
-            statusNet.textContent = 'Offline';
-          }
-          if (statusNetSub) statusNetSub.textContent = 'No internet connection detected';
-        }
-      }
-      evaluateGate();
-    }
-
-    if (btnRetestNet) {
-      btnRetestNet.addEventListener('click', (e) => {
-        e.preventDefault();
-        testInternetPing();
-      });
-    }
-
-    if (retestBtn) {
-      retestBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        if (cameraRequired) initCamera();
-        initGeolocation();
-        testInternetPing();
-      });
-    }
-
-    // Run all required diagnostics
-    if (cameraRequired) {
-      initCamera();
-    }
-    initGeolocation();
-    testInternetPing();
+    } catch (_) {}
   })();
 </script>
 {% endblock %}

@@ -627,7 +627,7 @@ def csv_safe(value):
     if isinstance(value, str):
         if value.startswith(FORMULA_PREFIXES):
             return "'" + value
-        stripped = value.lstrip(" ")
+        stripped = value.lstrip()
         if stripped.startswith(FORMULA_PREFIXES):
             return "'" + value
     return value

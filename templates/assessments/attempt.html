@@ -158,8 +158,8 @@
       </div>
     </div>
 
-    <!-- Floating Proctor Alert Banner (Top Center, high z-index, unmissable) -->
-    <div id="proctor-alert" class="hidden fixed top-6 left-1/2 -translate-x-1/2 z-[99999] max-w-lg w-[calc(100vw-2rem)] rounded-2xl border-[1.5px] border-amber-400 bg-amber-50/98 p-4 sm:p-5 text-amber-950 shadow-elevated backdrop-blur-md transition-all">
+    <!-- Floating Proctor Alert Banner (Top Center, high z-index, unmissable, clears header) -->
+    <div id="proctor-alert" class="hidden fixed top-[84px] left-1/2 -translate-x-1/2 z-[100000] max-w-lg w-[calc(100vw-2rem)] rounded-2xl border-[1.5px] border-amber-400 bg-amber-50/98 p-4 sm:p-5 text-amber-950 shadow-elevated backdrop-blur-md transition-all">
       <div class="flex items-start justify-between gap-3">
         <div class="flex items-start gap-3.5">
           <span id="proctor-alert-icon" class="text-3xl shrink-0 mt-0.5">⚠️</span>
@@ -248,12 +248,12 @@
               <div class="flex items-center gap-2">
                 <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase tracking-wider bg-blue-100 text-[#2447F5]">
                   <span class="w-1.5 h-1.5 rounded-full bg-[#2447F5] animate-pulse"></span>
-                  Pre-Flight Verification
+                  Step 3 of 3: Live Diagnostics
                 </span>
-                <span class="text-xs text-slate-400 font-bold">Hardware &amp; Environment</span>
+                <span class="text-xs text-slate-500 font-bold">Hardware &amp; Environment Gate</span>
               </div>
               <h2 class="text-xl sm:text-2xl font-extrabold text-[#0F172A] tracking-tight mt-1">Pre-Assessment Device Diagnostics</h2>
-              <p class="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">Please test your camera, microphone, internet, and enable full screen to unlock your assessment.</p>
+              <p class="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">Verify your live webcam feed, network connection, location, and lock into full-screen mode before your assessment timer begins.</p>
             </div>
             <div id="diagnostic-overall-pill" class="flex items-center gap-2 px-3.5 py-1.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-bold shadow-xs">
               <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
@@ -432,5 +432,5 @@
   </div>
 </div>
 
-<script type="module" src="{% static 'js/attempt.js' %}"></script>
+<script type="module" src="{% static 'js/attempt.js' %}?v=20261106_v9"></script>
 {% endblock %}
