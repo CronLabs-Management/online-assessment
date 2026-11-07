@@ -135,6 +135,22 @@
           </div>
         </section>
 
+        <!-- Card: Wording shown to candidates -->
+        <section class="card p-6 space-y-5 shadow-xs text-left">
+          <div class="pb-3 border-b border-slate-100">
+            <h2 class="text-base font-bold text-slate-900">Candidate wording and emails</h2>
+            <p class="text-xs text-slate-500 mt-0.5">Text candidates see on the sign-in page, in their login email, and in the monitoring notice they must accept before a test. In email text, {test} becomes the test name and {site} the site name.</p>
+          </div>
+          {% for field in form %}{% if field.name in "login_headline login_email_subject login_email_intro login_email_instructions monitoring_notice_title monitoring_notice" %}
+            <div>
+              <label for="{{ field.id_for_label }}" class="label text-xs font-semibold text-slate-800">{{ field.label }}</label>
+              {{ field }}
+              {% if field.help_text %}<p class="text-[11px] text-slate-500 mt-1">{{ field.help_text }}</p>{% endif %}
+              {{ field.errors }}
+            </div>
+          {% endif %}{% endfor %}
+        </section>
+
         <!-- Card 4: Google Gemini AI Integration -->
         <section class="card p-6 border-l-4 border-l-[#0E2378] space-y-5 shadow-xs text-left">
           <div class="flex items-center justify-between pb-3 border-b border-slate-100 text-left">

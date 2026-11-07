@@ -363,7 +363,7 @@
           <!-- Snapshot Consent (if camera and snapshots enabled) -->
           {% if exam.camera_required and exam.snapshots_enabled %}
           <label class="mt-5 flex items-start gap-3 cursor-pointer p-3.5 rounded-2xl bg-slate-50 border border-slate-200 hover:border-blue-300 transition-colors">
-            <input id="snapshot-consent" type="checkbox" checked class="mt-0.5 h-4 w-4 accent-[#2447F5] cursor-pointer">
+            <input id="snapshot-consent" type="checkbox" {% if attempt.application.monitoring_consent_at %}checked{% endif %} class="mt-0.5 h-4 w-4 accent-[#2447F5] cursor-pointer">
             <span class="text-xs leading-relaxed text-slate-700 font-medium">
               I agree that automated low-resolution still frames of my webcam may be securely captured if an integrity event occurs (such as looking away, face missing, or leaving full screen).
             </span>

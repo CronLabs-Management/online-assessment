@@ -30,25 +30,24 @@
             <path d="M8.5 12l2.5 2.5 4.5-5"></path>
           </svg>
         </div>
-        <span class="login-brand-name">{{ site_settings.site_name|default:"TestShield" }}</span>
+        <span class="login-brand-name">{{ site_settings.site_name|default:"Assessments" }}</span>
       </div>
 
       <!-- Pill badge -->
       <div class="login-hero-badge">
         <span class="login-hero-badge-dot"></span>
-        <span>Secure Assessment Platform</span>
+        <span>{{ site_settings.footer_text|default:"Secure assessment platform" }}</span>
       </div>
 
       <!-- Headline -->
       <h1 class="login-hero-headline">
-        Technical<br>
-        <span class="login-hero-headline-accent">Assessments.</span>
+        {% with headline=site_settings.login_headline|default:"Technical Assessments." %}{{ headline }}{% endwith %}
       </h1>
     </div>
 
     <!-- Footer -->
     <div class="login-hero-footer">
-      &copy; {% now "Y" %} {{ site_settings.site_name|default:"TestShield" }}. All rights reserved.
+      {% if site_settings.footer_copyright %}{{ site_settings.footer_copyright }}{% else %}&copy; {% now "Y" %} {{ site_settings.site_name|default:"Assessments" }}{% endif %}
     </div>
   </div>
 

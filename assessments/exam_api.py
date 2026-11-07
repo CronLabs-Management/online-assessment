@@ -4,7 +4,6 @@ import json
 import math
 from functools import wraps
 
-from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
@@ -15,13 +14,8 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 
 from . import services
 from .models import Application, Attempt, CodingSubmission, Exam, ProctoringEvent
+from .permissions import has_perm, is_team_member
 from .services import AttemptError
-
-
-def _is_reviewer(user):
-    return user.is_authenticated and (
-        user.is_staff or user.groups.filter(name=getattr(settings, "REVIEWER_GROUP", "Reviewers")).exists()
-    )
 
 ERROR_STATUS = {
     "not_found": 404,
@@ -79,7 +73,7 @@ def api_view(view):
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
             return JsonResponse({"error": "Please log in again.", "code": "unauthenticated"}, status=401)
-        if request.user.is_staff:
+        if is_team_member(request.user):
             return JsonResponse({"error": "Staff accounts cannot take assessments.", "code": "not_allowed"}, status=403)
         try:
             return view(request, *args, **kwargs)
@@ -143,7 +137,7 @@ def _int(data, key):
 @login_required
 @require_POST
 def start_attempt_view(request, pk):
-    if request.user.is_staff:
+    if is_team_member(request.user):
         messages.error(request, "Staff accounts cannot take assessments.")
         return redirect("home")
     exam = get_object_or_404(Exam, pk=pk, is_published=True)
@@ -154,8 +148,9 @@ def start_attempt_view(request, pk):
     if application.status != Application.Status.APPROVED:
         messages.error(request, "Your application has not been approved for this assessment.")
         return redirect("home")
-    if application.details_confirmed_at is None:
-        messages.info(request, "Please verify your candidate details before starting the assessment.")
+    first_start = not Attempt.objects.filter(candidate=request.user, exam=exam).exists()
+    if application.details_confirmed_at is None or (first_start and application.monitoring_consent_at is None):
+        messages.info(request, "Please verify your details and accept the monitoring notice before starting.")
         return redirect("confirm_details", pk=exam.pk)
     try:
         attempt = services.start_attempt(request.user, exam)
@@ -189,7 +184,7 @@ def start_attempt_view(request, pk):
 @login_required
 @require_GET
 def attempt_page(request, pk):
-    if request.user.is_staff:
+    if is_team_member(request.user):
         return redirect("staff_exam_list")
     attempt = get_object_or_404(Attempt.objects.select_related("exam"), pk=pk, candidate=request.user)
     now = timezone.now()
@@ -205,7 +200,7 @@ def attempt_page(request, pk):
 @login_required
 @require_GET
 def attempt_result(request, pk):
-    if request.user.is_staff:
+    if is_team_member(request.user):
         return redirect("staff_exam_list")
     attempt = get_object_or_404(Attempt.objects.select_related("exam"), pk=pk, candidate=request.user)
     if not attempt.is_final:
@@ -349,7 +344,7 @@ def api_submission_status(request, pk, submission_id):
     Never exposes hidden test details, outputs, or marks to the candidate.
     """
     attempt = get_object_or_404(Attempt, pk=pk)
-    if attempt.candidate_id != request.user.pk and not (request.user.is_staff or _is_reviewer(request.user)):
+    if attempt.candidate_id != request.user.pk and not has_perm(request.user, "results.view"):
         return JsonResponse({"ok": False, "error": "Permission denied.", "code": "forbidden"}, status=403)
     submission = get_object_or_404(CodingSubmission, pk=submission_id, attempt=attempt)
     return JsonResponse({

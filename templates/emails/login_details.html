@@ -10,7 +10,7 @@
 </p>
 
 <p style="color:#475569; font-size:15px; line-height:1.6; margin:0 0 20px 0;">
-  Your login credentials for the assessment <strong>{{ exam.title }}</strong> are ready. Use the details below to sign in and take your test.
+  {{ intro }}
 </p>
 
 <!-- Credentials Box -->
@@ -56,12 +56,11 @@
 </div>
 
 <!-- Important Notice -->
-<div style="background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:14px 18px; margin:24px 0; font-size:13px; color:#92400e; line-height:1.5;">
+{% if instructions %}<div style="background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:14px 18px; margin:24px 0; font-size:13px; color:#92400e; line-height:1.5;">
   <strong style="display:block; margin-bottom:4px; color:#b45309;">Important Instructions:</strong>
   <ul style="margin:0; padding-left:18px;">
-    <li>Keep this email private. Anyone with your password can sign in as you.</li>
-    <li>Once you click Start Test, the timer runs continuously. Begin only when you are ready to complete the test in one sitting.</li>
-    <li>If you lose this password, request the test administrator to resend your credentials.</li>
+    {% for line in instructions %}<li>{{ line }}</li>
+    {% endfor %}
   </ul>
-</div>
+</div>{% endif %}
 {% endblock %}

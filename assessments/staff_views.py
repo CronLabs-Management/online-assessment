@@ -24,12 +24,13 @@ from . import notifications
 from .ai_interview import generate_interview_questions_with_gemini, get_gemini_config
 from .forms import CandidateEditForm, CandidateImportForm, InterviewDecisionForm, RevokeForm
 from .models import Application, Attempt, AuditLog, Exam, InterviewReview, ProctoringSnapshot
+from .permissions import any_permission_required, has_perm, is_team_member, permission_required
 from .review import attempt_csv_rows, build_attempt_review, csv_safe
 from .services import AttemptError, allow_resume, expire_due_attempts, snapshot_file_path
-from .views import User, audit, reviewer_required, staff_required
+from .views import User, audit
 
 
-@reviewer_required
+@permission_required("tests.view")
 def staff_exam_overview(request, pk):
     expire_due_attempts()
     exam = get_object_or_404(Exam, pk=pk)
@@ -216,7 +217,7 @@ def _candidate_rows(exam, q="", status="", flagged=False, sort="newest", score_v
     return rows
 
 
-@staff_required
+@permission_required("candidates.view")
 def staff_exam_candidates(request, pk):
     expire_due_attempts()
     exam = get_object_or_404(Exam, pk=pk)
@@ -288,7 +289,7 @@ def staff_exam_candidates(request, pk):
     )
 
 
-@staff_required
+@permission_required("candidates.manage")
 def staff_candidates_import(request, pk):
     exam = get_object_or_404(Exam, pk=pk)
     if request.method == "POST":
@@ -301,8 +302,8 @@ def staff_candidates_import(request, pk):
             with transaction.atomic():
                 for row in rows:
                     user = User.objects.filter(Q(username__iexact=row["email"]) | Q(email__iexact=row["email"])).first()
-                    if user is not None and user.is_staff:
-                        problems.append(f"{row['email']} belongs to a staff account and was skipped.")
+                    if user is not None and is_team_member(user):
+                        problems.append(f"{row['email']} belongs to a staff or admin account and was skipped.")
                         continue
                     if user is None:
                         user = User(username=row["email"], email=row["email"], is_active=True)
@@ -375,7 +376,7 @@ def _send_to(application, actor, connection=None):
     return True
 
 
-@staff_required
+@permission_required("credentials.send")
 @require_POST
 def staff_resend_credentials(request, pk):
     application = get_object_or_404(Application.objects.select_related("candidate", "exam"), pk=pk)
@@ -395,7 +396,7 @@ def staff_resend_credentials(request, pk):
     return redirect("staff_exam_candidates", pk=application.exam_id)
 
 
-@staff_required
+@permission_required("credentials.send")
 @require_POST
 def staff_regenerate_credentials(request, pk):
     application = get_object_or_404(Application.objects.select_related("candidate", "exam"), pk=pk)
@@ -425,7 +426,7 @@ def staff_regenerate_credentials(request, pk):
     return redirect("staff_exam_candidates", pk=application.exam_id)
 
 
-@staff_required
+@permission_required("credentials.view")
 @require_POST
 def staff_audit_credential_access(request, pk):
     application = get_object_or_404(Application, pk=pk)
@@ -436,7 +437,7 @@ def staff_audit_credential_access(request, pk):
     return JsonResponse({"ok": True})
 
 
-@staff_required
+@permission_required("credentials.send")
 @require_POST
 def staff_send_credentials(request, pk):
     """Sends login details to a batch of candidates."""
@@ -494,7 +495,7 @@ def staff_send_credentials(request, pk):
     return redirect("staff_exam_candidates", pk=exam.pk)
 
 
-@staff_required
+@permission_required("candidates.manage")
 @require_POST
 def staff_access(request, pk):
     application = get_object_or_404(Application.objects.select_related("candidate"), pk=pk)
@@ -520,11 +521,15 @@ def staff_access(request, pk):
     return redirect("staff_exam_candidates", pk=application.exam_id)
 
 
-@staff_required
+@permission_required("candidates.manage")
 def staff_candidate_edit(request, pk):
     application = get_object_or_404(Application.objects.select_related("candidate", "exam"), pk=pk)
+    can_see_password = has_perm(request.user, "credentials.view")
+    previous_password = application.plain_password
     if request.method == "POST":
         form = CandidateEditForm(request.POST, request.FILES, instance=application)
+        if not can_see_password:
+            form.fields.pop("plain_password", None)
         if form.is_valid():
             with transaction.atomic():
                 app = form.save()
@@ -538,7 +543,9 @@ def staff_candidate_edit(request, pk):
                     user.email = new_email
                     user.save(update_fields=["username", "email"])
                 new_pw = (form.cleaned_data.get("plain_password") or "").strip()
-                if new_pw and new_pw != app.plain_password:
+                # Compare with the password before the form was saved: form.save() has already copied
+                # the new value onto the application, so comparing with app.plain_password never matched.
+                if new_pw and new_pw != previous_password:
                     user.set_password(new_pw)
                     user.save(update_fields=["password"])
                     app.plain_password = new_pw
@@ -548,10 +555,12 @@ def staff_candidate_edit(request, pk):
             return redirect("staff_exam_candidates", pk=application.exam_id)
     else:
         form = CandidateEditForm(instance=application)
+        if not can_see_password:
+            form.fields.pop("plain_password", None)
     return render(request, "assessments/staff/candidate_edit.html", {"form": form, "application": application})
 
 
-@staff_required
+@permission_required("candidates.manage")
 @require_POST
 def staff_attempt_allow_resume(request, pk):
     """Lets a candidate continue in their current browser after a session conflict. The flag stays for review."""
@@ -568,7 +577,7 @@ def staff_attempt_allow_resume(request, pk):
     return redirect("staff_attempt_review", pk=attempt.pk)
 
 
-@reviewer_required
+@permission_required("results.view")
 def staff_attempt_review(request, pk):
     expire_due_attempts()
     attempt = get_object_or_404(
@@ -744,7 +753,7 @@ def staff_attempt_review(request, pk):
     return render(request, "assessments/staff/attempt_review.html", context)
 
 
-@reviewer_required
+@permission_required("tests.manage")
 @require_POST
 def staff_exam_update_rounds(request, pk):
     exam = get_object_or_404(Exam, pk=pk)
@@ -773,7 +782,7 @@ def staff_exam_update_rounds(request, pk):
     return redirect(next_url)
 
 
-@reviewer_required
+@permission_required("interviews.conduct")
 @require_POST
 def staff_attempt_decision(request, pk):
     attempt = get_object_or_404(Attempt.objects.select_related("exam", "application"), pk=pk)
@@ -916,7 +925,7 @@ def staff_attempt_decision(request, pk):
     return redirect(redirect_url)
 
 
-@reviewer_required
+@permission_required("results.view")
 def staff_snapshot(request, pk):
     snapshot = get_object_or_404(ProctoringSnapshot.objects.select_related("attempt"), pk=pk)
     try:
@@ -938,7 +947,7 @@ def staff_snapshot(request, pk):
     return response
 
 
-@reviewer_required
+@permission_required("results.view")
 @require_POST
 def staff_snapshot_review(request, pk):
     snapshot = get_object_or_404(ProctoringSnapshot, pk=pk)
@@ -950,7 +959,7 @@ def staff_snapshot_review(request, pk):
     return redirect("staff_attempt_review", pk=snapshot.attempt_id)
 
 
-@staff_required
+@permission_required("results.export")
 def staff_export_csv(request, pk):
     expire_due_attempts()
     exam = get_object_or_404(Exam, pk=pk)
@@ -974,7 +983,7 @@ def staff_export_csv(request, pk):
     return response
 
 
-@staff_required
+@permission_required("candidates.manage")
 def staff_candidates_sample_csv(request, pk):
     get_object_or_404(Exam, pk=pk)
     response = HttpResponse(content_type="text/csv")
@@ -987,13 +996,13 @@ def staff_candidates_sample_csv(request, pk):
     return response
 
 
-@staff_required
+@permission_required("audit.view")
 def staff_audit_log(request):
     entries = AuditLog.objects.select_related("actor")[:500]
     return render(request, "assessments/staff/audit_log.html", {"entries": entries})
 
 
-@reviewer_required
+@any_permission_required("candidates.view", "results.view")
 def staff_application_resume(request, pk):
     application = get_object_or_404(Application.objects.select_related("candidate"), pk=pk)
 
@@ -1033,7 +1042,7 @@ def staff_application_resume(request, pk):
     return response
 
 
-@reviewer_required
+@permission_required("interviews.conduct")
 def staff_generate_ai_questions(request, pk):
     if request.method != "POST":
         return HttpResponseNotAllowed(["POST"])

@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import exam_api, staff_views, views
+from . import exam_api, staff_views, team_views, views
 
 urlpatterns = [
     path("", views.home, name="home"),
@@ -64,4 +64,11 @@ urlpatterns = [
     path("staff/snapshots/<int:pk>/review/", staff_views.staff_snapshot_review, name="staff_snapshot_review"),
     path("staff/audit/", staff_views.staff_audit_log, name="staff_audit_log"),
     path("staff/settings/", views.staff_settings, name="staff_settings"),
+    path("staff/team/", team_views.team_overview, name="team_overview"),
+    path("staff/team/members/new/", team_views.team_member_add, name="team_member_add"),
+    path("staff/team/members/<int:pk>/", team_views.team_member_edit, name="team_member_edit"),
+    path("staff/team/members/<int:pk>/reset-password/", team_views.team_member_reset_password, name="team_member_reset_password"),
+    path("staff/team/roles/new/", team_views.team_role_add, name="team_role_add"),
+    path("staff/team/roles/<int:pk>/", team_views.team_role_edit, name="team_role_edit"),
+    path("staff/team/roles/<int:pk>/delete/", team_views.team_role_delete, name="team_role_delete"),
 ]

@@ -232,6 +232,7 @@ class CandidateSignInTests(TestCase):
                 "full_name": "Asha R. Rao",
                 "email": "asha@example.com",
                 "phone": "9876543210",
+                "monitoring_consent": "on",
             },
         )
         self.application.refresh_from_db()

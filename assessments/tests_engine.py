@@ -111,6 +111,7 @@ class EngineFixture(TestCase):
             full_name="Cand",
             status=Application.Status.APPROVED,
             details_confirmed_at=now,
+            monitoring_consent_at=now,
         )
 
     def start(self, user=None):

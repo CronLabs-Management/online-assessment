@@ -212,9 +212,20 @@ def send_login_details(application, password, actor=None, connection=None):
     """
     user = application.candidate
     try:
-        site_name = SiteSettings.load().site_name or "Scrambler Assessments"
+        site = SiteSettings.load()
     except Exception:
-        site_name = "Scrambler Assessments"
+        site = SiteSettings()
+    site_name = site.site_name or "Assessments"
+    exam = application.exam
+
+    def fill(text):
+        return (text or "").replace("{test}", exam.title).replace("{site}", site_name)
+
+    instructions = [
+        fill(line).strip()
+        for line in (site.login_email_instructions or "").splitlines() + (exam.email_instructions or "").splitlines()
+        if line.strip()
+    ]
 
     context = {
         "application": application,
@@ -224,6 +235,8 @@ def send_login_details(application, password, actor=None, connection=None):
         "login_link": _absolute(reverse("login")),
         "exam_link": _absolute(reverse("exam_detail", args=[application.exam_id])),
         "site_name": site_name,
+        "intro": fill(site.login_email_intro) or f"Your login for {exam.title} is ready.",
+        "instructions": instructions,
     }
     body = render_to_string("emails/login_details.txt", context)
     try:
@@ -232,7 +245,7 @@ def send_login_details(application, password, actor=None, connection=None):
         logger.debug("Could not render HTML email template: %s", exc)
         html_body = None
 
-    subject = f"Your login for {application.exam.title}"
+    subject = fill(site.login_email_subject) or f"Your login for {exam.title}"
 
     success = deliver_email(subject, body, user.email, html_body=html_body, connection=connection)
 

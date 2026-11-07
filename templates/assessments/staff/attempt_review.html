@@ -215,7 +215,7 @@
       </a>
     </div>
     <div class="user">
-      {{ request.user.email|default:request.user.username }} &nbsp; · &nbsp; {% if request.user.is_superuser or request.user.is_staff %}Administrator{% else %}Reviewer{% endif %}
+      {{ request.user.email|default:request.user.username }} &nbsp; · &nbsp; {{ oa_role }}
       &nbsp; · &nbsp; <a href="{% url 'logout' %}" style="color:var(--muted);text-decoration:underline" onclick="event.preventDefault(); document.getElementById('topbar-logout-form').submit();">Sign out</a>
       <form id="topbar-logout-form" method="post" action="{% url 'logout' %}" style="display:none">{% csrf_token %}</form>
     </div>

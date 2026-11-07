@@ -57,6 +57,7 @@ class CandidateFlowViewTests(TestCase):
             full_name="Cand Name",
             status=Application.Status.APPROVED,
             details_confirmed_at=timezone.now(),
+            monitoring_consent_at=timezone.now(),
         )
         self.client.force_login(self.candidate)
 
@@ -181,6 +182,7 @@ class StaffViewTests(TestCase):
             full_name="Cand Name",
             status=Application.Status.APPROVED,
             details_confirmed_at=timezone.now(),
+            monitoring_consent_at=timezone.now(),
         )
         self.client.force_login(self.staff)
 

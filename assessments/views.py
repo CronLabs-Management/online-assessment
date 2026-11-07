@@ -8,7 +8,7 @@ from pathlib import Path
 from django.conf import settings as dj_settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
 from django.core.cache import cache
 from django.core.mail import send_mail
@@ -43,25 +43,15 @@ from .models import (
     MCQQuestion,
     SiteSettings,
 )
+from .permissions import has_perm, is_admin, is_team_member, permission_required, team_required
 from .services import expire_due_attempts, get_client_ip, publish_checks
 
 User = get_user_model()
 
 
-def staff_required(view):
-    """Administrators only: exam configuration, candidate access and settings."""
-    return login_required(user_passes_test(lambda u: u.is_staff)(view))
-
-
 def is_reviewer(user):
-    return user.is_authenticated and (
-        user.is_staff or user.groups.filter(name=dj_settings.REVIEWER_GROUP).exists()
-    )
-
-
-def reviewer_required(view):
-    """Administrators and members of the Reviewers group: read attempts, record interview notes."""
-    return login_required(user_passes_test(is_reviewer)(view))
+    """Kept for older imports: anyone on the team (admins and staff)."""
+    return is_team_member(user)
 
 
 def audit(actor, action, target, detail=""):
@@ -126,7 +116,7 @@ class CandidateLoginView(LoginView):
         redirect_to = self.get_redirect_url()
         if redirect_to:
             return redirect_to
-        if self.request.user.is_staff or is_reviewer(self.request.user):
+        if is_team_member(self.request.user):
             return reverse("staff_exam_list")
         return reverse("home")
 
@@ -153,7 +143,7 @@ def logout_view(request):
 def home(request):
     if not request.user.is_authenticated:
         return redirect("login")
-    if request.user.is_staff:
+    if is_team_member(request.user):
         return redirect("staff_exam_list")
     expire_due_attempts()
     applications = (
@@ -196,7 +186,7 @@ def candidate_state_for(application, attempt):
 
 @login_required
 def exam_detail(request, pk):
-    if request.user.is_staff:
+    if is_team_member(request.user):
         return redirect("staff_exam_detail", pk=pk)
     exam = get_object_or_404(Exam, pk=pk, is_published=True)
     application = Application.objects.filter(candidate=request.user, exam=exam).first()
@@ -208,7 +198,7 @@ def exam_detail(request, pk):
     attempt = Attempt.objects.filter(candidate=request.user, exam=exam).first()
 
     # Guard: Candidate MUST verify details before proceeding to system check & exam
-    if attempt is None and application.details_confirmed_at is None:
+    if attempt is None and (application.details_confirmed_at is None or application.monitoring_consent_at is None):
         messages.info(request, "Please verify your candidate details before proceeding to the system check.")
         return redirect("confirm_details", pk=exam.pk)
 
@@ -279,7 +269,7 @@ def serve_branding(request, kind):
 
 @login_required
 def confirm_details(request, pk):
-    if request.user.is_staff:
+    if is_team_member(request.user):
         return redirect("staff_exam_detail", pk=pk)
     exam = get_object_or_404(Exam, pk=pk, is_published=True)
     application = get_object_or_404(Application, candidate=request.user, exam=exam)
@@ -307,6 +297,11 @@ def confirm_details(request, pk):
         if form.is_valid():
             application = form.save(commit=False)
             application.details_confirmed_at = timezone.now()
+            notice = SiteSettings.load()
+            application.monitoring_consent_at = timezone.now()
+            application.monitoring_consent_text = "\n".join(
+                [notice.monitoring_notice_title or ""] + notice.monitoring_notice_lines()
+            ).strip()
             new_email = form.cleaned_data.get("email", "").strip().lower()
             if new_email and application.candidate.email != new_email:
                 if User.objects.filter(Q(email__iexact=new_email) | Q(username__iexact=new_email)).exclude(pk=application.candidate_id).exists():
@@ -333,7 +328,11 @@ def confirm_details(request, pk):
             return redirect("exam_detail", pk=exam.pk)
     else:
         form = ConfirmDetailsForm(instance=application)
-    return render(request, "assessments/confirm_details.html", {"exam": exam, "application": application, "form": form})
+    return render(
+        request,
+        "assessments/confirm_details.html",
+        {"exam": exam, "application": application, "form": form, "notice": SiteSettings.load()},
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -341,13 +340,13 @@ def confirm_details(request, pk):
 # ---------------------------------------------------------------------------
 
 
-@reviewer_required
+@team_required
 def staff_exam_list(request):
-    exams = Exam.objects.all()
+    exams = Exam.objects.all() if has_perm(request.user, "tests.view") else Exam.objects.none()
     return render(request, "assessments/staff/exam_list.html", {"exams": exams, "now": timezone.now()})
 
 
-@staff_required
+@permission_required("tests.manage")
 def staff_exam_create(request):
     if request.method == "POST":
         form = ExamForm(request.POST)
@@ -364,7 +363,7 @@ def staff_exam_create(request):
     return render(request, "assessments/staff/exam_form.html", {"form": form, "exam": None})
 
 
-@staff_required
+@permission_required("tests.manage")
 def staff_exam_edit(request, pk):
     exam = get_object_or_404(Exam, pk=pk)
     if request.method == "POST":
@@ -379,7 +378,7 @@ def staff_exam_edit(request, pk):
     return render(request, "assessments/staff/exam_form.html", {"form": form, "exam": exam})
 
 
-@staff_required
+@permission_required("tests.view")
 def staff_exam_detail(request, pk):
     exam = get_object_or_404(Exam, pk=pk)
     checks = publish_checks(exam)
@@ -415,7 +414,7 @@ def staff_exam_detail(request, pk):
     return render(request, "assessments/staff/exam_detail.html", context)
 
 
-@staff_required
+@permission_required("tests.manage")
 @require_POST
 def staff_exam_publish(request, pk):
     exam = get_object_or_404(Exam, pk=pk)
@@ -451,7 +450,7 @@ def staff_exam_publish(request, pk):
     return redirect("staff_exam_detail", pk=exam.pk)
 
 
-@staff_required
+@permission_required("tests.manage")
 @require_POST
 def staff_exam_unpublish(request, pk):
     exam = get_object_or_404(Exam, pk=pk)
@@ -462,7 +461,7 @@ def staff_exam_unpublish(request, pk):
     return redirect("staff_exam_detail", pk=exam.pk)
 
 
-@staff_required
+@permission_required("tests.manage")
 @require_POST
 def staff_section_add(request, pk):
     exam = get_object_or_404(Exam, pk=pk)
@@ -486,7 +485,7 @@ def staff_section_add(request, pk):
     return redirect("staff_exam_detail", pk=exam.pk)
 
 
-@staff_required
+@permission_required("tests.manage")
 def staff_section_edit(request, pk):
     section = get_object_or_404(ExamSection, pk=pk)
     exam = section.exam
@@ -513,7 +512,7 @@ def staff_section_edit(request, pk):
     )
 
 
-@staff_required
+@permission_required("tests.manage")
 @require_POST
 def staff_section_delete(request, pk):
     section = get_object_or_404(ExamSection, pk=pk)
@@ -540,7 +539,7 @@ def staff_section_delete(request, pk):
     return redirect("staff_exam_detail", pk=exam_pk)
 
 
-@staff_required
+@permission_required("questions.manage")
 def staff_mcq_add(request, pk):
     exam = get_object_or_404(Exam, pk=pk)
     if exam.attempts.exists():
@@ -595,7 +594,7 @@ def staff_mcq_add(request, pk):
     )
 
 
-@staff_required
+@permission_required("questions.manage")
 def staff_mcq_edit(request, pk):
     question = get_object_or_404(MCQQuestion, pk=pk)
     exam = question.exam
@@ -652,7 +651,7 @@ def staff_mcq_edit(request, pk):
     )
 
 
-@staff_required
+@permission_required("questions.manage")
 @require_POST
 def staff_mcq_delete(request, pk):
     question = get_object_or_404(MCQQuestion, pk=pk)
@@ -666,7 +665,7 @@ def staff_mcq_delete(request, pk):
     return redirect("staff_exam_detail", pk=exam_pk)
 
 
-@staff_required
+@permission_required("questions.manage")
 def staff_coding_add(request, pk):
     exam = get_object_or_404(Exam, pk=pk)
     if exam.attempts.exists():
@@ -705,7 +704,7 @@ def staff_coding_add(request, pk):
     )
 
 
-@staff_required
+@permission_required("questions.manage")
 def staff_coding_edit(request, pk):
     problem = get_object_or_404(CodingProblem, pk=pk)
     exam = problem.exam
@@ -748,7 +747,7 @@ def staff_coding_edit(request, pk):
     )
 
 
-@staff_required
+@permission_required("questions.manage")
 @require_POST
 def staff_coding_delete(request, pk):
     problem = get_object_or_404(CodingProblem, pk=pk)
@@ -771,7 +770,7 @@ def staff_coding_delete(request, pk):
 # ---------------------------------------------------------------------------
 
 
-@staff_required
+@permission_required("settings.manage")
 def staff_settings(request):
     site = SiteSettings.load()
     if request.method == "POST":
@@ -873,7 +872,7 @@ def verify_email(request, token):
         messages.error(request, "This verification link is invalid or has expired.")
         return redirect("home")
 
-    if request.user != application.candidate and not request.user.is_staff:
+    if request.user != application.candidate and not is_admin(request.user):
         messages.error(request, "You are not authorized to verify this email address.")
         return redirect("home")
 

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}{% if role.pk %}Edit role{% else %}New role{% endif %}{% endblock %}
+{% block content %}
+<div class="space-y-6 max-w-3xl">
+  <a href="{% url 'team_overview' %}" class="crumb">
+    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+    <span>Team</span>
+  </a>
+  <div>
+    <h1 class="text-2xl font-bold text-slate-900 tracking-tight">{% if role.pk %}Edit role: {{ role.name }}{% else %}New role{% endif %}</h1>
+    <p class="mt-1 text-sm text-slate-600">Tick what people in this role may do. Anything left unticked is hidden from them and refused if they try.</p>
+  </div>
+  <form method="post" class="space-y-6">
+    {% csrf_token %}
+    <div class="card p-6 grid gap-5 sm:grid-cols-2">
+      <div>
+        <label class="label" for="{{ form.name.id_for_label }}">{{ form.name.label }}</label>
+        {{ form.name }}
+        {% for error in form.name.errors %}<p class="text-xs text-rose-600 mt-1">{{ error }}</p>{% endfor %}
+      </div>
+      <div>
+        <label class="label" for="{{ form.description.id_for_label }}">{{ form.description.label }}</label>
+        {{ form.description }}
+      </div>
+    </div>
+
+    <div class="card divide-y divide-slate-100">
+      {% for area, items in groups %}
+        <fieldset class="p-5 m-0 border-0 min-w-0">
+          <legend class="float-left w-full text-sm font-semibold text-slate-900 mb-3 p-0">{{ area }}</legend>
+          <div class="grid gap-3 sm:grid-cols-2">
+            {% for code, label, description in items %}
+              <label class="flex items-start gap-3 rounded-lg border border-slate-200 p-3 hover:bg-slate-50 cursor-pointer">
+                <input type="checkbox" name="permissions" value="{{ code }}" class="mt-0.5 h-4 w-4 accent-[#2447F5]" {% if code in chosen %}checked{% endif %}>
+                <span>
+                  <span class="block text-sm font-medium text-slate-900">{{ label }}</span>
+                  <span class="block text-xs text-slate-500 mt-0.5">{{ description }}</span>
+                </span>
+              </label>
+            {% endfor %}
+          </div>
+        </fieldset>
+      {% endfor %}
+    </div>
+    <p class="text-xs text-slate-500">Give "Manage team and roles" only to people you trust with admin-level control: they can change any role, including their own.</p>
+
+    <div class="flex items-center gap-3">
+      <button class="btn btn-primary text-sm py-2 px-5">Save role</button>
+      <a href="{% url 'team_overview' %}" class="btn btn-secondary text-sm py-2 px-4">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

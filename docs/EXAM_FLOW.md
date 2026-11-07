@@ -9,12 +9,12 @@ runs, how marks are calculated, what data is kept, and what happens in the edge 
 
 | Role | How the account is made | Can do |
 |---|---|---|
-| Staff (administrator) | `createsuperuser`, or a staff user in `/admin/` | Create and publish tests, import candidates, send and resend login details, remove or restore access, see marks, review attempts, change settings, read the audit log |
-| Reviewer | Member of the **Reviewers** group | Read attempts, view snapshots, record interview decisions. Cannot change tests, candidate access or settings. |
+| Admin | `createsuperuser`, or a staff user in `/admin/` | Everything, always: tests, questions, candidates, logins, results, interviews, settings, the audit log and the Team page. |
+| Staff (interviewer, test author, recruiter…) | Added by an admin on the **Team** page, with a role | Only what their role allows. Admins create roles and tick permissions on the Team page; changing a role changes access for everyone in it, with no code change. An "Interviewer" role (view tests, candidates and results; conduct interviews) is created on first migration. Members of the old **Reviewers** group keep the Interviewer permissions. |
 | Candidate | Created by staff when the mailing list is imported | Sign in, confirm details, take a published test they have access to, see their own confirmation. Never sees marks. |
 | System | Cron jobs | Expire abandoned attempts, grade queued code, delete evidence past the retention period |
 
-Staff cannot take tests. A reviewer who also sat a test cannot record a decision on their own attempt.
+Admins and staff cannot take tests. Before a candidate's first start they must accept the monitoring notice (editable under Settings); the exact text they agreed to is stored with their details. A staff member who also sat a test cannot record a decision on their own attempt.
 
 ---
 

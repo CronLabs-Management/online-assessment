@@ -155,7 +155,7 @@
               <button type="button" onclick="document.getElementById('id_resume').click();" class="btn btn-secondary text-xs font-bold py-1.5 px-3 rounded-lg border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-2xs">
                 Replace File
               </button>
-              <button type="submit" name="action" value="remove_resume" class="btn btn-secondary text-xs font-bold py-1.5 px-3 rounded-lg border-rose-200 bg-white text-rose-700 hover:bg-rose-50 shadow-2xs inline-flex items-center gap-1" title="Remove resume from application">
+              <button type="submit" name="action" value="remove_resume" class="btn btn-secondary text-xs font-bold py-1.5 px-3 rounded-lg border-rose-200 bg-white text-rose-700 hover:bg-rose-50 shadow-2xs inline-flex items-center gap-1" title="Remove resume from application" formnovalidate>
                 <svg width="14" height="14" class="w-3.5 h-3.5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                 <span>Remove</span>
               </button>
@@ -213,6 +213,20 @@
           <div class="text-xs font-semibold text-rose-600 mt-1">{{ form.resume.errors }}</div>
         {% endif %}
       </div>
+
+      <!-- Monitoring notice: candidates agree before any camera, location or network check -->
+      <section class="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-5 space-y-3" aria-labelledby="monitoring-notice-title">
+        <h2 id="monitoring-notice-title" class="text-sm font-bold text-slate-900">{{ notice.monitoring_notice_title|default:"How this test is monitored" }}</h2>
+        <ul class="list-disc pl-6 ml-1 space-y-1.5 text-sm text-slate-700">
+          {% for line in notice.monitoring_notice_lines %}<li>{{ line }}</li>{% endfor %}
+        </ul>
+        <label class="flex items-start gap-3 pt-2 text-sm font-semibold text-slate-900 cursor-pointer">
+          {{ form.monitoring_consent }}
+          <span>{{ form.monitoring_consent.label }}</span>
+        </label>
+        {% for error in form.monitoring_consent.errors %}<p class="text-xs font-semibold text-rose-600">{{ error }}</p>{% endfor %}
+        {% if application.monitoring_consent_at %}<p class="text-xs text-slate-500">You agreed on {{ application.monitoring_consent_at|date:"j M Y, H:i" }}.</p>{% endif %}
+      </section>
 
       <!-- Action Button -->
       <div class="pt-6 border-t border-slate-100 space-y-2.5">

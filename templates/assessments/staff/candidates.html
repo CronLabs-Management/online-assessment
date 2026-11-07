@@ -32,14 +32,14 @@
 
     <!-- Quick Action Bar -->
     <div class="flex items-center gap-2 sm:gap-2.5 flex-wrap">
-      <a href="{% url 'staff_candidates_sample_csv' exam.pk %}" class="btn btn-secondary text-xs font-bold shadow-2xs inline-flex items-center gap-1.5 py-2 px-3 rounded-lg border-slate-200 hover:bg-slate-50" title="Download CSV template for bulk importing candidates">
+      {% if "candidates.manage" in oa_perms %}<a href="{% url 'staff_candidates_sample_csv' exam.pk %}" class="btn btn-secondary text-xs font-bold shadow-2xs inline-flex items-center gap-1.5 py-2 px-3 rounded-lg border-slate-200 hover:bg-slate-50" title="Download CSV template for bulk importing candidates">
         <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"/></svg>
         Sample CSV
-      </a>
-      <a href="{% url 'staff_export_csv' exam.pk %}" class="btn btn-secondary text-xs font-bold shadow-2xs inline-flex items-center gap-1.5 py-2 px-3 rounded-lg border-slate-200 hover:bg-slate-50" title="Export candidate list and attempt results to CSV">
+      </a>{% endif %}
+      {% if "results.export" in oa_perms %}<a href="{% url 'staff_export_csv' exam.pk %}" class="btn btn-secondary text-xs font-bold shadow-2xs inline-flex items-center gap-1.5 py-2 px-3 rounded-lg border-slate-200 hover:bg-slate-50" title="Export candidate list and attempt results to CSV">
         <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
         Export CSV
-      </a>
+      </a>{% endif %}
       <button type="button" onclick="document.getElementById('change-rounds-modal').classList.remove('hidden');" class="btn btn-secondary text-xs font-bold shadow-2xs inline-flex items-center gap-1.5 py-2 px-3 rounded-lg border-slate-200 hover:bg-slate-50 text-slate-700" title="Configure interview rounds count">
         <span>⚙️</span> Interview Rounds ({{ exam.interview_rounds_count }})
       </button>
@@ -51,10 +51,10 @@
           </span>
         {% endif %}
       </button>
-      <a href="{% url 'staff_candidates_import' exam.pk %}" class="btn btn-primary text-xs font-bold shadow-2xs inline-flex items-center gap-1.5 py-2 px-3.5 rounded-lg bg-[#335eea] hover:bg-[#254bd0] text-white">
+      {% if "candidates.manage" in oa_perms %}<a href="{% url 'staff_candidates_import' exam.pk %}" class="btn btn-primary text-xs font-bold shadow-2xs inline-flex items-center gap-1.5 py-2 px-3.5 rounded-lg bg-[#335eea] hover:bg-[#254bd0] text-white">
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
         + Add Candidates
-      </a>
+      </a>{% endif %}
     </div>
   </div>
 
@@ -635,7 +635,9 @@
                   <div class="space-y-1">
                     <div class="flex items-center gap-1 font-mono text-[11px] bg-slate-100 text-slate-900 px-2 py-0.5 rounded border border-slate-200 w-fit">
                       <span class="text-slate-500 font-bold select-none text-[10px]">PWD:</span>
-                      {% if app.plain_password %}
+                      {% if app.plain_password and "credentials.view" not in oa_perms %}
+                        <span class="text-slate-400 font-normal">Hidden</span>
+                      {% elif app.plain_password %}
                         <span class="password-cell font-mono font-bold tracking-wider text-slate-900 select-all" data-app-id="{{ app.pk }}" data-password="{{ app.plain_password }}" data-masked="true">••••••••</span>
                         <button type="button" onclick="togglePassword(this, '{{ app.pk }}')" class="btn-toggle-pwd ml-1 text-[10px] font-sans font-bold text-slate-600 hover:text-slate-900 bg-white px-1.5 py-0.5 rounded border border-slate-200" title="Show / hide password">Show</button>
                         <button type="button" onclick="copyPassword('{{ app.plain_password }}', '{{ app.pk }}', this)" class="btn-copy-pwd text-[10px] font-sans font-bold text-[#335eea] hover:text-[#254bd0] bg-white px-1.5 py-0.5 rounded border border-slate-200" title="Copy password">Copy</button>

@@ -5,7 +5,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Assessments{% endblock %} | {{ site_settings.site_name|default:"TestShield" }}</title>
+  <title>{% block title %}Assessments{% endblock %} | {{ site_settings.site_name|default:"Assessments" }}</title>
   {% if site_settings and site_settings.favicon %}
   <link rel="icon" href="{% url 'serve_branding' 'favicon' %}">
   {% endif %}
@@ -180,18 +180,23 @@
               </svg>
             </div>
             {% endif %}
-            <span class="text-xl font-extrabold tracking-tight text-slate-900">{{ site_settings.site_name|default:"TestShield" }}</span>
+            <span class="text-xl font-extrabold tracking-tight text-slate-900">{{ site_settings.site_name|default:"Assessments" }}</span>
           </a>
 
           {% if user.is_authenticated %}
           <div class="hidden md:flex items-center gap-7">
-            {% if user.is_staff or user.groups.exists %}
+            {% if oa_is_team %}
               <a class="nav-link" href="{% url 'staff_exam_list' %}" {% if request.resolver_match.url_name == 'staff_exam_list' or request.resolver_match.url_name == 'staff_exam_detail' or request.resolver_match.url_name == 'staff_exam_overview' %}aria-current="page"{% endif %}>Exams</a>
             {% else %}
               <a class="nav-link" href="{% url 'home' %}" {% if request.resolver_match.url_name == 'home' %}aria-current="page"{% endif %}>Dashboard</a>
             {% endif %}
-            {% if user.is_staff %}
+            {% if "team.manage" in oa_perms %}
+              <a class="nav-link" href="{% url 'team_overview' %}" {% if request.resolver_match.url_name|slice:":5" == 'team_' %}aria-current="page"{% endif %}>Team</a>
+            {% endif %}
+            {% if "settings.manage" in oa_perms %}
               <a class="nav-link" href="{% url 'staff_settings' %}" {% if request.resolver_match.url_name == 'staff_settings' %}aria-current="page"{% endif %}>Settings</a>
+            {% endif %}
+            {% if "audit.view" in oa_perms %}
               <a class="nav-link" href="{% url 'staff_audit_log' %}" {% if request.resolver_match.url_name == 'staff_audit_log' %}aria-current="page"{% endif %}>Audit Log</a>
             {% endif %}
           </div>
@@ -207,7 +212,7 @@
                     {{ user.email|default:user.username }}
                   </span>
                   <span class="text-[10px] font-semibold text-slate-400 leading-tight">
-                    {% if user.is_staff or user.is_superuser %}Administrator{% else %}Candidate{% endif %}
+                    {{ oa_role }}
                   </span>
                 </div>
                 <div class="w-7 h-7 rounded-full bg-[#EEF1FE] text-[#2447F5] border border-blue-200/80 flex items-center justify-center shrink-0 shadow-xs" aria-hidden="true">
@@ -263,7 +268,7 @@
   {% block footer %}
   <footer class="mt-auto border-t border-slate-200 bg-white py-5 {% block footer_class %}{% endblock %}">
     <div class="mx-auto flex max-w-6xl items-center justify-between px-4 sm:px-6 text-xs text-slate-500 font-medium">
-      <span>&copy; {% now "Y" %} {{ site_settings.site_name|default:"TestShield" }}. All rights reserved.</span>
+      <span>&copy; {% now "Y" %} {{ site_settings.site_name|default:"Assessments" }}. All rights reserved.</span>
       <span class="text-slate-400">Proctored Assessment Platform</span>
     </div>
   </footer>

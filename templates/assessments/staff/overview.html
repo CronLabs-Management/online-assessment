@@ -21,10 +21,10 @@
       <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight text-left">{{ exam.title }}</h1>
     </div>
     <div class="flex items-center gap-3">
-      <a href="{% url 'staff_export_csv' exam.pk %}" class="btn btn-secondary text-xs font-semibold shadow-xs">
+      {% if "results.export" in oa_perms %}<a href="{% url 'staff_export_csv' exam.pk %}" class="btn btn-secondary text-xs font-semibold shadow-xs">
         <svg class="w-4 h-4 text-slate-500 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
         Export CSV
-      </a>
+      </a>{% endif %}
       <a href="{% url 'staff_exam_candidates' exam.pk %}" class="btn btn-primary text-xs font-semibold shadow-xs">
         <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
         Manage Candidates
@@ -263,9 +263,9 @@
         <a href="{% url 'staff_exam_candidates' exam.pk %}" class="btn btn-secondary text-xs font-semibold !py-2 !px-3">
           All Candidates
         </a>
-        <a href="{% url 'staff_export_csv' exam.pk %}" class="btn btn-secondary text-xs font-semibold !py-2 !px-3">
+        {% if "results.export" in oa_perms %}<a href="{% url 'staff_export_csv' exam.pk %}" class="btn btn-secondary text-xs font-semibold !py-2 !px-3">
           Download CSV
-        </a>
+        </a>{% endif %}
       </div>
     </section>
   </div>

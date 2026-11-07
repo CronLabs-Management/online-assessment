@@ -145,6 +145,7 @@ class Command(BaseCommand):
                     "plain_password": password,
                     "credentials_sent_at": now,
                     "details_confirmed_at": now,
+                    "monitoring_consent_at": now,
                 },
             )
             created.append(email)

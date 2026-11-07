@@ -9,6 +9,8 @@ from .models import (
     ExamSection,
     MCQOption,
     MCQQuestion,
+    StaffProfile,
+    StaffRole,
 )
 
 
@@ -77,3 +79,16 @@ class AuditLogAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+@admin.register(StaffRole)
+class StaffRoleAdmin(admin.ModelAdmin):
+    list_display = ("name", "description", "updated_at")
+    search_fields = ("name",)
+
+
+@admin.register(StaffProfile)
+class StaffProfileAdmin(admin.ModelAdmin):
+    list_display = ("user", "role", "title", "is_active")
+    list_filter = ("role", "is_active")
+    search_fields = ("user__email", "user__username")

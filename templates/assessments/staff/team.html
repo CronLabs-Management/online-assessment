@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}Team | {{ site_settings.site_name|default:"Assessments" }}{% endblock %}
+{% block content %}
+<div class="space-y-8">
+  <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 pb-5 border-b border-slate-200">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Team</h1>
+      <p class="mt-1 text-sm text-slate-600 max-w-2xl">
+        Admins can do everything. Staff can do only what their role allows. Change a role and everyone in it gets the change at once.
+      </p>
+    </div>
+    <div class="flex items-center gap-2">
+      <a href="{% url 'team_role_add' %}" class="btn btn-secondary text-sm py-2 px-4">New role</a>
+      <a href="{% url 'team_member_add' %}" class="btn btn-primary text-sm py-2 px-4">Add staff member</a>
+    </div>
+  </div>
+
+  <section class="space-y-3">
+    <h2 class="text-sm font-semibold text-slate-900">Staff members</h2>
+    <div class="card overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left">
+          <thead class="border-b border-slate-200 bg-slate-50 text-xs text-slate-500">
+            <tr>
+              <th scope="col" class="px-4 py-2.5 font-medium">Name</th>
+              <th scope="col" class="px-4 py-2.5 font-medium">Email</th>
+              <th scope="col" class="px-4 py-2.5 font-medium">Role</th>
+              <th scope="col" class="px-4 py-2.5 font-medium">Status</th>
+              <th scope="col" class="px-4 py-2.5"><span class="sr-only">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            {% for member in members %}
+              <tr>
+                <td class="px-4 py-3">
+                  <div class="font-medium text-slate-900">{{ member.user.get_full_name|default:"—" }}</div>
+                  {% if member.title %}<div class="text-xs text-slate-500">{{ member.title }}</div>{% endif %}
+                </td>
+                <td class="px-4 py-3 text-slate-700">{{ member.user.email }}</td>
+                <td class="px-4 py-3 text-slate-700">{{ member.role.name|default:"No role" }}</td>
+                <td class="px-4 py-3">
+                  {% if member.is_active %}<span class="badge badge-ok">Active</span>{% else %}<span class="badge badge-neutral">Inactive</span>{% endif %}
+                </td>
+                <td class="px-4 py-3 text-right whitespace-nowrap">
+                  <a href="{% url 'team_member_edit' member.pk %}" class="text-sm font-medium text-[#2447F5] hover:underline">Edit</a>
+                  <form method="post" action="{% url 'team_member_reset_password' member.pk %}" class="inline ml-3"
+                        onsubmit="return confirm('Create a new password for {{ member.user.email|escapejs }} and email it to them?');">
+                    {% csrf_token %}
+                    <button class="text-sm font-medium text-slate-600 hover:text-slate-900 hover:underline">Reset password</button>
+                  </form>
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="5" class="px-4 py-10 text-center text-sm text-slate-500">No staff members yet. Add interviewers and test authors here.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="space-y-3">
+    <h2 class="text-sm font-semibold text-slate-900">Roles</h2>
+    <div class="grid gap-4 md:grid-cols-2">
+      {% for row in role_rows %}
+        <div class="card p-5 space-y-3">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <h3 class="font-semibold text-slate-900">{{ row.role.name }}</h3>
+              {% if row.role.description %}<p class="text-sm text-slate-600 mt-0.5">{{ row.role.description }}</p>{% endif %}
+            </div>
+            <span class="text-xs text-slate-500 whitespace-nowrap shrink-0">{{ row.role.member_count }} member{{ row.role.member_count|pluralize }}</span>
+          </div>
+          <ul class="flex flex-wrap gap-1.5">
+            {% for label in row.labels %}<li class="badge badge-neutral">{{ label }}</li>{% empty %}<li class="text-xs text-slate-500">No permissions</li>{% endfor %}
+          </ul>
+          <div class="flex items-center gap-4 pt-1">
+            <a href="{% url 'team_role_edit' row.role.pk %}" class="text-sm font-medium text-[#2447F5] hover:underline">Edit role</a>
+            {% if not row.role.member_count %}
+              <form method="post" action="{% url 'team_role_delete' row.role.pk %}" onsubmit="return confirm('Delete the role {{ row.role.name|escapejs }}?');">
+                {% csrf_token %}<button class="text-sm font-medium text-rose-600 hover:underline">Delete</button>
+              </form>
+            {% endif %}
+          </div>
+        </div>
+      {% empty %}
+        <div class="card p-6 text-sm text-slate-500 md:col-span-2">No roles yet. Create one to decide what staff members can do.</div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="space-y-3">
+    <h2 class="text-sm font-semibold text-slate-900">Admins</h2>
+    <p class="text-sm text-slate-600">Admins have every permission, including this page. Add or remove admins in the Django admin.</p>
+    <ul class="card divide-y divide-slate-100 list-none p-0 m-0">
+      {% for admin in admins %}
+        <li class="px-4 py-2.5 text-sm text-slate-700">{{ admin.get_full_name|default:admin.username }} <span class="text-slate-500">· {{ admin.email|default:admin.username }}</span></li>
+      {% endfor %}
+    </ul>
+  </section>
+</div>
+{% endblock %}

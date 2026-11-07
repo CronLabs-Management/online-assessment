@@ -31,7 +31,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--subject",
             type=str,
-            default="Scrambler Assessments - Test Email",
+            default="",
             help="Custom subject line for the test email.",
         )
         parser.add_argument(
@@ -42,7 +42,10 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         recipient = options["recipient"]
-        subject = options["subject"]
+        from assessments.models import SiteSettings
+
+        site_name = SiteSettings.load().site_name or "Assessments"
+        subject = options["subject"] or f"{site_name} - Test Email"
         direct = options["direct"]
 
         self.stdout.write("=" * 65)
@@ -91,7 +94,7 @@ class Command(BaseCommand):
         self.stdout.write(f"=> Attempting to send test email to {recipient}...")
 
         body = (
-            "This is a test email from your Scrambler Assessments platform.\n\n"
+            f"This is a test email from your {site_name} platform.\n\n"
             "If you received this message, your email subsystem is operating correctly!\n\n"
             f"Active Settings:\n"
             f"- Backend: {settings.EMAIL_BACKEND}\n"
@@ -101,7 +104,7 @@ class Command(BaseCommand):
         )
         html_body = (
             "<div style='font-family:sans-serif; max-width:550px; padding:20px; border:1px solid #e2e8f0; border-radius:8px;'>"
-            "<h2 style='color:#0f172a; margin-top:0;'>Scrambler Assessments &mdash; Test Email</h2>"
+            f"<h2 style='color:#0f172a; margin-top:0;'>{site_name} &mdash; Test Email</h2>"
             "<p style='color:#334155;'>If you received this message, your email subsystem is operating correctly!</p>"
             "<div style='background:#f8fafc; padding:12px; border-radius:6px; font-size:13px; font-family:monospace;'>"
             f"<b>Host:</b> {settings.EMAIL_HOST}:{settings.EMAIL_PORT}<br>"

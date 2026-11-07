@@ -22,7 +22,8 @@ sections, recording proctoring evidence, and reviewing attempts.
   autosave, per-visit question timing.
 - **Proctoring:** camera readiness check, face-absence, multiple faces, head turns, tab and window
   focus events, consent-gated snapshots stored privately.
-- **Review (staff and Reviewers group):** attempt review with MCQ answers, visit timing, code versions
+- **Team and roles:** admins have full access; staff get a role whose permissions admins edit on the Team page.
+- **Review (admins and staff with the results permission):** attempt review with MCQ answers, visit timing, code versions
   and results, proctoring timeline with snapshots, interview decisions. CSV export and audit log.
 - **Operations:** management commands to expire attempts, grade queued submissions and purge expired
   evidence.
@@ -135,7 +136,7 @@ periodically (for example, a cPanel cron job every minute).
 
      Deletes snapshots older than the retention period set under **Settings** in the staff area.
 8. Staff accounts: create the administrator with `createsuperuser` (or in the Django admin, with staff
-   access). Put reviewers in the **Reviewers** group (create the group in admin first). Reviewers can
+   access). Add interviewers and other staff on the **Team** page and give each a role. The default Interviewer role can
    open attempts and record interview decisions, but cannot edit tests or manage candidate access.
    Candidate accounts are created by staff when they import the mailing list; their username is their
    email address.

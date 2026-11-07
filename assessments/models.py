@@ -23,6 +23,11 @@ class Exam(models.Model):
     instructions = models.TextField(
         help_text="Shown to candidates before they start. Plain text; line breaks are kept."
     )
+    email_instructions = models.TextField(
+        blank=True,
+        default="",
+        help_text="Extra instructions added to this test's login email, one per line. Leave blank to use only the site-wide ones.",
+    )
     opens_at = models.DateTimeField()
     closes_at = models.DateTimeField()
     duration_minutes = models.PositiveIntegerField(
@@ -276,6 +281,12 @@ class Application(models.Model):
     plain_password = models.CharField(max_length=128, blank=True, default="", help_text="Last generated password for candidate login.")
     credentials_sent_at = models.DateTimeField(null=True, blank=True)
     details_confirmed_at = models.DateTimeField(null=True, blank=True)
+    monitoring_consent_at = models.DateTimeField(
+        null=True, blank=True, help_text="When the candidate agreed to the monitoring notice.",
+    )
+    monitoring_consent_text = models.TextField(
+        blank=True, default="", help_text="The exact monitoring notice the candidate agreed to.",
+    )
     pending_email = models.EmailField(blank=True, default="", help_text="Unverified new email address requested by candidate.")
     email_verification_token = models.CharField(max_length=64, blank=True, default="", help_text="SHA-256 hash of token for verifying email change.")
     email_verification_sent_at = models.DateTimeField(null=True, blank=True)
@@ -830,6 +841,27 @@ class AuditLog(models.Model):
 # ---------------------------------------------------------------------------
 
 
+DEFAULT_LOGIN_EMAIL_SUBJECT = "Your login for {test}"
+DEFAULT_LOGIN_EMAIL_INTRO = "Your login for the assessment \"{test}\" is ready."
+DEFAULT_LOGIN_EMAIL_INSTRUCTIONS = (
+    "Keep this email private. Anyone with the password can sign in as you.\n"
+    "Use a laptop or desktop with a working webcam, and a stable internet connection.\n"
+    "Once you start, the timer runs. If you are disconnected, sign in again quickly: "
+    "the test still ends when its window closes.\n"
+    "If you lose this email, ask the test administrator to resend your login details."
+)
+DEFAULT_MONITORING_NOTICE = (
+    "Your webcam video is analysed during the test, and still images are saved when something unusual happens.\n"
+    "Your approximate location is recorded when you start.\n"
+    "Your network details are recorded: IP address, connection type and speed.\n"
+    "Your browser and device details are recorded, such as screen size and operating system.\n"
+    "Leaving full screen, switching tabs or windows, and copy and paste are recorded.\n"
+    "Your answers, code, and the time you spend on each question are recorded.\n"
+    "This information is used only to review this assessment, is visible only to the hiring team, "
+    "and evidence images are deleted after the retention period."
+)
+
+
 class SiteSettings(models.Model):
     """Single row of settings that staff can change in the interface."""
 
@@ -852,6 +884,38 @@ class SiteSettings(models.Model):
         default="Secure Online Assessment Platform",
         blank=True,
         help_text="Custom platform text or tagline displayed in the footer.",
+    )
+    login_headline = models.CharField(
+        max_length=120,
+        default="Technical Assessments.",
+        blank=True,
+        help_text="Large heading on the sign-in page.",
+    )
+    login_email_subject = models.CharField(
+        max_length=200,
+        default=DEFAULT_LOGIN_EMAIL_SUBJECT,
+        blank=True,
+        help_text="Subject of the login email. {test} is replaced by the test name and {site} by the site name.",
+    )
+    login_email_intro = models.TextField(
+        default=DEFAULT_LOGIN_EMAIL_INTRO,
+        blank=True,
+        help_text="Opening paragraph of the login email. {test} and {site} are replaced as in the subject.",
+    )
+    login_email_instructions = models.TextField(
+        default=DEFAULT_LOGIN_EMAIL_INSTRUCTIONS,
+        blank=True,
+        help_text="Instructions listed in every login email, one per line.",
+    )
+    monitoring_notice_title = models.CharField(
+        max_length=200,
+        default="Before you begin: how this test is monitored",
+        blank=True,
+    )
+    monitoring_notice = models.TextField(
+        default=DEFAULT_MONITORING_NOTICE,
+        blank=True,
+        help_text="What we collect during a test, one item per line. Candidates must agree before they can start.",
     )
     gemini_api_key = models.CharField(
         max_length=255,
@@ -878,3 +942,43 @@ class SiteSettings(models.Model):
         obj, _ = cls.objects.get_or_create(pk=1)
         return obj
 
+    def monitoring_notice_lines(self):
+        return [line.strip() for line in (self.monitoring_notice or "").splitlines() if line.strip()]
+
+
+
+# ---------------------------------------------------------------------------
+# Team: staff roles and members
+# ---------------------------------------------------------------------------
+
+
+class StaffRole(models.Model):
+    """A named set of permissions an admin gives to staff members, such as "Interviewer"."""
+
+    name = models.CharField(max_length=80, unique=True)
+    description = models.CharField(max_length=255, blank=True, default="")
+    permissions = models.JSONField(default=list, blank=True, help_text="Permission codes from assessments.permissions.")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class StaffProfile(models.Model):
+    """Marks a user account as a staff member (not a candidate) and holds their role."""
+
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="staff_profile")
+    role = models.ForeignKey(StaffRole, on_delete=models.SET_NULL, null=True, blank=True, related_name="members")
+    title = models.CharField(max_length=120, blank=True, default="", help_text="Job title shown to colleagues, e.g. Senior Engineer.")
+    is_active = models.BooleanField(default=True, help_text="Inactive staff keep their history but lose all permissions.")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["user__email"]
+
+    def __str__(self):
+        return f"{self.user} ({self.role or 'no role'})"

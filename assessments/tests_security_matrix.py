@@ -427,6 +427,7 @@ class AuthenticationAndRecoveryTests(TestCase):
                 "email": "new_address@example.com",
                 "full_name": "Auth Candidate",
                 "phone": "+1234567890",
+                "monitoring_consent": "on",
             },
         )
         self.app.refresh_from_db()
@@ -565,7 +566,7 @@ class EmailUniquenessSecurityTests(TestCase):
         self.client.force_login(self.cand_a)
         res = self.client.post(
             reverse("confirm_details", args=[self.exam.pk]),
-            data={"email": "candb@example.com", "full_name": "Candidate A", "phone": "+1234567890"},
+            data={"email": "candb@example.com", "full_name": "Candidate A", "phone": "+1234567890", "monitoring_consent": "on"},
         )
         self.assertRedirects(res, reverse("confirm_details", args=[self.exam.pk]))
         self.app_a.refresh_from_db()

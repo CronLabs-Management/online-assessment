@@ -5,6 +5,7 @@ from django import forms
 from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import AuthenticationForm
 from django.core.exceptions import ValidationError
+from django.db import models
 from django.forms import inlineformset_factory
 
 from .models import (
@@ -18,7 +19,9 @@ from .models import (
     MCQOption,
     MCQQuestion,
     SiteSettings,
+    StaffRole,
 )
+from .permissions import PERMISSION_CODES, PERMISSIONS
 
 User = get_user_model()
 
@@ -33,6 +36,7 @@ class ExamForm(forms.ModelForm):
         fields = [
             "title",
             "instructions",
+            "email_instructions",
             "opens_at",
             "closes_at",
             "duration_minutes",
@@ -58,11 +62,13 @@ class ExamForm(forms.ModelForm):
             "pause_enabled": "Grant pause credit for disconnections longer than grace period",
             "max_pause_minutes": "Maximum cumulative pause credit allowed (minutes)",
             "interview_rounds_count": "Total Interview Rounds (Staff Only)",
+            "email_instructions": "Extra login email instructions for this test",
             "shuffle_questions": "Randomize question ordering per candidate",
             "shuffle_options": "Randomize multiple choice options order per candidate",
         }
         widgets = {
             "instructions": forms.Textarea(attrs={"rows": 8}),
+            "email_instructions": forms.Textarea(attrs={"rows": 3}),
             "opens_at": DATETIME_INPUT,
             "closes_at": DATETIME_INPUT,
         }
@@ -449,6 +455,12 @@ class ConfirmDetailsForm(forms.ModelForm):
         }),
         help_text="Upload your resume in PDF or Word format (up to 10 MB).",
     )
+    monitoring_consent = forms.BooleanField(
+        label="I have read how this test is monitored and I agree.",
+        required=True,
+        error_messages={"required": "You need to agree to the monitoring notice to take this test."},
+        widget=forms.CheckboxInput(attrs={"class": "mt-0.5 h-4 w-4 accent-[#2447F5] cursor-pointer"}),
+    )
 
     class Meta:
         model = Application
@@ -481,6 +493,8 @@ class ConfirmDetailsForm(forms.ModelForm):
                 self.initial["full_name"] = self.instance.full_name or cand.get_full_name() or cand.username
             if not self.initial.get("phone"):
                 self.initial["phone"] = self.instance.phone or ""
+            if self.instance.monitoring_consent_at:
+                self.initial.setdefault("monitoring_consent", True)
             # Locked email display
             account_email = cand.email or cand.username
             self.fields["email"].initial = account_email
@@ -526,6 +540,12 @@ class SiteSettingsForm(forms.ModelForm):
             "favicon",
             "footer_copyright",
             "footer_text",
+            "login_headline",
+            "login_email_subject",
+            "login_email_intro",
+            "login_email_instructions",
+            "monitoring_notice_title",
+            "monitoring_notice",
             "snapshot_retention_days",
             "gemini_api_key",
             "gemini_model",
@@ -536,6 +556,12 @@ class SiteSettingsForm(forms.ModelForm):
             "favicon": "Favicon (.ico, .png, .svg)",
             "footer_copyright": "Footer Copyright Notice",
             "footer_text": "Footer Description / Tagline",
+            "login_headline": "Sign-in page heading",
+            "login_email_subject": "Login email subject",
+            "login_email_intro": "Login email opening line",
+            "login_email_instructions": "Login email instructions",
+            "monitoring_notice_title": "Monitoring notice heading",
+            "monitoring_notice": "Monitoring notice (one item per line)",
             "snapshot_retention_days": "Keep evidence images for (days)",
             "gemini_api_key": "Google Gemini API Key",
             "gemini_model": "Gemini Model",
@@ -546,6 +572,9 @@ class SiteSettingsForm(forms.ModelForm):
             "favicon": forms.FileInput(attrs={"accept": ".ico,.png,.svg,.jpg,.jpeg"}),
             "footer_copyright": forms.TextInput(attrs={"placeholder": "e.g. © 2026 Assessments. All rights reserved."}),
             "footer_text": forms.TextInput(attrs={"placeholder": "e.g. Secure Online Assessment Platform"}),
+            "login_email_intro": forms.Textarea(attrs={"rows": 2}),
+            "login_email_instructions": forms.Textarea(attrs={"rows": 5}),
+            "monitoring_notice": forms.Textarea(attrs={"rows": 8}),
             "gemini_api_key": forms.PasswordInput(render_value=True, attrs={"placeholder": "AIzaSy...", "autocomplete": "off"}),
             "gemini_model": forms.Select(choices=[
                 ("gemini-1.5-flash", "Gemini 1.5 Flash (Fast & Recommended)"),
@@ -664,3 +693,88 @@ class InterviewDecisionForm(forms.Form):
         required=False,
         widget=forms.HiddenInput(),
     )
+
+
+# ---------------------------------------------------------------------------
+# Team: roles and staff members
+# ---------------------------------------------------------------------------
+
+
+class StaffRoleForm(forms.ModelForm):
+    permissions = forms.MultipleChoiceField(
+        choices=[(code, label) for code, label, *_ in PERMISSIONS],
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+    )
+
+    class Meta:
+        model = StaffRole
+        fields = ["name", "description", "permissions"]
+        labels = {"name": "Role name", "description": "What this role is for"}
+        widgets = {
+            "name": forms.TextInput(attrs={"placeholder": "e.g. Interviewer, Test author, Recruiter"}),
+            "description": forms.TextInput(attrs={"placeholder": "One line, shown next to the role"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            self.initial["permissions"] = list(self.instance.permissions or [])
+        for name in ("name", "description"):
+            self.fields[name].widget.attrs.setdefault("class", "w-full rounded border px-3 py-2")
+
+    def clean_name(self):
+        name = (self.cleaned_data.get("name") or "").strip()
+        if not name:
+            raise forms.ValidationError("Give the role a name.")
+        if StaffRole.objects.filter(name__iexact=name).exclude(pk=self.instance.pk).exists():
+            raise forms.ValidationError("A role with this name already exists.")
+        return name
+
+    def clean_permissions(self):
+        # Keep the catalogue order so roles read the same way everywhere.
+        chosen = set(self.cleaned_data.get("permissions") or [])
+        return [code for code in PERMISSION_CODES if code in chosen]
+
+
+class StaffMemberForm(forms.Form):
+    email = forms.EmailField(label="Work email")
+    full_name = forms.CharField(label="Full name", max_length=150)
+    title = forms.CharField(label="Job title", max_length=120, required=False)
+    role = forms.ModelChoiceField(queryset=StaffRole.objects.all(), label="Role", empty_label="Choose a role")
+    is_active = forms.BooleanField(label="Active", required=False, initial=True)
+
+    def __init__(self, *args, profile=None, **kwargs):
+        self.profile = profile
+        super().__init__(*args, **kwargs)
+        for name, field in self.fields.items():
+            if name != "is_active":
+                field.widget.attrs.setdefault("class", "w-full rounded border px-3 py-2")
+            else:
+                field.widget.attrs.setdefault("class", "mt-0.5 h-4 w-4 accent-[#2447F5]")
+        if profile is not None:
+            user = profile.user
+            self.fields["email"].disabled = True
+            self.initial.update({
+                "email": user.email,
+                "full_name": user.get_full_name() or user.first_name,
+                "title": profile.title,
+                "role": profile.role_id,
+                "is_active": profile.is_active,
+            })
+
+    def clean_email(self):
+        email = (self.cleaned_data.get("email") or "").strip().lower()
+        if self.profile is not None:
+            return self.profile.user.email
+        existing = User.objects.filter(models.Q(email__iexact=email) | models.Q(username__iexact=email)).first()
+        if existing is not None:
+            if existing.is_staff or existing.is_superuser:
+                raise forms.ValidationError("This email belongs to an admin account, which already has full access.")
+            if hasattr(existing, "staff_profile"):
+                raise forms.ValidationError("This person is already on the team.")
+            if Application.objects.filter(candidate=existing).exists():
+                raise forms.ValidationError(
+                    "This email is used by a candidate. Use a different email for staff accounts."
+                )
+        return email
