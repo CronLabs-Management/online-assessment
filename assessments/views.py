@@ -252,6 +252,8 @@ def candidate_resume(request, pk):
 
 def serve_branding(request, kind):
     """Serve uploaded site logo or favicon publicly with strict MIME and CSP isolation."""
+    # Templates ask for "logo"; the model field is "site_logo". Accept both.
+    kind = {"logo": "site_logo"}.get(kind, kind)
     if kind not in ("site_logo", "favicon"):
         raise Http404("Unknown branding asset.")
     site = SiteSettings.load()
@@ -264,6 +266,48 @@ def serve_branding(request, kind):
     response["X-Content-Type-Options"] = "nosniff"
     response["Content-Security-Policy"] = "default-src 'none'; style-src 'unsafe-inline'"
     response["Cache-Control"] = "public, max-age=86400"
+    return response
+
+
+@login_required
+def question_image(request, kind, pk):
+    """An MCQ question or option image.
+
+    Team members who can see tests or results may open any image. A candidate may open an image only
+    while their attempt is in progress and that question was given to them. Nothing else is served,
+    so image links cannot be shared or browsed to find other questions.
+    """
+    from .models import AttemptMCQ, MCQOption
+
+    if kind == "question":
+        obj = get_object_or_404(MCQQuestion, pk=pk)
+        question_id = obj.pk
+    elif kind == "option":
+        obj = get_object_or_404(MCQOption.objects.select_related("question"), pk=pk)
+        question_id = obj.question_id
+    else:
+        raise Http404
+    if not obj.image or not obj.image.name:
+        raise Http404
+    user = request.user
+    allowed = any(has_perm(user, code) for code in ("tests.view", "questions.manage", "results.view"))
+    if not allowed and not is_team_member(user):
+        allowed = AttemptMCQ.objects.filter(
+            attempt__candidate=user, attempt__status=Attempt.Status.IN_PROGRESS, question_id=question_id
+        ).exists()
+    if not allowed:
+        raise Http404
+    try:
+        handle = obj.image.open("rb")
+    except (FileNotFoundError, OSError):
+        raise Http404 from None
+    content_type = mimetypes.guess_type(obj.image.name)[0] or "application/octet-stream"
+    if not content_type.startswith("image/") or content_type == "image/svg+xml":
+        content_type = "application/octet-stream"
+    response = FileResponse(handle, content_type=content_type)
+    response["X-Content-Type-Options"] = "nosniff"
+    response["Content-Security-Policy"] = "default-src 'none'"
+    response["Cache-Control"] = "private, no-store"
     return response
 
 
@@ -400,6 +444,7 @@ def staff_exam_detail(request, pk):
         "sections": exam.sections.all(),
         "mcq_questions": questions,
         "coding_problems": exam.coding_problems.prefetch_related("test_cases"),
+        "coding_section": exam.sections.filter(kind=ExamSection.Kind.CODING).first(),
         "section_form": ExamSectionForm(prefix="section"),
         "checks": checks,
         "can_publish": can_publish,
@@ -469,6 +514,7 @@ def staff_section_add(request, pk):
         messages.error(request, "Cannot add sections to an assessment with existing candidate attempts. Content is locked for integrity.")
         return redirect("staff_exam_detail", pk=exam.pk)
     form = ExamSectionForm(request.POST, prefix="section")
+    form.exam = exam
     if form.is_valid():
         section = form.save(commit=False)
         section.exam = exam
@@ -500,6 +546,8 @@ def staff_section_edit(request, pk):
                 form.add_error("order", f"Section order {target_order} is already used. Choose another order.")
             else:
                 form.save()
+                if form.cleaned_data.get("apply_marks_to_existing") and section.kind == ExamSection.Kind.MCQ:
+                    section.questions.update(marks=section.marks_per_question)
                 audit(request.user, "section.updated", f"exam:{exam.pk}", section.title)
                 messages.success(request, f"Section '{section.title}' updated.")
                 return redirect("staff_exam_detail", pk=exam.pk)
@@ -539,6 +587,18 @@ def staff_section_delete(request, pk):
     return redirect("staff_exam_detail", pk=exam_pk)
 
 
+def _options_in_display_order(request, formset):
+    """Options that have text or an image, in the order the author arranged them on the page.
+
+    The page sends ``options-order`` as the form prefixes in display order, because moving a choice up
+    or down only moves it on screen; without this the saved order ignored those moves.
+    """
+    filled = [f for f in formset.forms if f.cleaned_data and f.has_content]
+    order = [p for p in request.POST.get("options-order", "").split(",") if p]
+    rank = {prefix: i for i, prefix in enumerate(order)}
+    return sorted(filled, key=lambda f: rank.get(f.prefix, len(rank) + formset.forms.index(f)))
+
+
 @permission_required("questions.manage")
 def staff_mcq_add(request, pk):
     exam = get_object_or_404(Exam, pk=pk)
@@ -547,10 +607,10 @@ def staff_mcq_add(request, pk):
         return redirect("staff_exam_detail", pk=exam.pk)
     initial_sec = request.GET.get("section")
     if request.method == "POST":
-        question_form = MCQQuestionForm(request.POST, exam=exam, initial_section_id=initial_sec)
-        option_formset = MCQOptionFormSet(request.POST, prefix="options")
+        question_form = MCQQuestionForm(request.POST, request.FILES, exam=exam, initial_section_id=initial_sec)
+        option_formset = MCQOptionFormSet(request.POST, request.FILES, prefix="options")
         if question_form.is_valid() and option_formset.is_valid():
-            filled = [f for f in option_formset.forms if f.cleaned_data and f.cleaned_data.get("text") and not f.cleaned_data.get("DELETE")]
+            filled = _options_in_display_order(request, option_formset)
             correct = [f for f in filled if f.cleaned_data.get("is_correct")]
             if len(filled) < 2:
                 option_formset._non_form_errors = option_formset.error_class(["Add at least two answer options."])
@@ -590,7 +650,13 @@ def staff_mcq_add(request, pk):
     return render(
         request,
         "assessments/staff/mcq_form.html",
-        {"exam": exam, "question": None, "question_form": question_form, "option_formset": option_formset},
+        {
+            "exam": exam,
+            "question": None,
+            "question_form": question_form,
+            "option_formset": option_formset,
+            "section_marks": {str(sec.pk): sec.marks_per_question for sec in exam.sections.filter(kind=ExamSection.Kind.MCQ)},
+        },
     )
 
 
@@ -602,10 +668,10 @@ def staff_mcq_edit(request, pk):
         messages.error(request, "Cannot edit questions or options on an assessment with existing candidate attempts. Content is locked for integrity.")
         return redirect("staff_exam_detail", pk=exam.pk)
     if request.method == "POST":
-        question_form = MCQQuestionForm(request.POST, instance=question, exam=exam)
-        option_formset = MCQOptionEditFormSet(request.POST, instance=question, prefix="options")
+        question_form = MCQQuestionForm(request.POST, request.FILES, instance=question, exam=exam)
+        option_formset = MCQOptionEditFormSet(request.POST, request.FILES, instance=question, prefix="options")
         if question_form.is_valid() and option_formset.is_valid():
-            filled = [f for f in option_formset.forms if f.cleaned_data and f.cleaned_data.get("text") and not f.cleaned_data.get("DELETE")]
+            filled = _options_in_display_order(request, option_formset)
             correct = [f for f in filled if f.cleaned_data.get("is_correct")]
             if len(filled) < 2:
                 option_formset._non_form_errors = option_formset.error_class(["Add at least two answer options."])
@@ -632,6 +698,10 @@ def staff_mcq_edit(request, pk):
                     question.save()
                     for form in option_formset.deleted_forms:
                         if form.instance.pk:
+                            form.instance.delete()
+                    # An existing option left with no text and no image is removed, not kept empty.
+                    for form in option_formset.forms:
+                        if form.instance.pk and form not in filled and form not in option_formset.deleted_forms:
                             form.instance.delete()
                     for index, form in enumerate(filled, start=1):
                         option = form.save(commit=False)
@@ -768,6 +838,57 @@ def staff_coding_delete(request, pk):
 # ---------------------------------------------------------------------------
 # Staff: settings
 # ---------------------------------------------------------------------------
+
+
+@permission_required("questions.manage")
+def staff_question_import(request, pk, kind):
+    """Bulk import of MCQ or coding questions from a CSV (or ZIP with images)."""
+    from . import question_import
+
+    exam = get_object_or_404(Exam, pk=pk)
+    if kind not in ("mcq", "coding"):
+        raise Http404
+    if exam.attempts.exists():
+        messages.error(request, "Questions are locked because candidates have already started this test.")
+        return redirect("staff_exam_detail", pk=exam.pk)
+    errors = []
+    if request.method == "POST":
+        uploaded = request.FILES.get("file")
+        if not uploaded:
+            errors = ["Choose a file to upload."]
+        else:
+            try:
+                if kind == "mcq":
+                    count, new_sections = question_import.import_mcq(exam, uploaded)
+                    note = f" New sections: {', '.join(new_sections)} (30 minutes each; adjust their time)." if new_sections else ""
+                    messages.success(request, f"Imported {count} MCQ question{'s' if count != 1 else ''}.{note}")
+                else:
+                    count = question_import.import_coding(exam, uploaded)
+                    messages.success(request, f"Imported {count} coding problem{'s' if count != 1 else ''}.")
+                audit(request.user, f"{kind}.imported", f"exam:{exam.pk}", f"{count} from {uploaded.name}")
+                return redirect("staff_exam_detail", pk=exam.pk)
+            except question_import.ImportProblem as exc:
+                errors = exc.errors
+    return render(
+        request,
+        "assessments/staff/question_import.html",
+        {"exam": exam, "kind": kind, "errors": errors[:50], "more_errors": max(0, len(errors) - 50)},
+    )
+
+
+@permission_required("questions.manage")
+def staff_question_template(request, kind):
+    from . import question_import
+
+    if kind == "mcq":
+        body = question_import.template_csv(question_import.MCQ_TEMPLATE_HEADER, question_import.MCQ_TEMPLATE_ROWS)
+    elif kind == "coding":
+        body = question_import.template_csv(question_import.CODING_TEMPLATE_HEADER, question_import.CODING_TEMPLATE_ROWS)
+    else:
+        raise Http404
+    response = HttpResponse(body, content_type="text/csv; charset=utf-8")
+    response["Content-Disposition"] = f'attachment; filename="{kind}_questions_template.csv"'
+    return response
 
 
 @permission_required("settings.manage")

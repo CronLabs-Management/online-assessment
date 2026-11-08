@@ -768,6 +768,30 @@
             {% endfor %}
             <p class="form-hint">Define input ranges, edge condition bounds, and expected runtime complexities.</p>
           </div>
+
+          <div class="pt-4 border-t border-slate-100 space-y-3">
+            <div>
+              <h3 class="text-sm font-bold text-slate-900">Worked example</h3>
+              <p class="form-hint mt-0.5">Shown under the description: one input, its output, and why. Test cases below are separate.</p>
+            </div>
+            <div class="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label class="form-label" for="{{ problem_form.example_input.id_for_label }}">Example input</label>
+                {{ problem_form.example_input }}
+                {% for error in problem_form.example_input.errors %}<p class="text-xs text-rose-600 font-semibold mt-1">{{ error }}</p>{% endfor %}
+              </div>
+              <div>
+                <label class="form-label" for="{{ problem_form.example_output.id_for_label }}">Example output</label>
+                {{ problem_form.example_output }}
+                {% for error in problem_form.example_output.errors %}<p class="text-xs text-rose-600 font-semibold mt-1">{{ error }}</p>{% endfor %}
+              </div>
+            </div>
+            <div>
+              <label class="form-label" for="{{ problem_form.example_explanation.id_for_label }}">Explanation</label>
+              {{ problem_form.example_explanation }}
+              {% for error in problem_form.example_explanation.errors %}<p class="text-xs text-rose-600 font-semibold mt-1">{{ error }}</p>{% endfor %}
+            </div>
+          </div>
         </div>
 
         <!-- Card 3: Starter Code Editor (Candidate Boilerplate) -->

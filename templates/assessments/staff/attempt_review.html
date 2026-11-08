@@ -544,6 +544,7 @@
                     <div class="qnumber">Q{{ row.position }}</div>
                     <div style="flex:1">
                       <div class="qtext">{{ row.text }}</div>
+                      {% if row.image_url %}<img src="{{ row.image_url }}" alt="Question image" style="display:block;max-height:260px;max-width:100%;margin:8px 0;border:1px solid #e2e8f0;border-radius:8px">{% endif %}
                       <div class="qmeta">
                         Active time: <b>{{ row.total_seconds|format_hms_adaptive|default:"0s" }}</b> · 
                         Visits: <strong style="font-family:monospace;color:#2447f5;font-size:12px;background:#eef1fe;padding:2px 7px;border-radius:6px;border:1px solid #cdd8ff">{{ row.visit_breakdown }}</strong> ({{ row.visit_count }} visit{{ row.visit_count|pluralize }}) · 
@@ -559,14 +560,17 @@
                   <div class="qbody">
                     <div class="options">
                       {% for option in row.shown_options %}
-                        <div class="option {% if option == row.correct %}correct{% elif option == row.selected %}selected-wrong{% endif %}">
+                        <div class="option {% if option.is_correct %}correct{% elif option.is_selected %}selected-wrong{% endif %}">
                           <span class="mark">
-                            {% if option == row.correct %}✓{% elif option == row.selected %}✕{% else %}○{% endif %}
+                            {% if option.is_correct %}✓{% elif option.is_selected %}✕{% else %}○{% endif %}
                           </span>
-                          <span>{{ option }}</span>
-                          {% if option == row.correct %}
+                          <span>
+                            {{ option.text }}
+                            {% if option.image_url %}<img src="{{ option.image_url }}" alt="Option image" style="display:block;max-height:120px;max-width:100%;margin-top:6px;border:1px solid #e2e8f0;border-radius:6px">{% endif %}
+                          </span>
+                          {% if option.is_correct %}
                             <span style="margin-left:auto;font-size:10px;color:var(--green);font-weight:800">Correct answer</span>
-                          {% elif option == row.selected %}
+                          {% elif option.is_selected %}
                             <span style="margin-left:auto;font-size:10px;color:var(--red);font-weight:800">Candidate picked</span>
                           {% endif %}
                         </div>

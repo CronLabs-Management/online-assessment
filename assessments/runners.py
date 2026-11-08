@@ -61,6 +61,26 @@ JUDGE0_LANGUAGE_IDS = {
 }
 
 
+def judge0_language_ids():
+    """Language ids for the Judge0 server in use.
+
+    The defaults match Judge0 CE. A server with newer runtimes, or Judge0 Extra CE with data-science
+    libraries such as numpy and pandas, uses different ids: set JUDGE0_LANGUAGE_IDS to a JSON object,
+    for example {"python": 100, "cpp": 105}. Listed languages replace the defaults; others keep them.
+    """
+    ids = dict(JUDGE0_LANGUAGE_IDS)
+    raw = os.environ.get("JUDGE0_LANGUAGE_IDS", "").strip()
+    if raw:
+        try:
+            override = json.loads(raw)
+            ids.update({str(k).lower(): int(v) for k, v in override.items()})
+        except (ValueError, TypeError, AttributeError):
+            logger.error("JUDGE0_LANGUAGE_IDS is not a JSON object of language: id; using the defaults.")
+    if "cpp" in ids:
+        ids.setdefault("c++", ids["cpp"])
+    return ids
+
+
 def normalize_output(text):
     """Compare outputs ignoring trailing whitespace on each line and at the end."""
     lines = (text or "").replace("\r\n", "\n").split("\n")
@@ -118,7 +138,7 @@ class Judge0Runner(BaseRunner):
         if len((stdin or "").encode("utf-8")) > 65536:
             raise RunnerError("Input size exceeds maximum allowed limit (64 KB).")
 
-        language_id = JUDGE0_LANGUAGE_IDS.get(language)
+        language_id = judge0_language_ids().get(language)
         if language_id is None:
             raise RunnerError(f"Unsupported language: {language}")
 

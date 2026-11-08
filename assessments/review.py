@@ -7,7 +7,7 @@ from django.db.models import Count, Sum
 from django.utils import timezone
 
 from .models import Application, Attempt, CodingSubmission, ProctoringEvent
-from .services import coding_score, max_score, mcq_score, touch
+from .services import coding_score, max_score, mcq_score, question_image_url, touch
 
 
 def _event_label(event):
@@ -292,8 +292,18 @@ def build_attempt_review(attempt):
             "position": item.position,
             "question_id": item.question_id,
             "text": item.question.text,
-            "shown_options": [option.text for option in shown],
-            "selected": selected.text if selected else None,
+            "image_url": question_image_url("question", item.question),
+            "shown_options": [
+                {
+                    "text": option.text,
+                    "image_url": question_image_url("option", option),
+                    "is_correct": option.pk == (correct.pk if correct else None),
+                    "is_selected": option.pk == (selected.pk if selected else None),
+                }
+                for option in shown
+            ],
+            # Text kept for the summary counts; an image-only option still counts as answered.
+            "selected": (selected.text or "(image option)") if selected else None,
             "correct": correct.text if correct else None,
             "is_correct": is_correct,
             "marks": item.question.marks,

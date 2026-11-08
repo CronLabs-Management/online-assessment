@@ -2,6 +2,14 @@
 {% block title %}{% if question %}Edit Question | {{ exam.title }}{% else %}New Question | {{ exam.title }}{% endif %}{% endblock %}
 {% block content %}
 <style>
+  .image-field-preview { display:block; max-height: 220px; max-width: 100%; margin: 6px 0 10px; border:1px solid #e2e8f0; border-radius: 8px; background:#fff; }
+  .image-field-preview-sm { max-height: 96px; }
+  .choice-image { margin-top: 6px; }
+  .choice-image-label { display:inline-flex; align-items:center; gap:8px; font-size:12px; font-weight:600; color:#334155; cursor:pointer; }
+  .choice-image-label input[type=file] { font-size: 12px; max-width: 220px; }
+  .image-field input[type=file] { font-size: 13px; }
+</style>
+<style>
   /* Base Authoring Card */
   .authoring-card {
     background: #ffffff;
@@ -399,7 +407,8 @@
     </div>
   </div>
 
-  <form method="post" id="mcq-form" class="space-y-6">
+  <form method="post" id="mcq-form" class="space-y-6" enctype="multipart/form-data">
+    <input type="hidden" name="options-order" id="options-order" value="">
     {% csrf_token %}
     {% if question_form.non_field_errors %}
       <div class="p-4 rounded-xl bg-rose-50 border border-rose-200 text-sm font-semibold text-rose-800">
@@ -432,6 +441,17 @@
               <p class="text-xs text-rose-600 font-semibold mt-1.5">{{ error }}</p>
             {% endfor %}
             <p class="form-hint">Be clear and unambiguous. Candidates will see this prompt directly above choice options.</p>
+          </div>
+
+          <div class="image-field mt-4">
+            <span class="form-label">Question image <span class="font-normal text-slate-500">(optional)</span></span>
+            {% if question_form.instance.pk and question_form.instance.image %}
+              <img src="{% url 'question_image' 'question' question_form.instance.pk %}" alt="Current question image" class="image-field-preview">
+              <label class="choice-image-label mb-2">{{ question_form.remove_image }} <span>Remove this image</span></label>
+            {% endif %}
+            {{ question_form.image }}
+            {% for error in question_form.image.errors %}<p class="text-xs text-rose-600 font-semibold mt-1">{{ error }}</p>{% endfor %}
+            <p class="form-hint">PNG, JPG, GIF or WebP, up to 5 MB. Shown above the options, for diagrams, charts or code screenshots.</p>
           </div>
         </div>
 
@@ -488,6 +508,17 @@
                     {% for error in form.text.errors %}
                       <p class="text-xs text-rose-600 font-semibold mt-1">{{ error }}</p>
                     {% endfor %}
+                    <div class="choice-image">
+                      {% if form.instance.pk and form.instance.image %}
+                        <img src="{% url 'question_image' 'option' form.instance.pk %}" alt="Current image for this option" class="image-field-preview image-field-preview-sm">
+                      {% endif %}
+                      <label class="choice-image-label">
+                        <span>{% if form.instance.pk and form.instance.image %}Replace image{% else %}Add image{% endif %}</span>
+                        {{ form.image }}
+                      </label>
+                      {% if form.instance.pk and form.instance.image %}<label class="choice-image-label ml-3">{{ form.remove_image }} <span>Remove</span></label>{% endif %}
+                      {% for error in form.image.errors %}<p class="text-xs text-rose-600 font-semibold mt-1">{{ error }}</p>{% endfor %}
+                    </div>
                   </div>
 
                   <!-- Right: Correct Answer Selector & Delete Action -->
@@ -625,6 +656,7 @@
   </form>
 </div>
 
+{% if section_marks %}{{ section_marks|json_script:"section-marks-data" }}{% endif %}
 <script>
   (function() {
     const list = document.getElementById("options-list");
@@ -728,7 +760,13 @@
             </div>
           </div>
           <div class="choice-input-container">
-            <input type="text" name="options-${newIdx}-text" id="id_options-${newIdx}-text" class="choice-text-input" placeholder="Type answer choice here..." required>
+            <input type="text" name="options-${newIdx}-text" id="id_options-${newIdx}-text" class="choice-text-input" placeholder="Type answer choice here, or add an image">
+            <div class="choice-image">
+              <label class="choice-image-label">
+                <span>Add image</span>
+                <input type="file" name="options-${newIdx}-image" id="id_options-${newIdx}-image" accept="image/png,image/jpeg,image/gif,image/webp">
+              </label>
+            </div>
           </div>
           <div class="choice-right-actions">
             <button type="button" class="btn-toggle-correct">
@@ -837,6 +875,37 @@
         }
       }
     });
+
+    // Send the on-screen order so moving a choice up or down is saved.
+    document.getElementById("mcq-form").addEventListener("submit", function () {
+      const prefixes = Array.from(list.querySelectorAll(".choice-card-item"))
+        .map((row) => {
+          const input = row.querySelector("input[name$='-is_correct']");
+          return input ? input.name.replace(/-is_correct$/, "") : "";
+        })
+        .filter(Boolean);
+      document.getElementById("options-order").value = prefixes.join(",");
+    });
+
+    // Show the chosen file name next to "Add image".
+    list.addEventListener("change", function (e) {
+      if (e.target.matches("input[type='file']")) {
+        const label = e.target.closest(".choice-image-label");
+        const span = label && label.querySelector("span");
+        if (span && e.target.files.length) span.textContent = e.target.files[0].name;
+      }
+    });
+
+    // New question: picking a section fills in that section's default marks.
+    const sectionMarksEl = document.getElementById("section-marks-data");
+    const sectionSelect = document.getElementById("{{ question_form.section.id_for_label }}");
+    const marksInput = document.getElementById("{{ question_form.marks.id_for_label }}");
+    if (sectionMarksEl && sectionSelect && marksInput) {
+      const marksBySection = JSON.parse(sectionMarksEl.textContent);
+      sectionSelect.addEventListener("change", function () {
+        if (marksBySection[sectionSelect.value] !== undefined) marksInput.value = marksBySection[sectionSelect.value];
+      });
+    }
 
     // Bind Add Choice Buttons
     if (btnAddTop) btnAddTop.addEventListener("click", addChoice);

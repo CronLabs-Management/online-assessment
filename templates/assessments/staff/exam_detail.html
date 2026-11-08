@@ -587,6 +587,7 @@
             <span class="config-count-badge">
               {{ mcq_questions|length }} Question{{ mcq_questions|length|pluralize }} &bull; {{ mcq_sections|length }} Section{{ mcq_sections|length|pluralize }}
             </span>
+            {% if not has_attempts %}<a href="{% url 'staff_question_import' exam.pk 'mcq' %}" class="text-sm font-semibold text-[#2447F5] hover:underline">Import from CSV</a>{% endif %}
             <a href="{% url 'staff_mcq_add' exam.pk %}" class="config-btn-primary">
               + Create Question
             </a>
@@ -608,6 +609,7 @@
                     <span class="badge-cust-sec">Custom Section</span>
                   {% endif %}
                   <span class="badge-sec-stat">&#9201; {{ section.duration_minutes }}m</span>
+                  <span class="badge-sec-stat">{{ section.marks_per_question }} mark{{ section.marks_per_question|pluralize }} each</span>
                   <span class="badge-sec-stat">
                     Draws: <strong class="text-slate-900 font-bold">{% if section.question_count %}{{ section.question_count }}{% else %}All{% endif %}</strong>
                   </span>
@@ -640,6 +642,7 @@
                           <div class="q-meta">
                             <span class="meta-pill-options">{{ question.options.count }} Options</span>
                             <span class="meta-pill-marks">{{ question.marks }} Mark{{ question.marks|pluralize }}</span>
+                            {% if question.image %}<span class="meta-pill-options">Has image</span>{% endif %}
                           </div>
                         </div>
                       </div>
@@ -676,10 +679,10 @@
             <span class="text-xs text-slate-400 font-normal">Click to expand</span>
           </summary>
           <div class="p-5 pt-3 border-t border-slate-200 bg-white">
-            <form method="post" action="{% url 'staff_section_add' exam.pk %}" class="grid gap-4 sm:grid-cols-2">
+            <form method="post" action="{% url 'staff_section_add' exam.pk %}" class="grid gap-4 sm:grid-cols-2" id="section-add-form">
               {% csrf_token %}
               {% for field in section_form %}
-                <div class="{% if field.name == 'title' %}sm:col-span-2{% endif %}">
+                <div class="{% if field.name == 'title' %}sm:col-span-2{% endif %}" data-field="{{ field.name }}">
                   <label for="{{ field.id_for_label }}" class="block mb-1 text-xs font-bold text-slate-700">{{ field.label }}</label>
                   {{ field }}
                   {% if field.help_text %}<span class="helptext text-[11px] text-slate-500 mt-1 block">{{ field.help_text }}</span>{% endif %}
@@ -691,6 +694,24 @@
                 </button>
               </div>
             </form>
+            <script>
+              (function () {
+                // Show only the fields that apply to the chosen section type.
+                const form = document.getElementById("section-add-form");
+                if (!form) return;
+                const kind = form.querySelector("select[name='section-kind']");
+                const mcqOnly = ["question_count", "marks_per_question"];
+                const codingOnly = ["coding_selection_count"];
+                function sync() {
+                  const isCoding = kind && kind.value === "coding";
+                  form.querySelectorAll("[data-field]").forEach((el) => {
+                    const name = el.dataset.field;
+                    el.hidden = (isCoding && mcqOnly.includes(name)) || (!isCoding && codingOnly.includes(name));
+                  });
+                }
+                if (kind) { kind.addEventListener("change", sync); sync(); }
+              })();
+            </script>
           </div>
         </details>
       </div>
@@ -714,10 +735,19 @@
             <span class="config-count-badge">
               {{ coding_problems|length }} Challenge{{ coding_problems|length|pluralize }}
             </span>
+            {% if not has_attempts %}<a href="{% url 'staff_question_import' exam.pk 'coding' %}" class="text-sm font-semibold text-[#2447F5] hover:underline">Import from CSV</a>{% endif %}
             <a href="{% url 'staff_coding_add' exam.pk %}" class="config-btn-primary">
               + Add Coding Challenge
             </a>
           </div>
+        </div>
+        <div class="mx-5 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
+          {% if coding_section %}
+            <span class="text-slate-700"><strong class="font-semibold text-slate-900">{{ coding_section.title }}</strong> · {{ coding_section.duration_minutes }} min · {{ coding_section.coding_selection_count }} problem{{ coding_section.coding_selection_count|pluralize }} per candidate · section {{ coding_section.order }}</span>
+            {% if not has_attempts %}<a href="{% url 'staff_section_edit' coding_section.pk %}" class="font-medium text-[#2447F5] hover:underline">Edit time and order</a>{% endif %}
+          {% else %}
+            <span class="text-slate-600">No coding section yet. Add a section of type "Coding" below to set its time and order; otherwise one is created automatically with the time left over.</span>
+          {% endif %}
         </div>
 
         <!-- Problems List -->

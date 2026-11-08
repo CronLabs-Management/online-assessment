@@ -1421,7 +1421,8 @@ function renderMcq() {
         <input type="radio" name="mcq-${question.id}" value="${option.id}" ${checked} class="mt-1 h-5 w-5 accent-[#2447F5]">
         <div class="flex-1">
           <span class="mr-2 inline-block rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-extrabold text-slate-800">${letter}</span>
-          <span class="text-base sm:text-lg font-bold text-[#0F172A]">${escapeHtml(option.text)}</span>
+          ${option.text ? `<span class="text-base sm:text-lg font-bold text-[#0F172A]">${escapeHtml(option.text)}</span>` : ""}
+          ${option.image_url ? `<img src="${escapeHtml(option.image_url)}" alt="Option ${letter}" draggable="false" class="mt-3 block max-h-56 max-w-full rounded-lg border border-slate-200 bg-white select-none">` : ""}
         </div>
       </label>`;
     })
@@ -1438,6 +1439,7 @@ function renderMcq() {
       <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-extrabold text-[#2447F5] border border-blue-200">Multiple Choice</span>
     </div>
     <p class="mt-5 whitespace-pre-line text-xl sm:text-2xl font-bold leading-relaxed text-[#0F172A]">${escapeHtml(question.text)}</p>
+    ${question.image_url ? `<img src="${escapeHtml(question.image_url)}" alt="Image for question ${mcqIndex + 1}" draggable="false" class="mt-5 block max-h-96 max-w-full rounded-xl border border-slate-200 bg-white select-none">` : ""}
     <div class="mt-8 space-y-3.5">${options}</div>
     <div class="mt-10 flex items-center justify-between gap-4 pt-5 border-t border-slate-100">
       <button type="button" id="prev" class="btn btn-secondary px-6 py-2.5 text-base font-bold" ${mcqIndex === 0 ? "disabled" : ""}>&larr; Previous question</button>
@@ -2251,6 +2253,26 @@ function renderCoding() {
               <div class="spec-box p-3.5 rounded-xl space-y-1">
                 <span class="spec-box-label text-xs font-extrabold uppercase tracking-wider">Output Format</span>
                 <p class="whitespace-pre-line text-xs sm:text-sm font-medium">${escapeHtml(problem.output_spec)}</p>
+              </div>
+            ` : ""}
+
+            ${(problem.example_input || problem.example_output) ? `
+              <div class="example-card rounded-xl p-3.5 space-y-2.5">
+                <span class="spec-box-label text-xs font-extrabold uppercase tracking-wider">Example</span>
+                <div class="space-y-1.5">
+                  <div class="text-[10px] font-bold uppercase tracking-wider spec-box-label">Input</div>
+                  <pre class="p-2.5 font-mono text-xs rounded-lg overflow-x-auto whitespace-pre-wrap">${escapeHtml(problem.example_input)}</pre>
+                </div>
+                <div class="space-y-1.5">
+                  <div class="text-[10px] font-bold uppercase tracking-wider spec-box-label">Output</div>
+                  <pre class="p-2.5 font-mono text-xs text-emerald-600 rounded-lg overflow-x-auto whitespace-pre-wrap">${escapeHtml(problem.example_output)}</pre>
+                </div>
+                ${problem.example_explanation ? `
+                  <div class="space-y-1.5">
+                    <div class="text-[10px] font-bold uppercase tracking-wider spec-box-label">Explanation</div>
+                    <p class="whitespace-pre-line text-xs sm:text-sm font-medium">${escapeHtml(problem.example_explanation)}</p>
+                  </div>
+                ` : ""}
               </div>
             ` : ""}
 

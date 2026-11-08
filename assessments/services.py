@@ -140,13 +140,14 @@ def publish_checks(exam):
     bad_questions = []
     for question in exam.mcq_questions.prefetch_related("options"):
         options = list(question.options.all())
-        if len(options) < 2 or sum(option.is_correct for option in options) != 1:
+        empty = any(not (option.text or "").strip() and not option.image for option in options)
+        if len(options) < 2 or empty or sum(option.is_correct for option in options) != 1:
             bad_questions.append(question.text[:40])
     add(
         not bad_questions,
         "Every question has at least two options and exactly one correct answer"
         if not bad_questions
-        else f"{len(bad_questions)} question(s) need two or more options and exactly one correct answer",
+        else f"{len(bad_questions)} question(s) need two or more options (each with text or an image) and exactly one correct answer",
         structural=True,
     )
 
@@ -391,6 +392,15 @@ def _bind_or_match_session(attempt, session_key, now):
         attempt.flagged_for_review = True
         attempt.save(update_fields=["flagged_for_review"])
     return False
+
+
+def question_image_url(kind, obj):
+    """URL of a question or option image, or None. The view checks who may see it."""
+    if not getattr(obj, "image", None) or not obj.image.name:
+        return None
+    from django.urls import reverse
+
+    return reverse("question_image", args=[kind, obj.pk])
 
 
 # ---------------------------------------------------------------------------
@@ -1263,8 +1273,13 @@ def candidate_state(attempt, now):
                 "id": item.question_id,
                 "position": item.position,
                 "text": item.question.text,
+                "image_url": question_image_url("question", item.question),
                 "marks": item.question.marks,
-                "options": [{"id": oid, "text": options[oid].text} for oid in item.option_order if oid in options],
+                "options": [
+                    {"id": oid, "text": options[oid].text, "image_url": question_image_url("option", options[oid])}
+                    for oid in item.option_order
+                    if oid in options
+                ],
                 "selected_option_id": answers.get(item.question_id),
             })
     else:
@@ -1282,6 +1297,9 @@ def candidate_state(attempt, now):
                 "input_spec": problem.input_spec,
                 "output_spec": problem.output_spec,
                 "constraints": problem.constraints,
+                "example_input": problem.example_input,
+                "example_output": problem.example_output,
+                "example_explanation": problem.example_explanation,
                 "languages": problem.language_list,
                 "marks": problem.marks,
                 "public_cases": [

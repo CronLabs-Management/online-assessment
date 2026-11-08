@@ -1,3 +1,6 @@
+import os
+import uuid
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
@@ -144,6 +147,10 @@ class ExamSection(models.Model):
     order = models.PositiveIntegerField(default=1)
     duration_minutes = models.PositiveIntegerField(
         validators=[MinValueValidator(1)],default=30)
+    marks_per_question = models.PositiveIntegerField(
+        default=1,
+        help_text="MCQ sections: default marks for each new question. Each question can still be changed.",
+    )
     question_count = models.PositiveIntegerField(
         default=0,
         help_text="MCQ sections: how many questions each candidate receives. 0 means all questions.",
@@ -164,6 +171,12 @@ class ExamSection(models.Model):
         return f"{self.exam.title}: {self.title}"
 
 
+def question_image_path(instance, filename):
+    """Random names, so an image URL never reveals which question or option it belongs to."""
+    ext = os.path.splitext(filename)[1].lower()[:8] or ".png"
+    return f"question_images/{uuid.uuid4().hex}{ext}"
+
+
 class MCQQuestion(models.Model):
     exam = models.ForeignKey(Exam, on_delete=models.CASCADE, related_name="mcq_questions")
     section = models.ForeignKey(
@@ -175,6 +188,10 @@ class MCQQuestion(models.Model):
         help_text="The section this MCQ question belongs to. If not set, belongs to default section.",
     )
     text = models.TextField()
+    image = models.FileField(
+        upload_to=question_image_path, max_length=255, null=True, blank=True,
+        help_text="Optional picture shown with the question, such as a diagram or code screenshot.",
+    )
     marks = models.PositiveIntegerField(default=1)
     order = models.PositiveIntegerField(default=1)
 
@@ -196,7 +213,8 @@ class MCQQuestion(models.Model):
 
 class MCQOption(models.Model):
     question = models.ForeignKey(MCQQuestion, on_delete=models.CASCADE, related_name="options")
-    text = models.CharField(max_length=500)
+    text = models.CharField(max_length=500, blank=True, help_text="Can be left blank when the option is an image.")
+    image = models.FileField(upload_to=question_image_path, max_length=255, null=True, blank=True)
     is_correct = models.BooleanField(default=False)
     order = models.PositiveIntegerField(default=1)
 
@@ -204,7 +222,7 @@ class MCQOption(models.Model):
         ordering = ["order", "id"]
 
     def __str__(self):
-        return self.text
+        return self.text or "(image option)"
 
 
 class CodingProblem(models.Model):
@@ -214,6 +232,9 @@ class CodingProblem(models.Model):
     input_spec = models.TextField(blank=True)
     output_spec = models.TextField(blank=True)
     constraints = models.TextField(blank=True)
+    example_input = models.TextField(blank=True, help_text="One worked example: the input.")
+    example_output = models.TextField(blank=True, help_text="The expected output for the example input.")
+    example_explanation = models.TextField(blank=True, help_text="Why that input gives that output.")
     starter_code = models.TextField(blank=True)
     languages = models.CharField(
         max_length=200,

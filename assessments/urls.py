@@ -27,6 +27,7 @@ urlpatterns = [
     path("api/attempts/<int:pk>/submissions/<int:submission_id>/", exam_api.api_submission_status, name="api_submission_status"),
 
     path("branding/<str:kind>/", views.serve_branding, name="serve_branding"),
+    path("question-images/<str:kind>/<int:pk>/", views.question_image, name="question_image"),
 
     path("staff/exams/", views.staff_exam_list, name="staff_exam_list"),
     path("staff/exams/new/", views.staff_exam_create, name="staff_exam_create"),
@@ -43,6 +44,8 @@ urlpatterns = [
     path("staff/exams/<int:pk>/coding/new/", views.staff_coding_add, name="staff_coding_add"),
     path("staff/coding/<int:pk>/edit/", views.staff_coding_edit, name="staff_coding_edit"),
     path("staff/coding/<int:pk>/delete/", views.staff_coding_delete, name="staff_coding_delete"),
+    path("staff/exams/<int:pk>/import/<str:kind>/", views.staff_question_import, name="staff_question_import"),
+    path("staff/question-templates/<str:kind>.csv", views.staff_question_template, name="staff_question_template"),
     path("staff/exams/<int:pk>/overview/", staff_views.staff_exam_overview, name="staff_exam_overview"),
     path("staff/exams/<int:pk>/candidates/", staff_views.staff_exam_candidates, name="staff_exam_candidates"),
     path("staff/exams/<int:pk>/update-rounds/", staff_views.staff_exam_update_rounds, name="staff_exam_update_rounds"),

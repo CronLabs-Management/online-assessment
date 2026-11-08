@@ -85,33 +85,68 @@ class ExamForm(forms.ModelForm):
 
 
 class ExamSectionForm(forms.ModelForm):
+    apply_marks_to_existing = forms.BooleanField(
+        required=False,
+        label="Also set every existing question in this section to these marks",
+    )
+
     class Meta:
         model = ExamSection
-        fields = ["title", "order", "duration_minutes", "question_count"]
+        fields = ["title", "kind", "order", "duration_minutes", "marks_per_question", "question_count", "coding_selection_count"]
         labels = {
-            "title": "MCQ Section Title",
-            "order": "Section Order",
-            "duration_minutes": "Duration (minutes)",
-            "question_count": "Questions to assign (0 = all in pool)",
+            "title": "Section title",
+            "kind": "Section type",
+            "order": "Section order",
+            "duration_minutes": "Time for this section (minutes)",
+            "marks_per_question": "Marks per question",
+            "question_count": "Questions each candidate gets (0 = all)",
+            "coding_selection_count": "Coding problems each candidate gets",
         }
         help_texts = {
-            "question_count": "How many questions from this section each candidate receives. Set 0 for all questions.",
+            "question_count": "MCQ sections only. Questions are drawn at random from this section when fewer than all.",
+            "marks_per_question": "MCQ sections only. New questions start with this; each question can be changed.",
+            "coding_selection_count": "Coding sections only. Marks are set on each coding problem.",
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Coding sections never show this field, so a missing value keeps the current one.
+        self.fields["marks_per_question"].required = False
+        if self.instance and self.instance.pk:
+            # A section's type cannot change once it exists: its questions belong to that type.
+            self.fields["kind"].disabled = True
+        else:
+            self.fields.pop("apply_marks_to_existing")
         for field in self.fields.values():
-            field.widget.attrs.setdefault("class", "w-full rounded border px-3 py-2")
+            if isinstance(field.widget, forms.CheckboxInput):
+                field.widget.attrs.setdefault("class", "h-4 w-4")
+            else:
+                field.widget.attrs.setdefault("class", "w-full rounded border px-3 py-2")
 
-    def save(self, commit=True):
-        instance = super().save(commit=False)
-        instance.kind = ExamSection.Kind.MCQ
-        if commit:
-            instance.save()
-        return instance
+    def clean_marks_per_question(self):
+        value = self.cleaned_data.get("marks_per_question")
+        if value in (None, ""):
+            return (self.instance.marks_per_question if self.instance and self.instance.pk else None) or 1
+        return value
+
+    def clean(self):
+        data = super().clean()
+        kind = data.get("kind") or (self.instance.kind if self.instance else None)
+        exam_id = self.instance.exam_id if self.instance else None
+        if kind == ExamSection.Kind.CODING:
+            if not data.get("coding_selection_count"):
+                self.add_error("coding_selection_count", "A coding section needs at least one problem per candidate.")
+            exam = getattr(self, "exam", None)
+            exam_id = exam_id or (exam.pk if exam else None)
+            if exam_id and ExamSection.objects.filter(exam_id=exam_id, kind=ExamSection.Kind.CODING).exclude(
+                pk=self.instance.pk
+            ).exists():
+                raise forms.ValidationError("This test already has a coding section. Edit that one instead.")
+        return data
 
 
 class MCQQuestionForm(forms.ModelForm):
+    remove_image = forms.BooleanField(required=False, label="Remove image")
     section = forms.ModelChoiceField(
         queryset=ExamSection.objects.none(),
         required=False,
@@ -128,8 +163,11 @@ class MCQQuestionForm(forms.ModelForm):
 
     class Meta:
         model = MCQQuestion
-        fields = ["section", "new_section_title", "text", "marks", "order"]
-        widgets = {"text": forms.Textarea(attrs={"rows": 4})}
+        fields = ["section", "new_section_title", "text", "image", "marks", "order"]
+        widgets = {
+            "text": forms.Textarea(attrs={"rows": 4}),
+            "image": forms.FileInput(attrs={"accept": "image/png,image/jpeg,image/gif,image/webp"}),
+        }
 
     def __init__(self, *args, exam=None, initial_section_id=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -148,19 +186,66 @@ class MCQQuestionForm(forms.ModelForm):
                     pass
             if not self.initial.get("section") and not (self.instance and self.instance.section_id):
                 self.initial["section"] = default_sec
+            # New questions take the chosen section's default marks.
+            if not (self.instance and self.instance.pk) and not self.is_bound:
+                section = self.initial.get("section")
+                if isinstance(section, ExamSection):
+                    self.initial.setdefault("marks", section.marks_per_question)
         for _name, field in self.fields.items():
-            field.widget.attrs.setdefault("class", "w-full rounded border px-3 py-2")
+            if _name not in ("image", "remove_image"):
+                field.widget.attrs.setdefault("class", "w-full rounded border px-3 py-2")
+
+    def clean_image(self):
+        image = self.cleaned_data.get("image")
+        validate_question_image(image)
+        return image
+
+    def save(self, commit=True):
+        question = super().save(commit=False)
+        if self.cleaned_data.get("remove_image") and not self.files.get(self.add_prefix("image")):
+            question.image = None
+        if commit:
+            question.save()
+        return question
 
 
 class MCQOptionForm(forms.ModelForm):
+    remove_image = forms.BooleanField(required=False, label="Remove image")
+
     class Meta:
         model = MCQOption
-        fields = ["text", "is_correct"]
+        fields = ["text", "image", "is_correct"]
+        widgets = {"image": forms.FileInput(attrs={"accept": "image/png,image/jpeg,image/gif,image/webp"})}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["text"].required = False
         self.fields["text"].widget.attrs.update({"class": "w-full rounded border px-3 py-2"})
         self.fields["is_correct"].widget.attrs.update({"class": "h-4 w-4"})
+
+    def clean_image(self):
+        image = self.cleaned_data.get("image")
+        validate_question_image(image)
+        return image
+
+    @property
+    def has_content(self):
+        """True when this option has text or an image (new or already saved) and is not being deleted."""
+        data = getattr(self, "cleaned_data", None) or {}
+        if data.get("DELETE"):
+            return False
+        image = data.get("image")
+        if image is None and self.instance and self.instance.pk and not data.get("remove_image"):
+            image = self.instance.image or None
+        return bool((data.get("text") or "").strip() or image)
+
+    def save(self, commit=True):
+        option = super().save(commit=False)
+        if self.cleaned_data.get("remove_image") and not self.files.get(self.add_prefix("image")):
+            option.image = None
+        if commit:
+            option.save()
+        return option
 
 
 MCQOptionFormSet = inlineformset_factory(
@@ -189,6 +274,9 @@ class CodingProblemForm(forms.ModelForm):
             "input_spec",
             "output_spec",
             "constraints",
+            "example_input",
+            "example_output",
+            "example_explanation",
             "starter_code",
             "languages",
             "marks",
@@ -199,6 +287,9 @@ class CodingProblemForm(forms.ModelForm):
             "input_spec": forms.Textarea(attrs={"rows": 3}),
             "output_spec": forms.Textarea(attrs={"rows": 3}),
             "constraints": forms.Textarea(attrs={"rows": 3}),
+            "example_input": forms.Textarea(attrs={"rows": 3, "class": "w-full rounded border px-3 py-2 font-mono"}),
+            "example_output": forms.Textarea(attrs={"rows": 3, "class": "w-full rounded border px-3 py-2 font-mono"}),
+            "example_explanation": forms.Textarea(attrs={"rows": 3}),
             "starter_code": forms.Textarea(attrs={"rows": 6, "class": "font-mono"}),
         }
 
@@ -368,6 +459,35 @@ class CandidateImportForm(forms.Form):
                 "phone": phone,
             })
         return rows, errors
+
+
+QUESTION_IMAGE_TYPES = {".png": "PNG", ".jpg": "JPEG", ".jpeg": "JPEG", ".gif": "GIF", ".webp": "WEBP"}
+QUESTION_IMAGE_MAX_BYTES = 5 * 1024 * 1024
+
+
+def validate_question_image(uploaded):
+    """PNG, JPEG, GIF or WebP up to 5 MB, checked by opening the file, not by trusting its name."""
+    if not uploaded or not hasattr(uploaded, "size"):
+        return
+    ext = os.path.splitext(uploaded.name)[1].lower()
+    if ext not in QUESTION_IMAGE_TYPES:
+        raise ValidationError("Images must be PNG, JPG, GIF or WebP.")
+    if uploaded.size > QUESTION_IMAGE_MAX_BYTES:
+        raise ValidationError("Images must be 5 MB or smaller.")
+    from PIL import Image, UnidentifiedImageError
+
+    pos = uploaded.tell() if hasattr(uploaded, "tell") else 0
+    try:
+        with Image.open(uploaded) as img:
+            fmt = img.format
+            img.verify()
+    except (UnidentifiedImageError, OSError, SyntaxError) as exc:
+        raise ValidationError("This file is not a readable image.") from exc
+    finally:
+        if hasattr(uploaded, "seek"):
+            uploaded.seek(pos)
+    if fmt != QUESTION_IMAGE_TYPES[ext] and not (fmt == "JPEG" and ext in (".jpg", ".jpeg")):
+        raise ValidationError("The image contents do not match its file type.")
 
 
 def validate_resume_file(uploaded):

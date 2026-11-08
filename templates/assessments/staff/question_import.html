@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Import {% if kind == "mcq" %}MCQ questions{% else %}coding problems{% endif %} | {{ exam.title }}{% endblock %}
+{% block content %}
+<div class="space-y-6 max-w-3xl">
+  <a href="{% url 'staff_exam_detail' exam.pk %}" class="crumb">
+    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+    <span>{{ exam.title }}</span>
+  </a>
+  <div>
+    <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Import {% if kind == "mcq" %}MCQ questions{% else %}coding problems{% endif %}</h1>
+    <p class="mt-1 text-sm text-slate-600">Fill in the template in Excel or Google Sheets, save it as CSV, and upload it here. If any row has a problem, nothing is imported and you'll see which rows to fix.</p>
+  </div>
+
+  <div class="card p-6 space-y-4">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <h2 class="text-sm font-semibold text-slate-900">1. Download the template</h2>
+      <a href="{% url 'staff_question_template' kind %}" class="btn btn-secondary text-sm py-2 px-4">Download {{ kind|upper }} template (.csv)</a>
+    </div>
+    {% if kind == "mcq" %}
+      <ul class="list-disc pl-5 space-y-1.5 text-sm text-slate-700">
+        <li><strong>section</strong>: the MCQ section's title. A new section is created if none matches. Blank uses the default section.</li>
+        <li><strong>question</strong>: the question text.</li>
+        <li><strong>option_1, option_2, …</strong>: as many option columns as you need (add <code>option_5</code>, <code>option_6</code>…). Or use one <strong>options</strong> column with options separated by <code>|</code>.</li>
+        <li><strong>correct_option</strong>: the number (<code>2</code>) or letter (<code>B</code>) of the right option.</li>
+        <li><strong>marks</strong>: blank uses the section's marks per question.</li>
+        <li><strong>question_image</strong> and <strong>option_images</strong> (optional): image file names, with option images separated by <code>|</code> in option order. Upload a .zip containing the CSV and the images.</li>
+      </ul>
+    {% else %}
+      <ul class="list-disc pl-5 space-y-1.5 text-sm text-slate-700">
+        <li><strong>title</strong>, <strong>statement</strong>: required. Line breaks inside a cell are kept.</li>
+        <li><strong>input_format</strong>, <strong>output_format</strong>, <strong>constraints</strong>, <strong>starter_code</strong>: optional.</li>
+        <li><strong>example_input</strong>, <strong>example_output</strong>, <strong>example_explanation</strong>: the worked example shown under the description.</li>
+        <li><strong>languages</strong>: comma separated, from python, java, c, cpp, javascript. Blank allows python, java, c and cpp.</li>
+        <li><strong>marks</strong>: marks for this problem (default 10).</li>
+        <li><strong>test_1_input</strong>, <strong>test_1_output</strong>, <strong>test_1_hidden</strong> (yes/no), then test_2_…, test_3_…: add as many as you need.</li>
+      </ul>
+    {% endif %}
+  </div>
+
+  <form method="post" enctype="multipart/form-data" class="card p-6 space-y-4">
+    {% csrf_token %}
+    <h2 class="text-sm font-semibold text-slate-900">2. Upload the filled file</h2>
+    {% if errors %}
+      <div class="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800" role="alert">
+        <p class="font-semibold mb-2">Nothing was imported. Fix these and upload again:</p>
+        <ul class="list-disc pl-5 space-y-1">{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+        {% if more_errors %}<p class="mt-2">…and {{ more_errors }} more.</p>{% endif %}
+      </div>
+    {% endif %}
+    <input type="file" name="file" accept=".csv,.zip" required class="block w-full text-sm text-slate-700">
+    <div class="flex items-center gap-3">
+      <button class="btn btn-primary text-sm py-2 px-5">Import</button>
+      <a href="{% url 'staff_exam_detail' exam.pk %}" class="btn btn-secondary text-sm py-2 px-4">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
