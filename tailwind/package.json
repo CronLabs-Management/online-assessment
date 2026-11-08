@@ -1,0 +1,12 @@
+{
+  "name": "online-assessment-styles",
+  "private": true,
+  "description": "Builds static/css/tailwind.css from the templates. Run `npm install` once, then `npm run build` after changing classes in templates.",
+  "scripts": {
+    "build": "tailwindcss -c tailwind.config.js -i input.css -o ../static/css/tailwind.css --minify",
+    "watch": "tailwindcss -c tailwind.config.js -i input.css -o ../static/css/tailwind.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "3.4.17"
+  }
+}

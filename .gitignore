@@ -16,3 +16,4 @@ private_media/
 *.sqlite3-shm
 scratch/
 
+tailwind/node_modules/

@@ -106,6 +106,28 @@ and version, since image tags change between releases.
 Grading runs in-process after each final submission. For a queue, run `manage.py grade_queued`
 periodically (for example, a cPanel cron job every minute).
 
+## AI interview questions
+
+Add one or more Gemini API keys under **Settings → AI keys**. Requests are spread across the active
+keys (lowest priority number first, least recently used next). When a key is rate limited it rests
+for the time the provider asks (a minute by default; an hour for a daily quota; a day for a rejected
+key) and the same request moves straight on to the next key. If every key fails, the review page shows
+questions built from resume keywords instead. `GEMINI_API_KEY` in the environment is used only when
+no keys are saved.
+
+Questions are generated per interview round: round 1 is a screening mix, later rounds go deeper, and
+the last round is mostly hard questions. Each round sees the questions already asked and the earlier
+interviewers' notes.
+
+## Styles
+
+Pages use a prebuilt Tailwind stylesheet, `static/css/tailwind.css`, which is committed so the server
+needs no Node. After changing classes in templates or `static/js`, rebuild it:
+
+```bash
+cd tailwind && npm install && npm run build
+```
+
 ## Deploying on cPanel (Setup Python App / Passenger)
 
 1. In cPanel → **Setup Python App**, create an app with Python 3.13 (3.10+ works with Django 5.2)

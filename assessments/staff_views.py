@@ -20,12 +20,12 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.text import slugify
 from django.views.decorators.http import require_POST
 
-from . import notifications
-from .ai_interview import generate_interview_questions_with_gemini, get_gemini_config
+from . import interview_rounds, notifications
+from .ai_interview import generate_round_questions, get_gemini_config
 from .forms import CandidateEditForm, CandidateImportForm, InterviewDecisionForm, RevokeForm
 from .models import Application, Attempt, AuditLog, Exam, InterviewReview, ProctoringSnapshot
 from .permissions import any_permission_required, has_perm, is_team_member, permission_required
-from .review import attempt_csv_rows, build_attempt_review, csv_safe
+from .review import attempt_csv_rows, build_attempt_review, csv_safe, export_columns
 from .services import AttemptError, allow_resume, expire_due_attempts, snapshot_file_path
 from .views import User, audit
 
@@ -285,6 +285,7 @@ def staff_exam_candidates(request, pk):
             ],
             "counts": counts,
             "batch": SEND_BATCH,
+            "round_choices": list(range(1, max(exam.interview_rounds_count or 1, 1) + 1)),
         },
     )
 
@@ -435,6 +436,77 @@ def staff_audit_credential_access(request, pk):
         action = "revealed"
     audit(request.user, f"credentials.{action}", f"application:{application.pk}", application.candidate.email)
     return JsonResponse({"ok": True})
+
+
+BULK_DECISIONS = {
+    "advance": InterviewReview.Decision.RECOMMENDED,
+    "hold": InterviewReview.Decision.FURTHER_REVIEW,
+    "reject": InterviewReview.Decision.NOT_RECOMMENDED,
+}
+
+
+@any_permission_required("interviews.conduct", "candidates.manage")
+@require_POST
+def staff_candidates_bulk(request, pk):
+    """Apply one action to the selected candidates: a round outcome, or flag / unflag for review."""
+    exam = get_object_or_404(Exam, pk=pk)
+    action = request.POST.get("action", "")
+    ids = [i for i in request.POST.getlist("selected_ids") if i.isdigit()]
+    back = redirect("staff_exam_candidates", pk=exam.pk)
+    if not ids:
+        messages.error(request, "Select at least one candidate first.")
+        return back
+    needed = "interviews.conduct" if action in BULK_DECISIONS else "candidates.manage"
+    if action not in BULK_DECISIONS and action not in ("flag", "unflag"):
+        messages.error(request, "Unknown action.")
+        return back
+    if not has_perm(request.user, needed):
+        messages.error(request, "Your role does not allow this action.")
+        return back
+
+    attempts = list(
+        Attempt.objects.filter(exam=exam, application_id__in=ids).select_related("application")
+    )
+    skipped = len(ids) - len(attempts)
+    if action in ("flag", "unflag"):
+        flag = action == "flag"
+        changed = Attempt.objects.filter(pk__in=[a.pk for a in attempts]).update(flagged_for_review=flag)
+        audit(request.user, f"bulk.{action}", f"exam:{exam.pk}", f"attempts={changed}")
+        note = f" {skipped} had not started the test." if skipped else ""
+        messages.success(request, f"{'Flagged' if flag else 'Cleared the flag on'} {changed} candidate(s).{note}")
+        return back
+
+    total_rounds = max(exam.interview_rounds_count or 1, 1)
+    try:
+        round_number = int(request.POST.get("round") or 1)
+    except ValueError:
+        round_number = 1
+    round_number = max(1, min(round_number, total_rounds))
+    decision = BULK_DECISIONS[action]
+    signer = request.user.get_full_name() or request.user.username
+    done = 0
+    with transaction.atomic():
+        for attempt in attempts:
+            if attempt.candidate_id == request.user.pk or attempt.status not in (
+                Attempt.Status.SUBMITTED, Attempt.Status.EXPIRED
+            ):
+                skipped += 1
+                continue
+            review, created = InterviewReview.objects.get_or_create(
+                attempt=attempt, round_number=round_number,
+                defaults={"reviewer": request.user, "interviewer_name": signer, "candidate_summary": "Bulk decision"},
+            )
+            review.decision = decision
+            review.selected_for_next_round = decision == InterviewReview.Decision.RECOMMENDED
+            if not review.interviewer_name:
+                review.interviewer_name = signer
+            review.save()
+            done += 1
+    label = dict(InterviewReview.Decision.choices)[decision]
+    audit(request.user, "bulk.decision", f"exam:{exam.pk}", f"round={round_number}, decision={decision}, count={done}")
+    note = f" {skipped} skipped (test not finished or no attempt)." if skipped else ""
+    messages.success(request, f"Round {round_number}: {label} for {done} candidate(s).{note}")
+    return back
 
 
 @permission_required("credentials.send")
@@ -605,86 +677,66 @@ def staff_attempt_review(request, pk):
     context["is_final_round"] = (current_round >= rounds_status["total_rounds"])
     context["allowed_rounds_range"] = list(range(1, 11))
 
-    # Categorize questions by difficulty: Easy, Intermediate, Hard
-    raw_questions = attempt.application.ai_interview_questions or []
-    if not raw_questions and attempt.application:
+    # Interview questions, per round. Generated on first view of the current round if a resume exists.
+    application = attempt.application
+    total_rounds = rounds_status["total_rounds"]
+    if (
+        application
+        and interview_rounds.uses_round_storage(application)
+        and str(current_round) not in (application.ai_round_questions or {})
+        and current_round <= total_rounds
+    ):
         try:
-            gen_res = generate_interview_questions_with_gemini(attempt.application)
-            if gen_res.get("success"):
-                attempt.application.refresh_from_db()
-                raw_questions = attempt.application.ai_interview_questions or []
+            generate_round_questions(application, current_round, total_rounds)
+            application.refresh_from_db()
         except Exception as exc:
             logger.warning("Auto generation of questions failed: %s", exc)
 
-    enriched_questions = []
-    for idx, q in enumerate(raw_questions, 1):
-        q_copy = dict(q)
-        q_copy["id"] = q_copy.get("id") or idx
-        q_copy["max_marks"] = int(q_copy.get("max_marks", 10))
-        # Keep scored state separate from 0
-        has_score = bool(q_copy.get("answered") or q_copy.get("is_reviewed"))
-        q_copy["is_reviewed"] = has_score
-        q_copy["answered"] = has_score
-        if has_score:
-            q_copy["marks_awarded"] = float(q_copy.get("marks_awarded", 0))
-        else:
-            q_copy["marks_awarded"] = None
-        enriched_questions.append(q_copy)
-
-    easy_questions = [q for q in enriched_questions if q.get("difficulty") == "Easy"]
-    intermediate_questions = [q for q in enriched_questions if q.get("difficulty") == "Intermediate"]
-    hard_questions = [q for q in enriched_questions if q.get("difficulty") == "Hard"]
-
-    # Calculate marks totals
-    total_max_marks = sum(int(q.get("max_marks", 10)) for q in enriched_questions)
-    total_awarded_marks = sum(float(q.get("marks_awarded", 0)) for q in enriched_questions if q.get("marks_awarded") is not None)
-    answered_count = sum(1 for q in enriched_questions if q.get("is_reviewed") or q.get("answered"))
-
-    context["interview_questions"] = enriched_questions
-    context["easy_questions"] = easy_questions
-    context["intermediate_questions"] = intermediate_questions
-    context["hard_questions"] = hard_questions
-    context["has_questions"] = bool(enriched_questions)
-    context["total_max_marks"] = total_max_marks
-    context["total_awarded_marks"] = total_awarded_marks
-    context["answered_count"] = answered_count
-    context["unanswered_count"] = len(enriched_questions) - answered_count
-
-    # Review history for all previous rounds with ordinals
     round_reviews = list(attempt.reviews.all().order_by("round_number", "-created_at"))
     reviews_by_round = {}
     for rev in round_reviews:
         rev.round_ordinal = ORDINALS.get(rev.round_number, f"Round {rev.round_number}")
-        if rev.round_number not in reviews_by_round:
-            reviews_by_round[rev.round_number] = rev
+        reviews_by_round.setdefault(rev.round_number, rev)
     context["round_reviews"] = round_reviews
 
-    # Enrich rounds with round-specific details
-    total_rounds = len(rounds_status["rounds"])
-    total_q = len(enriched_questions)
+    all_questions = []
     for r_info in rounds_status["rounds"]:
         rnd_num = r_info["round_number"]
         rev = reviews_by_round.get(rnd_num)
+        r_qs = interview_rounds.round_questions(application, rnd_num, total_rounds, rev) if application else []
+        for q in r_qs:
+            q["round_number"] = rnd_num
+        all_questions.extend(r_qs)
         r_info["review"] = rev
         r_info["round_ordinal"] = ORDINALS.get(rnd_num, f"Round {rnd_num}")
-        if rev and rev.questions_data:
-            r_qs = rev.questions_data
-        else:
-            if total_rounds == 2 and total_q >= 6:
-                r_qs = enriched_questions[:4] if rnd_num == 1 else enriched_questions[4:]
-            elif total_rounds > 1 and total_q > 0:
-                per_round = max(1, total_q // total_rounds)
-                start_idx = (rnd_num - 1) * per_round
-                end_idx = start_idx + per_round if rnd_num < total_rounds else total_q
-                r_qs = enriched_questions[start_idx:end_idx]
-            else:
-                r_qs = enriched_questions
-        r_scored = sum(1 for q in r_qs if q.get("is_reviewed") or q.get("answered"))
         r_info["questions"] = r_qs
-        r_info["scored_count"] = r_scored
+        r_info["scored_count"] = sum(1 for q in r_qs if q["is_reviewed"])
         r_info["total_count"] = len(r_qs)
-        r_info["round_score"] = float(rev.interview_score) if rev and rev.interview_score is not None else sum(float(q.get("marks_awarded", 0)) for q in r_qs if q.get("marks_awarded") is not None)
-        r_info["round_max_score"] = float(rev.max_interview_score) if rev and rev.max_interview_score is not None else sum(int(q.get("max_marks", 10)) for q in r_qs)
+        r_info["round_score"] = (
+            float(rev.interview_score) if rev and rev.interview_score is not None
+            else sum(q["marks_awarded"] for q in r_qs if q["marks_awarded"] is not None)
+        )
+        r_info["round_max_score"] = (
+            float(rev.max_interview_score) if rev and rev.max_interview_score is not None
+            else sum(q["max_marks"] for q in r_qs)
+        )
+
+    answered_count = sum(1 for q in all_questions if q["is_reviewed"])
+    context["interview_questions"] = all_questions
+    context["easy_questions"] = [q for q in all_questions if q.get("difficulty") == "Easy"]
+    context["intermediate_questions"] = [q for q in all_questions if q.get("difficulty") == "Intermediate"]
+    context["hard_questions"] = [q for q in all_questions if q.get("difficulty") == "Hard"]
+    context["has_questions"] = bool(all_questions)
+    context["total_max_marks"] = sum(q["max_marks"] for q in all_questions)
+    context["total_awarded_marks"] = sum(q["marks_awarded"] for q in all_questions if q["marks_awarded"] is not None)
+    context["answered_count"] = answered_count
+    context["unanswered_count"] = len(all_questions) - answered_count
+    context["resume_summary"] = (application.ai_resume_summary if application else "") or ""
+    context["ai_questions_error"] = (application.ai_questions_error if application else "") or ""
+    context["resume_keywords"] = list(dict.fromkeys(q["keyword"] for q in all_questions if q.get("keyword")))[:20]
+    context["resume_filename"] = (
+        os.path.basename(application.resume.name) if application and application.resume else ""
+    )
 
     context["rounds_status"] = rounds_status
 
@@ -845,9 +897,9 @@ def staff_attempt_decision(request, pk):
                 messages.error(request, err_msg)
                 return redirect("staff_attempt_review", pk=attempt.pk)
 
-        # Update questions answered state and marks in application with size and schema validation
+        # Scores per question for this round: [{id, marks_awarded, answered}, ...], at most 64 KB.
         questions_raw = post_data.get("questions_data", "")
-        questions_list = []
+        submitted = []
         if questions_raw:
             raw_str = json.dumps(questions_raw) if isinstance(questions_raw, list) else str(questions_raw)
             if len(raw_str) > 65536:
@@ -858,24 +910,15 @@ def staff_attempt_decision(request, pk):
                 return redirect("staff_attempt_review", pk=attempt.pk)
             try:
                 parsed = questions_raw if isinstance(questions_raw, list) else json.loads(questions_raw)
-                if isinstance(parsed, list):
-                    # Schema sanitize each question dict
-                    for item in parsed:
-                        if isinstance(item, dict):
-                            questions_list.append({
-                                "question": str(item.get("question", ""))[:500],
-                                "marks": float(item.get("marks", 0)) if item.get("marks") is not None else 0,
-                                "max_marks": float(item.get("max_marks", 10)) if item.get("max_marks") is not None else 10,
-                                "status": str(item.get("status", "answered"))[:50],
-                                "notes": str(item.get("notes", ""))[:1000],
-                            })
-            except Exception as exc:
+                submitted = [item for item in parsed if isinstance(item, dict)] if isinstance(parsed, list) else []
+            except ValueError as exc:
                 logger.warning("Could not parse questions_data JSON: %s", exc)
 
         with transaction.atomic():
-            if questions_list:
-                attempt.application.ai_interview_questions = questions_list
-                attempt.application.save(update_fields=["ai_interview_questions"])
+            existing = InterviewReview.objects.filter(attempt=attempt, round_number=round_number).first()
+            questions_list = interview_rounds.merge_scores(
+                attempt.application, round_number, max_configured_rounds, submitted, existing
+            ) if attempt.application else []
 
             review, _ = InterviewReview.objects.update_or_create(
                 attempt=attempt,
@@ -971,14 +1014,11 @@ def staff_export_csv(request, pk):
     exam_slug = slugify(exam.title) or f"exam-{exam.pk}"
     filename = f"exam-{exam.pk}-{exam_slug}-selected-results.csv" if selected_ids else f"exam-{exam.pk}-{exam_slug}-results.csv"
     response["Content-Disposition"] = f'attachment; filename="{filename}"'
-    fieldnames = [
-        "full_name", "username", "email", "phone", "application_status", "attempt_status",
-        "started_at", "ended_at", "mcq_score", "coding_score", "total_score", "flagged_for_review",
-    ]
-    writer = csv.DictWriter(response, fieldnames=fieldnames)
-    writer.writeheader()
+    columns = export_columns(exam)
+    writer = csv.writer(response)
+    writer.writerow([csv_safe(header) for _, header in columns])
     for row in attempt_csv_rows(exam, application_ids=selected_ids if selected_ids else None):
-        writer.writerow({key: csv_safe(row.get(key, "")) for key in fieldnames})
+        writer.writerow([csv_safe(row.get(key, "")) for key, _ in columns])
     audit(request.user, "export.results", f"exam:{exam.pk}", f"csv selected={len(selected_ids) if selected_ids else 'all'}")
     return response
 
@@ -1050,20 +1090,34 @@ def staff_generate_ai_questions(request, pk):
     attempt = get_object_or_404(Attempt.objects.select_related("application", "candidate", "exam"), pk=pk)
     application = attempt.application
 
-    res = generate_interview_questions_with_gemini(
-        application=application,
-        force=True,
-    )
+    total_rounds = max(attempt.exam.interview_rounds_count or 1, 1)
+    try:
+        round_number = int(request.POST.get("round") or attempt.interview_rounds_status["current_round"] or 1)
+    except (TypeError, ValueError):
+        round_number = 1
+    round_number = max(1, min(round_number, total_rounds))
+    if InterviewReview.objects.filter(attempt=attempt, round_number=round_number).exclude(questions_data=[]).exists():
+        messages.warning(request, f"Round {round_number} already has saved scores, so its questions were kept.")
+        return redirect(reverse("staff_attempt_review", args=[attempt.pk]) + "#interview-section")
+    if not application.ai_round_questions and application.ai_interview_questions:
+        # Move older single-list questions into per-round storage before replacing one round.
+        application.ai_round_questions = {
+            str(rnd): interview_rounds.base_questions(application, rnd, total_rounds) for rnd in range(1, total_rounds + 1)
+        }
+        application.save(update_fields=["ai_round_questions"])
+
+    res = generate_round_questions(application, round_number, total_rounds)
 
     if res.get("success"):
-        engine = res.get("engine", "Gemini")
+        engine = res.get("engine", "AI")
         count = res.get("count", 0)
-        messages.success(request, f"Generated {count} interview questions sorted by Easy, Intermediate, and Hard based on resume keywords.")
-        audit(request.user, "ai_interview.generated", f"attempt:{attempt.pk}", f"count={count}, engine={engine}")
+        note = f" {application.ai_questions_error}" if engine == "keywords" else ""
+        messages.success(request, f"Generated {count} questions for round {round_number}.{note}")
+        audit(request.user, "ai_interview.generated", f"attempt:{attempt.pk}", f"round={round_number}, count={count}, engine={engine}")
     else:
         err = res.get("error", "Unknown error")
         messages.warning(request, f"Notice: {err}")
-        audit(request.user, "ai_interview.disabled", f"attempt:{attempt.pk}", f"error={err}")
+        audit(request.user, "ai_interview.disabled", f"attempt:{attempt.pk}", f"round={round_number}, error={err}")
 
     redirect_url = reverse("staff_attempt_review", args=[attempt.pk]) + "#interview-section"
     return redirect(redirect_url)

@@ -324,6 +324,11 @@ class Application(models.Model):
         blank=True,
         help_text="AI-generated face-to-face interview questions and expected answers based on candidate resume keywords.",
     )
+    ai_round_questions = models.JSONField(
+        default=dict, blank=True,
+        help_text="AI interview questions per round: {\"1\": [...], \"2\": [...]}. Later rounds are harder.",
+    )
+    ai_resume_summary = models.TextField(blank=True, default="", help_text="AI summary of the resume, reused each round.")
     ai_questions_generated_at = models.DateTimeField(null=True, blank=True)
     ai_questions_error = models.TextField(blank=True, default="")
     changed_by = models.ForeignKey(
@@ -1043,3 +1048,54 @@ class StaffProfile(models.Model):
 
     def __str__(self):
         return f"{self.user} ({self.role or 'no role'})"
+
+
+# ---------------------------------------------------------------------------
+# AI provider keys (a pool the app rotates through)
+# ---------------------------------------------------------------------------
+
+
+class AIKey(models.Model):
+    """One API key in the pool used for AI interview questions.
+
+    Requests go to the healthy key used least recently, so load spreads across keys. A key that hits a
+    rate or quota limit rests until ``cooling_until`` and the request moves on to the next key.
+    """
+
+    class Provider(models.TextChoices):
+        GEMINI = "gemini", "Google Gemini"
+
+    label = models.CharField(max_length=80, help_text="A name to recognise this key, e.g. 'Team account 2'.")
+    provider = models.CharField(max_length=20, choices=Provider.choices, default=Provider.GEMINI)
+    api_key = models.CharField(max_length=255)
+    model = models.CharField(
+        max_length=64, blank=True, default="",
+        help_text="Leave blank to use the default model from Settings.",
+    )
+    is_active = models.BooleanField(default=True)
+    priority = models.PositiveSmallIntegerField(
+        default=1, help_text="Lower numbers are tried first. Keys with the same priority share the load.",
+    )
+    cooling_until = models.DateTimeField(null=True, blank=True)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+    last_error = models.CharField(max_length=300, blank=True, default="")
+    last_error_at = models.DateTimeField(null=True, blank=True)
+    success_count = models.PositiveIntegerField(default=0)
+    failure_count = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["priority", "id"]
+        verbose_name = "AI API key"
+
+    def __str__(self):
+        return f"{self.label} ({self.masked})"
+
+    @property
+    def masked(self):
+        key = self.api_key or ""
+        return f"…{key[-4:]}" if len(key) > 4 else "…"
+
+    @property
+    def is_cooling(self):
+        return bool(self.cooling_until and self.cooling_until > timezone.now())

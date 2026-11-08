@@ -892,6 +892,43 @@ def staff_question_template(request, kind):
 
 
 @permission_required("settings.manage")
+def staff_ai_keys(request):
+    """The pool of AI API keys: add, edit, pause, test and remove."""
+    from . import ai_client
+    from .forms import AIKeyForm
+    from .models import AIKey
+
+    edit_id = request.GET.get("edit") or request.POST.get("key_id")
+    instance = AIKey.objects.filter(pk=edit_id).first() if edit_id and str(edit_id).isdigit() else None
+    form = AIKeyForm(instance=instance)
+    if request.method == "POST":
+        action = request.POST.get("action", "save")
+        key = instance
+        if action == "save":
+            form = AIKeyForm(request.POST, instance=instance)
+            if form.is_valid():
+                saved = form.save()
+                audit(request.user, "ai_key.saved", f"ai_key:{saved.pk}", f"{saved.label} {saved.masked}")
+                messages.success(request, f"Saved key \"{saved.label}\".")
+                return redirect("staff_ai_keys")
+        elif key is not None and action == "delete":
+            audit(request.user, "ai_key.deleted", f"ai_key:{key.pk}", f"{key.label} {key.masked}")
+            key.delete()
+            messages.success(request, "Key removed.")
+            return redirect("staff_ai_keys")
+        elif key is not None and action == "reset":
+            ai_client.reset_key(key.pk)
+            messages.success(request, f"\"{key.label}\" is back in rotation.")
+            return redirect("staff_ai_keys")
+        elif key is not None and action == "test":
+            ok, detail = ai_client.test_key(key)
+            (messages.success if ok else messages.error)(request, f"\"{key.label}\": {detail}")
+            return redirect("staff_ai_keys")
+    keys = list(AIKey.objects.all())
+    return render(request, "assessments/staff/ai_keys.html", {"keys": keys, "form": form, "editing": instance})
+
+
+@permission_required("settings.manage")
 def staff_settings(request):
     site = SiteSettings.load()
     if request.method == "POST":
@@ -951,7 +988,19 @@ def staff_settings(request):
         "from_email": dj_settings.DEFAULT_FROM_EMAIL,
         "is_configured": bool(dj_settings.EMAIL_HOST_PASSWORD and dj_settings.EMAIL_HOST_PASSWORD != "change-me"),
     }
-    return render(request, "assessments/staff/settings.html", {"form": form, "email_status": email_status})
+    from .models import AIKey
+
+    active_keys = list(AIKey.objects.filter(is_active=True))
+    return render(
+        request,
+        "assessments/staff/settings.html",
+        {
+            "form": form,
+            "email_status": email_status,
+            "ai_key_count": len(active_keys),
+            "ai_key_resting": sum(1 for k in active_keys if k.is_cooling),
+        },
+    )
 
 
 def csrf_failure_view(request, reason=""):

@@ -1247,6 +1247,38 @@ def coding_score(attempt):
     return total
 
 
+def section_scores(attempt):
+    """Marks per section, in exam order: [{"section_id", "title", "kind", "score", "max"}, ...]."""
+    rows = {}
+    for sec in attempt.exam.sections.order_by("order", "id"):
+        rows[sec.pk] = {"section_id": sec.pk, "title": sec.title, "kind": sec.kind, "score": 0.0, "max": 0.0}
+
+    def row_for(item):
+        return rows.setdefault(item.section_id, {
+            "section_id": item.section_id, "title": item.section.title, "kind": item.section.kind,
+            "score": 0.0, "max": 0.0,
+        })
+
+    answers = {a.question_id: a.option for a in attempt.answers.select_related("option")}
+    for item in attempt.mcq_items.select_related("question", "section"):
+        row = row_for(item)
+        row["max"] += float(item.question.marks)
+        option = answers.get(item.question_id)
+        if option is not None and option.is_correct:
+            row["score"] += float(item.question.marks)
+    finals = {}
+    for sub in attempt.coding_submissions.filter(
+        status=CodingSubmission.Status.COMPLETED, is_final=True
+    ).order_by("version"):
+        finals[sub.problem_id] = sub  # Latest version wins.
+    for item in attempt.coding_items.select_related("problem", "section"):
+        row = row_for(item)
+        row["max"] += float(item.problem.marks)
+        if item.problem_id in finals:
+            row["score"] += float(finals[item.problem_id].marks_awarded)
+    return [r for r in rows.values() if r["max"]]
+
+
 def max_score(attempt):
     mcq = sum(item.question.marks for item in attempt.mcq_items.select_related("question"))
     coding = sum(item.problem.marks for item in attempt.coding_items.select_related("problem"))

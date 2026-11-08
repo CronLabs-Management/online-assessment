@@ -10,6 +10,7 @@ from django.forms import inlineformset_factory
 
 from .models import (
     SUPPORTED_LANGUAGES,
+    AIKey,
     Application,
     CodingProblem,
     CodingTestCase,
@@ -669,7 +670,6 @@ class SiteSettingsForm(forms.ModelForm):
             "monitoring_notice_title",
             "monitoring_notice",
             "snapshot_retention_days",
-            "gemini_api_key",
             "gemini_model",
         ]
         labels = {
@@ -685,8 +685,7 @@ class SiteSettingsForm(forms.ModelForm):
             "monitoring_notice_title": "Monitoring notice heading",
             "monitoring_notice": "Monitoring notice (one item per line)",
             "snapshot_retention_days": "Keep evidence images for (days)",
-            "gemini_api_key": "Google Gemini API Key",
-            "gemini_model": "Gemini Model",
+            "gemini_model": "Default Gemini model",
         }
         widgets = {
             "site_name": forms.TextInput(attrs={"placeholder": "e.g. Assessments"}),
@@ -697,12 +696,7 @@ class SiteSettingsForm(forms.ModelForm):
             "login_email_intro": forms.Textarea(attrs={"rows": 2}),
             "login_email_instructions": forms.Textarea(attrs={"rows": 5}),
             "monitoring_notice": forms.Textarea(attrs={"rows": 8}),
-            "gemini_api_key": forms.PasswordInput(render_value=True, attrs={"placeholder": "AIzaSy...", "autocomplete": "off"}),
-            "gemini_model": forms.Select(choices=[
-                ("gemini-1.5-flash", "Gemini 1.5 Flash (Fast & Recommended)"),
-                ("gemini-1.5-pro", "Gemini 1.5 Pro (Deep Reasoning)"),
-                ("gemini-2.0-flash-exp", "Gemini 2.0 Flash Experimental"),
-            ]),
+            "gemini_model": forms.TextInput(attrs={"placeholder": "gemini-2.5-flash"}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -900,3 +894,39 @@ class StaffMemberForm(forms.Form):
                     "This email is used by a candidate. Use a different email for staff accounts."
                 )
         return email
+
+
+class AIKeyForm(forms.ModelForm):
+    class Meta:
+        model = AIKey
+        fields = ["label", "api_key", "model", "priority", "is_active"]
+        labels = {"api_key": "API key", "model": "Model (optional)", "is_active": "Use this key"}
+        widgets = {
+            "api_key": forms.PasswordInput(render_value=False, attrs={"autocomplete": "off", "placeholder": "Paste the key"}),
+            "model": forms.TextInput(attrs={"placeholder": "Default from Settings"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            # Never send a saved key back to the browser. Blank keeps the current key.
+            self.fields["api_key"].required = False
+            self.fields["api_key"].widget.attrs["placeholder"] = f"Saved ({self.instance.masked}). Leave blank to keep."
+        for name, field in self.fields.items():
+            if name == "is_active":
+                field.widget.attrs.setdefault("class", "h-4 w-4")
+            else:
+                field.widget.attrs.setdefault("class", "w-full rounded border px-3 py-2")
+
+    def clean_api_key(self):
+        value = (self.cleaned_data.get("api_key") or "").strip()
+        if not value and self.instance and self.instance.pk:
+            return self.instance.api_key
+        if not value:
+            raise ValidationError("Paste the API key.")
+        if AIKey.objects.filter(api_key=value).exclude(pk=self.instance.pk).exists():
+            raise ValidationError("This key is already in the pool.")
+        return value
+
+    def clean_model(self):
+        return re.sub(r"[^a-zA-Z0-9._-]", "", self.cleaned_data.get("model") or "")

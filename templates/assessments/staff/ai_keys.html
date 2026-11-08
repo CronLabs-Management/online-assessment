@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}AI keys | Settings{% endblock %}
+{% block content %}
+<div class="space-y-6">
+  <a href="{% url 'staff_settings' %}" class="crumb">
+    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+    <span>Settings</span>
+  </a>
+  <div>
+    <h1 class="text-2xl font-bold text-slate-900 tracking-tight">AI keys</h1>
+    <p class="mt-1 text-sm text-slate-600 max-w-3xl">
+      Requests are spread across the active keys, starting with the lowest priority number. When a key hits a rate limit or its daily quota, it rests and the request moves straight on to the next key, so question generation keeps working without anyone changing keys by hand.
+    </p>
+  </div>
+
+  <div class="card overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm text-left">
+        <thead class="border-b border-slate-200 bg-slate-50 text-xs text-slate-500">
+          <tr>
+            <th scope="col" class="px-4 py-2.5 font-medium">Key</th>
+            <th scope="col" class="px-4 py-2.5 font-medium">Priority</th>
+            <th scope="col" class="px-4 py-2.5 font-medium">Status</th>
+            <th scope="col" class="px-4 py-2.5 font-medium">Requests</th>
+            <th scope="col" class="px-4 py-2.5 font-medium">Last used</th>
+            <th scope="col" class="px-4 py-2.5"><span class="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for key in keys %}
+            <tr class="align-top">
+              <td class="px-4 py-3">
+                <div class="font-medium text-slate-900">{{ key.label }}</div>
+                <div class="text-xs text-slate-500 font-mono">{{ key.masked }}{% if key.model %} · {{ key.model }}{% endif %}</div>
+              </td>
+              <td class="px-4 py-3 text-slate-700">{{ key.priority }}</td>
+              <td class="px-4 py-3">
+                {% if not key.is_active %}<span class="badge badge-neutral">Paused</span>
+                {% elif key.is_cooling %}<span class="badge badge-warn">Resting until {{ key.cooling_until|date:"H:i" }}</span>
+                {% else %}<span class="badge badge-ok">Ready</span>{% endif %}
+                {% if key.last_error %}<div class="text-xs text-slate-500 mt-1 max-w-xs">{{ key.last_error|truncatechars:140 }}</div>{% endif %}
+              </td>
+              <td class="px-4 py-3 text-slate-700">{{ key.success_count }} ok · {{ key.failure_count }} failed</td>
+              <td class="px-4 py-3 text-slate-700">{{ key.last_used_at|date:"j M, H:i"|default:"Never" }}</td>
+              <td class="px-4 py-3 text-right whitespace-nowrap">
+                <form method="post" class="inline">{% csrf_token %}<input type="hidden" name="key_id" value="{{ key.pk }}">
+                  <button name="action" value="test" class="text-sm font-medium text-[#2447F5] hover:underline">Test</button>
+                  {% if key.is_cooling %}<button name="action" value="reset" class="ml-3 text-sm font-medium text-slate-700 hover:underline">Use again now</button>{% endif %}
+                </form>
+                <a href="?edit={{ key.pk }}" class="ml-3 text-sm font-medium text-slate-700 hover:underline">Edit</a>
+                <form method="post" class="inline" onsubmit="return confirm('Remove the key {{ key.label|escapejs }}?');">{% csrf_token %}<input type="hidden" name="key_id" value="{{ key.pk }}">
+                  <button name="action" value="delete" class="ml-3 text-sm font-medium text-rose-600 hover:underline">Remove</button>
+                </form>
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="6" class="px-4 py-10 text-center text-sm text-slate-500">No keys yet. Without a key, interview questions come from resume keyword matching only.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <form method="post" class="card p-6 space-y-4 max-w-2xl">
+    {% csrf_token %}
+    {% if editing %}<input type="hidden" name="key_id" value="{{ editing.pk }}">{% endif %}
+    <h2 class="text-sm font-semibold text-slate-900">{% if editing %}Edit "{{ editing.label }}"{% else %}Add a key{% endif %}</h2>
+    {% for error in form.non_field_errors %}<div class="alert alert-bad">{{ error }}</div>{% endfor %}
+    <div class="grid gap-4 sm:grid-cols-2">
+      {% for field in form %}
+        {% if field.name == "is_active" %}
+          <label class="flex items-center gap-2 text-sm text-slate-800 sm:col-span-2">{{ field }} {{ field.label }}</label>
+        {% else %}
+          <div class="{% if field.name == 'api_key' %}sm:col-span-2{% endif %}">
+            <label class="label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {% if field.help_text %}<p class="text-xs text-slate-500 mt-1">{{ field.help_text }}</p>{% endif %}
+            {% for error in field.errors %}<p class="text-xs text-rose-600 mt-1">{{ error }}</p>{% endfor %}
+          </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+    <div class="flex items-center gap-3">
+      <button name="action" value="save" class="btn btn-primary text-sm py-2 px-5">{% if editing %}Save key{% else %}Add key{% endif %}</button>
+      {% if editing %}<a href="{% url 'staff_ai_keys' %}" class="btn btn-secondary text-sm py-2 px-4">Cancel</a>{% endif %}
+    </div>
+  </form>
+</div>
+{% endblock %}

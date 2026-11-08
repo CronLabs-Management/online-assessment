@@ -453,6 +453,7 @@
                         <span>Started: <b>{{ s.started_at|date:"H:i:s"|default:"—" }}</b></span>
                         <span>Submitted: <b>{{ s.ended_at|date:"H:i:s"|default:"In progress" }}</b></span>
                         <span>Duration: <b>{{ s.duration_display }}</b></span>
+                        {% if s.max %}<span>Marks: <b>{{ s.score|floatformat:"-2" }} / {{ s.max|floatformat:"-2" }}</b></span>{% endif %}
                       </div>
                     </div>
                   {% empty %}
@@ -762,14 +763,14 @@
                         <div class="qnumber">Q{{ forloop.counter }}</div>
                         <div class="interview-q-content">
                           <div class="qtext">{{ q.question }}</div>
-                          <div class="qmeta">Resume Keyword: <strong>{{ q.keyword|default:"Backend & Systems" }}</strong> &nbsp;·&nbsp; Category: {{ q.category|default:"Technical" }}</div>
+                          <div class="qmeta">Resume topic: <strong>{{ q.keyword|default:"General" }}</strong> &nbsp;·&nbsp; Category: {{ q.category|default:"Technical" }}</div>
                         </div>
                         <span class="difficulty">{{ q.difficulty|default:"Intermediate" }}</span>
                       </div>
 
                       <details class="rubric">
                         <summary>What to look for · optional guide (Expected Answer)</summary>
-                        <p><strong>Expected Answer:</strong> {{ q.expected_answer|default:"Demonstrate clear system thinking, practical trade-offs, and architecture best practices." }}</p>
+                        <p><strong>Expected Answer:</strong> {{ q.expected_answer|default:"No reference answer was generated for this question." }}</p>
                         {% if q.follow_up_hint %}
                           <p style="margin-top:5px"><em>💡 Follow-Up Hint: {{ q.follow_up_hint }}</em></p>
                         {% endif %}
@@ -812,8 +813,19 @@
                       </div>
                     </article>
                   {% empty %}
-                    <div class="empty-state">No questions assigned to Round {{ rnd.round_number }}.</div>
+                    <div class="empty-state">No questions for Round {{ rnd.round_number }} yet.</div>
                   {% endfor %}
+
+                  {% if "interviews.conduct" in oa_perms %}
+                    {% if not rnd.review or not rnd.review.questions_data %}
+                      <form method="post" action="{% url 'staff_generate_ai_questions' attempt.pk %}" class="section-actions" style="margin-top:12px">
+                        {% csrf_token %}
+                        <input type="hidden" name="round" value="{{ rnd.round_number }}">
+                        <span class="status-line">{% if rnd.questions %}New questions replace the ones above.{% else %}Questions are based on the resume and earlier rounds.{% endif %}</span>
+                        <button type="submit" class="btn small">{% if rnd.questions %}Regenerate{% else %}Generate{% endif %} Round {{ rnd.round_number }} questions</button>
+                      </form>
+                    {% endif %}
+                  {% endif %}
 
                   <!-- Round Outcome Panel -->
                   <div class="panel" style="box-shadow:none;margin-top:16px">
@@ -915,8 +927,8 @@
               <div class="resume-box">
                 <div class="file-icon">PDF</div>
                 <div style="flex:1">
-                  <strong>{{ attempt.application.full_name|default:summary.candidate }} — Resume.pdf</strong>
-                  <p>Resume source · Verified candidate document · Secure viewer</p>
+                  <strong>{{ attempt.application.full_name|default:summary.candidate }}{% if resume_filename %} · {{ resume_filename }}{% endif %}</strong>
+                  <p>{% if resume_filename %}Uploaded by the candidate{% else %}No resume uploaded{% endif %}</p>
                 </div>
                 {% if attempt.application.resume %}
                   <a class="btn" href="{% url 'staff_application_resume' attempt.application.pk %}" target="_blank">View resume</a>
@@ -925,21 +937,24 @@
                 {% endif %}
               </div>
 
+              {% if resume_summary %}
+                <div style="margin-top:20px">
+                  <h3 style="font-size:13px;margin:0 0 4px;font-weight:800">Resume summary</h3>
+                  <p style="font-size:13px;line-height:1.55;margin:0;white-space:pre-line">{{ resume_summary }}</p>
+                </div>
+              {% endif %}
+              {% if ai_questions_error %}
+                <p class="muted" style="font-size:12px;margin:12px 0 0">{{ ai_questions_error }}</p>
+              {% endif %}
+
               <div style="margin-top:20px">
                 <h3 style="font-size:13px;margin:0 0 4px;font-weight:800">Detected resume topics</h3>
                 <p class="muted" style="font-size:12px;margin:0">Used to generate questions relevant to the candidate's stated experience.</p>
                 <div class="resume-keywords">
-                  {% for q in interview_questions %}
-                    {% if q.keyword %}
-                      <span class="keyword">{{ q.keyword }}</span>
-                    {% endif %}
+                  {% for keyword in resume_keywords %}
+                    <span class="keyword">{{ keyword }}</span>
                   {% empty %}
-                    <span class="keyword">Python &amp; backend frameworks</span>
-                    <span class="keyword">Docker &amp; container architecture</span>
-                    <span class="keyword">Redis &amp; caching</span>
-                    <span class="keyword">Cloud infrastructure</span>
-                    <span class="keyword">AWS</span>
-                    <span class="keyword">Databases</span>
+                    <span class="muted" style="font-size:12px">Topics appear here once questions are generated.</span>
                   {% endfor %}
                 </div>
               </div>
@@ -956,7 +971,7 @@
                   {% for q in interview_questions %}
                     <div class="rowline" data-goto="interview" style="cursor:pointer">
                       <span>Round {{ q.round_number|default:"1" }} — {{ q.question|truncatechars:70 }}</span>
-                      <span class="pill neutral">Question {{ forloop.counter }}</span>
+                      <span class="pill neutral">{{ q.difficulty|default:"Intermediate" }}</span>
                     </div>
                   {% empty %}
                     <div class="rowline"><span class="muted italic">No questions generated yet.</span></div>

@@ -1,0 +1,96 @@
+/** Tailwind v3 config. Keep in step with the classes used in templates; rebuild with `npm run build`. */
+module.exports = {
+  content: [
+    "../templates/**/*.html",
+    "../static/js/**/*.js",
+    "../assessments/**/*.py",
+  ],
+  theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', "system-ui", "-apple-system", "sans-serif"],
+            mono: ['"JetBrains Mono"', "ui-monospace", "monospace"],
+          },
+          colors: {
+            brand: {
+              DEFAULT: "#2447F5",
+              50: "#F1F5FF",
+              100: "#EEF1FE",
+              200: "#D5DEFB",
+              300: "#B8C9F8",
+              400: "#7091F6",
+              500: "#3B62F6",
+              600: "#2447F5",
+              700: "#1E3AC8",
+              800: "#172A99",
+              900: "#0F1B66",
+            },
+            slate: {
+              50: "#F4F6FB",
+              100: "#F1F5F9",
+              200: "#E2E8F0",
+              300: "#CBD5E1",
+              400: "#94A3B8",
+              500: "#64748B",
+              600: "#475569",
+              700: "#334155",
+              800: "#1E293B",
+              900: "#0F172A",
+              950: "#080D1A",
+            },
+            emerald: {
+              50: "#E3F5EC",
+              100: "#D1FAE5",
+              600: "#059669",
+              700: "#0B6B43",
+              800: "#065F46",
+            },
+            amber: {
+              50: "#FCF7EC",
+              100: "#F3E6C4",
+              200: "#FDE68A",
+              500: "#FFB020",
+              600: "#D97706",
+              700: "#B45309",
+              800: "#9A5F0B",
+            },
+            rose: {
+              50: "#FEE2E2",
+              100: "#FFE4E6",
+              600: "#E11D48",
+              700: "#B91C1C",
+              800: "#991B1B",
+            },
+            blue: {
+              50: "#F1F5FF",
+              100: "#EEF1FE",
+              200: "#D5DEFB",
+              600: "#2447F5",
+              700: "#1E3AC8",
+              800: "#172A99",
+            },
+            teal: {
+              50: "#EEF1FE",
+              100: "#D5DEFB",
+              200: "#B8C9F8",
+              500: "#3B62F6",
+              600: "#2447F5",
+              700: "#1E3AC8",
+              800: "#172A99",
+              900: "#0F1B66",
+            },
+          },
+          // Names from Tailwind v4 that the templates use.
+          ringWidth: { 3: "3px" },
+          backdropBlur: { xs: "4px" },
+          blur: { xs: "4px" },
+          boxShadow: {
+            '2xs': '0 1px rgb(0 0 0 / 0.05)',
+            'xs': '0 1px 2px 0 rgb(0 0 0 / 0.05)',
+            'card': '0 2px 8px rgba(15,23,42,0.05)',
+            'cta': '0 6px 16px rgba(15,23,42,0.18)',
+            'elevated': '0 12px 32px rgba(15,23,42,0.12)',
+          }
+        },
+      },
+};

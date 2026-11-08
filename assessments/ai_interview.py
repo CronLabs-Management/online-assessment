@@ -4,10 +4,9 @@ import logging
 import os
 import re
 
-import requests
 from django.utils import timezone
 
-from .models import Application, SiteSettings
+from .models import Application
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +69,15 @@ def extract_resume_text(application: Application) -> str:
     text = ""
     if ext == ".pdf":
         try:
+            from pypdf import PdfReader
+
+            reader = PdfReader(io.BytesIO(raw_bytes))
+            text = "\n".join((page.extract_text() or "") for page in reader.pages).strip()
+        except Exception as exc:
+            logger.warning("pypdf text extraction failed for app %s: %s", application.pk, exc)
+        if text:
+            return text
+        try:
             import pymupdf
             doc = pymupdf.open(stream=raw_bytes, filetype="pdf")
             pages = []
@@ -94,28 +102,13 @@ def extract_resume_text(application: Application) -> str:
         except Exception as exc:
             logger.warning("python-docx extraction failed for app %s: %s", application.pk, exc)
 
-    if not text:
+    if not text and ext not in (".pdf", ".docx", ".doc"):
         try:
             text = raw_bytes.decode("utf-8", errors="ignore").strip()
         except Exception:
             text = ""
 
     return text.strip()
-
-
-def get_gemini_config():
-    """
-    Retrieves the configured Gemini API key and model name.
-    Strictly prioritized from the website Platform Settings:
-    1. SiteSettings.gemini_api_key (Platform Settings)
-    2. Environment variable: GEMINI_API_KEY or GOOGLE_API_KEY (fallback)
-    """
-    site = SiteSettings.load()
-    api_key = (site.gemini_api_key or "").strip()
-    if not api_key:
-        api_key = (os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") or "").strip()
-    model = (site.gemini_model or "gemini-1.5-flash").strip()
-    return api_key, model
 
 
 FALLBACK_KEYWORD_CATALOG = [
@@ -308,186 +301,178 @@ def generate_fallback_questions(resume_text: str, candidate_name: str):
     return sort_and_enrich_questions(matched[:8])
 
 
-def generate_interview_questions_with_gemini(
-    application: Application,
-    api_key_override: str = None,
-    model_override: str = None,
-    force: bool = False,
-    candidate_text_override: str = None,
-):
+def round_profile(round_number, total_rounds):
+    """How hard a round's questions are. Later rounds go deeper; the last round is the hardest."""
+    total_rounds = max(1, total_rounds or 1)
+    if total_rounds == 1 or round_number <= 1:
+        if total_rounds == 1:
+            return {"mix": {"Easy": 2, "Intermediate": 3, "Hard": 2}, "focus": (
+                "Cover the whole resume: confirm fundamentals, then probe one or two claims in depth.")}
+        return {"mix": {"Easy": 2, "Intermediate": 3, "Hard": 1}, "focus": (
+            "Screening round: confirm the fundamentals behind the main skills and check that the "
+            "candidate really did the work their resume describes.")}
+    if round_number >= total_rounds:
+        return {"mix": {"Easy": 0, "Intermediate": 1, "Hard": 5}, "focus": (
+            "Final round: the hardest questions. Go beyond the resume into design trade-offs, failure "
+            "handling at scale, ownership of decisions, and how they would lead the work. Expect "
+            "senior-level depth.")}
+    return {"mix": {"Easy": 0, "Intermediate": 2, "Hard": 4}, "focus": (
+        "Deep-dive round: pick the strongest projects from the resume and dig into how they were built, "
+        "what broke, the numbers behind the claims, and the alternatives they rejected.")}
+
+
+def _previous_round_context(application, round_number):
+    """Questions already asked and interviewer notes from earlier rounds, so later rounds build on them."""
+    asked, notes = [], []
+    rounds = application.ai_round_questions or {}
+    for rnd in range(1, round_number):
+        for q in rounds.get(str(rnd), []):
+            if q.get("question"):
+                asked.append(f"Round {rnd}: {q['question']}")
+    from .models import InterviewReview
+
+    reviews = InterviewReview.objects.filter(
+        attempt__application=application, round_number__lt=round_number
+    ).order_by("round_number", "created_at")
+    for review in reviews:
+        text = " ".join(x for x in (review.candidate_summary, review.notes) if x).strip()
+        if text:
+            notes.append(f"Round {review.round_number} interviewer notes: {text[:800]}")
+    return asked, notes
+
+
+def _parse_ai_json(text):
+    cleaned = (text or "").strip()
+    if cleaned.startswith("```"):
+        cleaned = re.sub(r"^```[a-zA-Z]*\n?", "", cleaned)
+        cleaned = re.sub(r"```$", "", cleaned).strip()
+    data = json.loads(cleaned)
+    summary = ""
+    if isinstance(data, dict):
+        summary = str(data.get("resume_summary") or data.get("summary") or "")[:3000]
+        data = data.get("questions", [])
+    if not isinstance(data, list):
+        raise ValueError("The AI response did not contain a list of questions.")
+    questions = []
+    for q in data:
+        if not isinstance(q, dict) or not str(q.get("question") or "").strip():
+            continue
+        questions.append({
+            "keyword": str(q.get("keyword") or "General")[:120],
+            "context_snippet": str(q.get("context_snippet") or "")[:400],
+            "category": str(q.get("category") or "Technical")[:80],
+            "difficulty": q.get("difficulty") or "Intermediate",
+            "question": str(q["question"])[:1000],
+            "expected_answer": str(q.get("expected_answer") or "")[:1500],
+            "follow_up_hint": str(q.get("follow_up_hint") or "")[:500],
+        })
+    if not questions:
+        raise ValueError("No usable questions in the AI response.")
+    return summary, questions
+
+
+def build_round_prompt(application, resume_text, round_number, total_rounds):
+    profile = round_profile(round_number, total_rounds)
+    mix = ", ".join(f"{n} {level}" for level, n in profile["mix"].items() if n)
+    asked, notes = _previous_round_context(application, round_number)
+    name = application.full_name or "the candidate"
+    earlier = ""
+    if asked:
+        earlier += "\nQuestions already asked in earlier rounds (do not repeat them; go deeper instead):\n" + "\n".join(f"- {a}" for a in asked[:40])
+    if notes:
+        earlier += "\n\nWhat earlier interviewers noted (use it to target weak or unclear areas):\n" + "\n".join(notes)
+    summary = application.ai_resume_summary.strip()
+    summary_block = f"\nResume summary from an earlier round:\n{summary}\n" if summary else ""
+    return f"""You are a principal engineer preparing interview round {round_number} of {total_rounds} with {name} for "{application.exam.title}".
+
+Resume:
+\"\"\"
+{resume_text[:20000]}
+\"\"\"
+{summary_block}{earlier}
+
+Round goal: {profile["focus"]}
+
+Write exactly these questions: {mix}. Every question must come from something specific in this resume
+(a project, tool, metric or claim), quoted in context_snippet. Prefer "how did you…" and "what would
+happen if…" over definitions. For each, give the answer an interviewer should listen for, and one
+follow-up that tests depth.
+
+Return JSON only:
+{{
+  "resume_summary": "4-6 sentences: seniority, strongest areas, main projects, and claims worth verifying",
+  "questions": [
+    {{"keyword": "...", "context_snippet": "...", "category": "...", "difficulty": "Easy|Intermediate|Hard",
+      "question": "...", "expected_answer": "...", "follow_up_hint": "..."}}
+  ]
+}}"""
+
+
+def generate_round_questions(application, round_number=1, total_rounds=None, *, api_key_override=None,
+                             model_override=None, candidate_text_override=None):
+    """Create the AI questions for one interview round and save them on the application.
+
+    Uses the key pool (see ai_client); falls back to resume keyword questions when no key works.
+    Returns {"success", "count", "engine", "error"?}.
     """
-    Extracts candidate resume text and calls the Google Gemini REST API using the key
-    configured in Platform Settings.
-    Produces questions sorted strictly by Easy, Intermediate, and Hard with explicit keywords.
-    """
+    from . import ai_client
+
+    total_rounds = total_rounds or getattr(application.exam, "interview_rounds_count", 1) or 1
+    round_number = max(1, min(int(round_number or 1), total_rounds))
     resume_text = candidate_text_override or extract_resume_text(application)
+    now = timezone.now()
+    rounds = dict(application.ai_round_questions or {})
+
+    def save(questions, error=""):
+        rounds[str(round_number)] = questions
+        application.ai_round_questions = rounds
+        application.ai_questions_generated_at = now
+        application.ai_questions_error = error
+        fields = ["ai_round_questions", "ai_questions_generated_at", "ai_questions_error", "ai_resume_summary"]
+        if round_number == 1:
+            application.ai_interview_questions = questions
+            fields.append("ai_interview_questions")
+        application.save(update_fields=fields)
+
     if not resume_text:
-        application.ai_interview_questions = []
-        application.ai_questions_generated_at = timezone.now()
-        application.ai_questions_error = "No verified candidate resume found. Resume-derived AI questions are disabled."
-        application.save(update_fields=["ai_interview_questions", "ai_questions_generated_at", "ai_questions_error"])
-        return {
-            "success": False,
-            "error": "No verified candidate resume found. Resume-derived AI questions are disabled.",
-            "count": 0,
-            "questions": [],
-        }
+        save([], "No verified candidate resume found, so there is nothing to base questions on. Ask the candidate to upload one.")
+        return {"success": False, "count": 0, "engine": "none", "error": application.ai_questions_error}
 
-    configured_key, configured_model = get_gemini_config()
-    api_key = (api_key_override or configured_key or "").strip()
-    model = (model_override or configured_model or "gemini-1.5-flash").strip()
-
-    candidate_name = application.full_name or application.candidate.username or f"Candidate {application.pk}"
-
-    # If no API key is available in Platform Settings, use keyword extraction generator
-    if not api_key:
-        fallback_questions = generate_fallback_questions(resume_text, candidate_name)
-        application.ai_interview_questions = fallback_questions
-        application.ai_questions_generated_at = timezone.now()
-        application.ai_questions_error = "Gemini API key is not configured in Platform Settings. Questions generated from resume keyword analysis (Easy, Intermediate, Hard)."
-        application.save(update_fields=["ai_interview_questions", "ai_questions_generated_at", "ai_questions_error"])
-        return {
-            "success": True,
-            "engine": "fallback_keyword_engine",
-            "count": len(fallback_questions),
-            "questions": fallback_questions,
-            "notice": "Generated using resume keyword extractor. Configure Gemini API key in Platform Settings for live LLM generation.",
-        }
-
-    prompt = f"""You are a principal technical interviewer conducting a live face-to-face interview with candidate {candidate_name} for the position assessed under '{application.exam.title}'.
-
-Candidate Resume Text:
-\"\"\"
-{resume_text}
-\"\"\"
-
-CRITICAL REQUIREMENTS:
-1. Thoroughly analyze the candidate's resume above.
-2. Extract specific technical keywords, claims, frameworks, tools, or projects explicitly cited in the resume.
-3. For EVERY question, you MUST identify the exact KEYWORD or CLAIM from the resume the question is testing, along with a verbatim context quote from the resume.
-4. You MUST sort and classify questions across three difficulty tiers: 'Easy', 'Intermediate', and 'Hard'.
-   - Generate 2 'Easy' questions (fundamental concepts, clean coding, basic framework workflows).
-   - Generate 2-3 'Intermediate' questions (hands-on architecture, containerization, caching, practical problem solving).
-   - Generate 2 'Hard' questions (deep database internals, distributed consistency, concurrency, high-scale resiliency).
-5. For EVERY question, write a concise EXPECTED ANSWER cheat-sheet outlining what the interviewer should listen for to verify whether the candidate has authentic experience.
-
-OUTPUT FORMAT:
-Return a strict JSON array of objects conforming to:
-[
-  {{
-    "keyword": "string (the exact skill, tool, keyword, or claim from the resume, e.g. 'PostgreSQL Query Optimization')",
-    "context_snippet": "string (verbatim quote or excerpt from the resume mentioning this keyword)",
-    "category": "string (e.g. 'Backend Engineering', 'Database Design', 'Cloud Architecture', 'Distributed Systems')",
-    "difficulty": "string ('Easy' | 'Intermediate' | 'Hard')",
-    "question": "string (clear, direct, probing face-to-face question to ask the candidate)",
-    "expected_answer": "string (cheat-sheet of key concepts, correct trade-offs, and indicators the interviewer should listen for)",
-    "follow_up_hint": "string (optional quick follow-up probe)"
-  }}
-]
-"""
-
-    clean_model = re.sub(r"[^a-zA-Z0-9._-]", "", model) or "gemini-1.5-flash"
-    gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{clean_model}:generateContent"
-    headers = {
-        "Content-Type": "application/json",
-        "x-goog-api-key": api_key,
-    }
-    payload = {
-        "contents": [
-            {
-                "role": "user",
-                "parts": [{"text": prompt}],
-            }
-        ],
-        "generationConfig": {
-            "responseMimeType": "application/json",
-            "temperature": 0.3,
-        },
-    }
-
+    keys = None
+    if api_key_override:
+        keys = [ai_client._EnvKey(api_key=api_key_override, model=model_override or "")]
+    prompt = build_round_prompt(application, resume_text, round_number, total_rounds)
     try:
-        response = requests.post(gemini_url, headers=headers, json=payload, timeout=30)
-        if response.status_code != 200:
-            error_data = response.text
-            try:
-                err_json = response.json()
-                error_data = err_json.get("error", {}).get("message", response.text)
-            except Exception:
-                pass
-            raise RuntimeError(f"Gemini API returned HTTP {response.status_code}: {error_data}")
+        text, used = ai_client.generate_text(prompt, keys=keys)
+        summary, questions = _parse_ai_json(text)
+    except (ai_client.AIUnavailable, ValueError, json.JSONDecodeError) as exc:
+        logger.warning("AI questions failed for application %s round %s: %s", application.pk, round_number, exc)
+        fallback = generate_fallback_questions(resume_text, application.full_name)
+        for q in fallback:
+            q["round_number"] = round_number
+        save(fallback, f"AI unavailable ({str(exc)[:300]}). Showing questions from resume keywords instead.")
+        return {"success": bool(fallback), "count": len(fallback), "engine": "keywords", "error": application.ai_questions_error}
 
-        res_json = response.json()
-        candidates = res_json.get("candidates", [])
-        if not candidates:
-            raise RuntimeError("Gemini API returned an empty candidate list.")
+    if summary and not application.ai_resume_summary:
+        application.ai_resume_summary = summary
+    questions = sort_and_enrich_questions(questions)
+    for q in questions:
+        q["round_number"] = round_number
+    save(questions)
+    return {"success": True, "count": len(questions), "engine": f"Gemini ({used})"}
 
-        text_content = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
-        if not text_content:
-            raise RuntimeError("Gemini API returned empty text part.")
 
-        cleaned_text = text_content.strip()
-        if cleaned_text.startswith("```json"):
-            cleaned_text = cleaned_text[7:]
-        elif cleaned_text.startswith("```"):
-            cleaned_text = cleaned_text[3:]
-        if cleaned_text.endswith("```"):
-            cleaned_text = cleaned_text[:-3]
-        cleaned_text = cleaned_text.strip()
+def generate_interview_questions_with_gemini(application, api_key_override=None, model_override=None,
+                                             force=False, candidate_text_override=None, round_number=1):
+    """Older name, kept for callers: generates round 1 (or the given round)."""
+    return generate_round_questions(
+        application, round_number, api_key_override=api_key_override, model_override=model_override,
+        candidate_text_override=candidate_text_override,
+    )
 
-        questions_data = json.loads(cleaned_text)
-        if not isinstance(questions_data, list):
-            if isinstance(questions_data, dict) and "questions" in questions_data:
-                questions_data = questions_data["questions"]
-            else:
-                raise ValueError("Parsed Gemini response is not a JSON list of questions.")
 
-        raw_questions = []
-        for q in questions_data:
-            if not isinstance(q, dict):
-                continue
-            raw_questions.append(
-                {
-                    "keyword": str(q.get("keyword") or "General Technical Experience").strip(),
-                    "context_snippet": str(q.get("context_snippet") or "Resume technical background").strip(),
-                    "category": str(q.get("category") or "Technical Evaluation").strip(),
-                    "difficulty": str(q.get("difficulty") or "Intermediate").strip(),
-                    "question": str(q.get("question") or "").strip(),
-                    "expected_answer": str(q.get("expected_answer") or "").strip(),
-                    "follow_up_hint": str(q.get("follow_up_hint") or "").strip(),
-                }
-            )
+def get_gemini_config():
+    """(has a usable key, default model). Kept for templates that show whether AI is set up."""
+    from . import ai_client
 
-        if not raw_questions:
-            raise ValueError("No valid questions could be extracted from Gemini response.")
-
-        # Sort strictly by Easy, Intermediate, Hard
-        sorted_questions = sort_and_enrich_questions(raw_questions)
-
-        # Persist to database
-        application.ai_interview_questions = sorted_questions
-        application.ai_questions_generated_at = timezone.now()
-        application.ai_questions_error = ""
-        application.save(update_fields=["ai_interview_questions", "ai_questions_generated_at", "ai_questions_error"])
-
-        return {
-            "success": True,
-            "engine": f"gemini ({model})",
-            "count": len(sorted_questions),
-            "questions": sorted_questions,
-        }
-
-    except Exception as exc:
-        logger.exception("Failed to generate interview questions with Gemini: %s", exc)
-        err_msg = str(exc)
-        fallback_questions = generate_fallback_questions(resume_text, candidate_name)
-        application.ai_interview_questions = fallback_questions
-        application.ai_questions_generated_at = timezone.now()
-        application.ai_questions_error = f"Gemini API request failed ({err_msg}). Displaying resume keyword questions."
-        application.save(update_fields=["ai_interview_questions", "ai_questions_generated_at", "ai_questions_error"])
-        return {
-            "success": False,
-            "error": err_msg,
-            "engine": "fallback_keyword_engine",
-            "count": len(fallback_questions),
-            "questions": fallback_questions,
-        }
+    return ("pool" if ai_client.has_any_key() else ""), ai_client.default_model()

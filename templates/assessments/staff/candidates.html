@@ -889,7 +889,7 @@
   </div>
 </div>
 
-<div id="bulk-actions-dock" class="hidden bg-slate-900/95 backdrop-blur-md text-white shadow-2xl rounded-2xl px-4 py-2.5 border border-slate-700/80 flex items-center gap-3 transition-all duration-200" style="position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%); z-index: 9999;">
+<div id="bulk-actions-dock" class="hidden whitespace-nowrap max-w-[calc(100vw-32px)] overflow-x-auto bg-slate-900/95 backdrop-blur-md text-white shadow-2xl rounded-2xl px-4 py-2.5 border border-slate-700/80 flex items-center gap-3 transition-all duration-200" style="position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%); z-index: 9999;">
   <div class="flex items-center gap-2 pr-3 border-r border-slate-700/80">
     <span class="w-2 h-2 rounded-full bg-blue-400 animate-pulse"></span>
     <span id="bulk-selected-count" class="text-xs font-bold font-mono text-blue-300 bg-blue-950/80 px-2 py-0.5 rounded border border-blue-800">
@@ -916,12 +916,35 @@
       <span>Copy Emails</span>
     </button>
 
+    {% if "interviews.conduct" in oa_perms %}
+    <div class="flex items-center gap-1.5 pl-2 border-l border-slate-700/80">
+      <label for="bulk-round" class="text-[11px] text-slate-400 font-semibold">Round</label>
+      <select id="bulk-round" class="!w-14 !text-xs !rounded-md !bg-slate-800 !border-slate-700 !text-slate-100 !py-1 !px-2">
+        {% for rnd in round_choices %}<option value="{{ rnd }}">{{ rnd }}</option>{% endfor %}
+      </select>
+      <button type="button" onclick="submitBulkAction('advance')" class="btn text-xs font-bold py-1.5 px-2.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white" title="Mark the selected candidates as passed for this round">Advance</button>
+      <button type="button" onclick="submitBulkAction('hold')" class="btn text-xs font-bold py-1.5 px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">Hold</button>
+      <button type="button" onclick="submitBulkAction('reject')" class="btn text-xs font-bold py-1.5 px-2.5 rounded-lg bg-rose-800 hover:bg-rose-700 text-white">Reject</button>
+    </div>
+    {% endif %}
+    {% if "candidates.manage" in oa_perms %}
+    <button type="button" onclick="submitBulkAction('flag')" class="btn text-xs font-bold py-1.5 px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700" title="Flag the selected attempts for review">Flag</button>
+    <button type="button" onclick="submitBulkAction('unflag')" class="btn text-xs font-bold py-1.5 px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700" title="Clear the review flag">Unflag</button>
+    {% endif %}
+
     <!-- Action 4: Deselect / Clear -->
     <button type="button" onclick="deselectAllCandidates()" class="text-slate-400 hover:text-white text-xs font-bold px-2 py-1 rounded transition-colors" title="Deselect all">
       &times; Clear
     </button>
   </div>
 </div>
+
+<form id="bulk-action-form" method="post" action="{% url 'staff_candidates_bulk' exam.pk %}" class="hidden">
+  {% csrf_token %}
+  <input type="hidden" name="action" id="bulk-action-input" value="">
+  <input type="hidden" name="round" id="bulk-round-input" value="">
+  <div id="bulk-action-ids"></div>
+</form>
 
 <!-- Hidden Bulk Send Form -->
 <form id="bulk-send-credentials-form" method="post" action="{% url 'staff_send_credentials' exam.pk %}" class="hidden">
@@ -1282,6 +1305,28 @@ document.addEventListener('toggle', function(e) {
     });
   }
 }, true);
+
+function submitBulkAction(action) {
+  const selected = getSelectedCheckboxes();
+  if (selected.length === 0) return;
+  const roundSel = document.getElementById('bulk-round');
+  const round = roundSel ? roundSel.value : '';
+  const words = {advance: 'Advance', hold: 'Put on hold', reject: 'Reject', flag: 'Flag', unflag: 'Clear the flag on'};
+  const where = (action === 'advance' || action === 'hold' || action === 'reject') ? ' in round ' + round : '';
+  if (!confirm(words[action] + ' ' + selected.length + ' candidate(s)' + where + '?')) return;
+  document.getElementById('bulk-action-input').value = action;
+  document.getElementById('bulk-round-input').value = round;
+  const box = document.getElementById('bulk-action-ids');
+  box.innerHTML = '';
+  selected.forEach(function(cb) {
+    const inp = document.createElement('input');
+    inp.type = 'hidden';
+    inp.name = 'selected_ids';
+    inp.value = cb.value;
+    box.appendChild(inp);
+  });
+  document.getElementById('bulk-action-form').submit();
+}
 
 function bulkExportSelected() {
   const selected = getSelectedCheckboxes();

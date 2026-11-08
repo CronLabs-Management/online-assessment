@@ -7,7 +7,7 @@ from django.db.models import Count, Sum
 from django.utils import timezone
 
 from .models import Application, Attempt, CodingSubmission, ProctoringEvent
-from .services import coding_score, max_score, mcq_score, question_image_url, touch
+from .services import coding_score, max_score, mcq_score, question_image_url, section_scores, touch
 
 
 def _event_label(event):
@@ -431,6 +431,7 @@ def build_attempt_review(attempt):
 
         sections_milestones.append({
             "id": a_sec.pk,
+            "section_id": a_sec.section_id,
             "title": sec_title,
             "kind": sec_kind,
             "status": sec_status,
@@ -623,6 +624,12 @@ def build_attempt_review(attempt):
 
     session_info = parse_device_session(attempt)
     summary["session_info"] = session_info
+    scores_by_section = {row["section_id"]: row for row in section_scores(attempt)}
+    for milestone in sections_milestones:
+        row = scores_by_section.get(milestone.get("section_id"))
+        if row:
+            milestone["score"], milestone["max"] = row["score"], row["max"]
+    summary["section_scores"] = list(scores_by_section.values())
     summary["integrity"] = integrity_summary(attempt, event_counts, summary)
 
     reviews = list(attempt.reviews.select_related("reviewer").order_by("-created_at"))
@@ -719,7 +726,10 @@ def csv_safe(value):
 
 def attempt_csv_rows(exam, application_ids=None):
     """One row per applicant, including those who never started."""
-    attempts = {a.candidate_id: a for a in Attempt.objects.filter(exam=exam)}
+    attempts = {
+        a.candidate_id: a
+        for a in Attempt.objects.filter(exam=exam).select_related("exam").prefetch_related("reviews")
+    }
     apps_qs = Application.objects.filter(exam=exam).select_related("candidate")
     if application_ids:
         apps_qs = apps_qs.filter(pk__in=application_ids)
@@ -744,5 +754,26 @@ def attempt_csv_rows(exam, application_ids=None):
             "total_score": total_val,
             "flagged_for_review": "yes" if attempt and attempt.flagged_for_review else "no",
         }
+        if attempt:
+            for sec in section_scores(attempt):
+                row[f"section:{sec['section_id']}"] = sec["score"]
+            for review in attempt.reviews.all():
+                row.setdefault(f"round:{review.round_number}", float(review.interview_score) if review.interview_score is not None else "")
+                row.setdefault(f"round:{review.round_number}:decision", review.get_decision_display())
         yield row
+
+
+def export_columns(exam):
+    """(key, header) pairs for the results CSV, including one column per section and interview round."""
+    columns = [
+        ("full_name", "full_name"), ("username", "username"), ("email", "email"), ("phone", "phone"),
+        ("application_status", "application_status"), ("attempt_status", "attempt_status"),
+        ("started_at", "started_at"), ("ended_at", "ended_at"),
+    ]
+    columns += [(f"section:{sec.pk}", f"{sec.title} marks") for sec in exam.sections.order_by("order", "id")]
+    columns += [("mcq_score", "mcq_score"), ("coding_score", "coding_score"), ("total_score", "total_score")]
+    for rnd in range(1, max(exam.interview_rounds_count or 1, 1) + 1):
+        columns += [(f"round:{rnd}", f"round_{rnd}_score"), (f"round:{rnd}:decision", f"round_{rnd}_decision")]
+    columns.append(("flagged_for_review", "flagged_for_review"))
+    return columns
 
