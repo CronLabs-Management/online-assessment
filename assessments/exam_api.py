@@ -44,8 +44,14 @@ def _perform(request, pk, action):
     """Runs a candidate action bound to the browser session that made the request."""
     if not request.session.session_key:
         request.session.save()
+    ip = _client_ip(request)
+
+    def with_ip_check(attempt, now):
+        services.note_client_ip(attempt, now, ip)
+        return action(attempt, now)
+
     result = services.perform(
-        request.user, pk, action, session_key=request.session.session_key
+        request.user, pk, with_ip_check, session_key=request.session.session_key
     )
     try:
         att = Attempt.objects.filter(pk=pk).only("ip_address", "user_agent").first()
@@ -359,7 +365,7 @@ def api_submission_status(request, pk, submission_id):
 @api_view
 @require_POST
 def api_code_run(request, pk):
-    """Runs code against every case without saving it. Nothing is stored and no score changes."""
+    """Runs code against the public cases. The code and result are kept for reviewers; no score changes."""
     data = _body(request)
     problem_id = _int(data, "problem_id")
     language = str(data.get("language", ""))[:20]
@@ -367,7 +373,9 @@ def api_code_run(request, pk):
     # Same checks as every candidate action (time rules, approval, session). The sandbox call itself
     # runs after the lock is released, so a slow run never holds up the attempt.
     problem = _perform(request, pk, lambda a, now: services.run_preflight(a, now, problem_id, language, code))
-    return JsonResponse({"ok": True, **services.run_results(problem, language, code)})
+    results = services.run_results(problem, language, code)
+    services.record_code_run(pk, problem, language, code, results)
+    return JsonResponse({"ok": True, **results})
 
 
 @api_view
@@ -391,6 +399,9 @@ CLIENT_ALLOWED_EVENT_KINDS = {
     ProctoringEvent.Kind.FULLSCREEN_EXIT,
     ProctoringEvent.Kind.CLIPBOARD,
     ProctoringEvent.Kind.DEVTOOLS_ATTEMPT,
+    ProctoringEvent.Kind.MULTIPLE_SCREENS,
+    ProctoringEvent.Kind.VIRTUAL_CAMERA,
+    ProctoringEvent.Kind.VOICE_DETECTED,
 }
 
 

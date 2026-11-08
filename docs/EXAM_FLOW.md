@@ -157,6 +157,14 @@ change a score or decide an outcome on their own.
 - The camera is checked before the test starts. Snapshots are taken only if the candidate has
   consented on the readiness screen.
 - Events (visibility changes, face checks, connection changes) are recorded with server timestamps.
+- Also recorded: a second screen (Chromium browsers), a virtual or software camera, continuing from a
+  new IP address, large blocks of code appearing between autosaves without a paste, and, when the
+  test turns on **microphone monitoring**, sustained talking (sound levels only, measured in the
+  browser; no audio is recorded or uploaded).
+- Every **Run** keeps the code and its sample-case result, and every language change keeps the code
+  from before the change, so reviewers can replay how a solution developed.
+- The review page shows an **integrity summary**: a concern level (no concerns, some, high) with the
+  reasons, weighted by how serious each signal is. It guides the reviewer; it never decides.
 - Snapshots are stored outside the public web folder and are reviewed by staff.
 - **Retention:** snapshots are kept for **60 days** by default. Staff can change this under **Settings**
   (1 to 365 days). The daily `purge_expired_snapshots` job deletes evidence older than the current

@@ -40,6 +40,7 @@ from .models import (
     AttemptCoding,
     AttemptMCQ,
     AttemptSection,
+    CodingActivity,
     CodingDraft,
     CodingSubmission,
     CodingTestCase,
@@ -667,12 +668,75 @@ def save_draft(attempt, now, problem_id, language, code):
     if problem_locked(attempt, problem.pk):
         raise AttemptError("This problem is submitted and can no longer be changed.", "locked")
     _validate_code(problem, language, code)
+    previous = CodingDraft.objects.filter(attempt=attempt, problem=problem).first()
+    if previous is not None:
+        if previous.language and previous.language != language:
+            CodingActivity.objects.create(
+                attempt=attempt, problem=problem, kind=CodingActivity.Kind.LANGUAGE_SWITCH,
+                language=language, previous_language=previous.language,
+                source_code=previous.source_code[:50000], created_at=now,
+            )
+        else:
+            _check_large_code_change(attempt, now, problem, previous.source_code, code)
     draft, _ = CodingDraft.objects.update_or_create(
         attempt=attempt,
         problem=problem,
         defaults={"language": language, "source_code": code},
     )
     return draft
+
+
+LARGE_CODE_CHANGE_CHARS = 300  # Between two autosaves (a few seconds apart), this is more than typing.
+RECENT_PASTE_SECONDS = 30
+
+
+def _check_large_code_change(attempt, now, problem, before, after):
+    """Record when a large block of code appears between autosaves and no paste explains it.
+
+    Typing fast adds tens of characters between autosaves; hundreds at once usually means pasting from
+    outside the page (which the clipboard listener may miss), an auto-typer, or drag and drop.
+    """
+    added = len(after or "") - len(before or "")
+    if added < LARGE_CODE_CHANGE_CHARS:
+        return
+    recent_paste = attempt.proctoring_events.filter(
+        kind=ProctoringEvent.Kind.CLIPBOARD, server_at__gte=now - timedelta(seconds=RECENT_PASTE_SECONDS)
+    ).exists()
+    if recent_paste:
+        return
+    _create_event(
+        attempt, ProctoringEvent.Kind.LARGE_CODE_CHANGE, None, 0,
+        {"problem_id": problem.pk, "chars_added": added}, now,
+    )
+
+
+def record_code_run(attempt_id, problem, language, code, results, now=None):
+    """Keep the code from each Run with its public-case result, for reviewers. Never changes a score."""
+    public = results.get("public") or []
+    return CodingActivity.objects.create(
+        attempt_id=attempt_id, problem=problem, kind=CodingActivity.Kind.RUN, language=language,
+        source_code=(code or "")[:50000],
+        public_passed=sum(1 for case in public if case.get("passed")),
+        public_total=len(public),
+        compile_error=bool(results.get("compile_output")),
+        created_at=now or timezone.now(),
+    )
+
+
+def note_client_ip(attempt, now, ip):
+    """Record each new IP address an attempt continues from (first one is stored on the attempt)."""
+    if not ip or attempt.is_final:
+        return
+    if not attempt.ip_address:
+        return  # The first request stores it; nothing to compare yet.
+    if ip == attempt.ip_address:
+        return
+    if attempt.proctoring_events.filter(kind=ProctoringEvent.Kind.NETWORK_CHANGED, context__ip=ip).exists():
+        return
+    _create_event(
+        attempt, ProctoringEvent.Kind.NETWORK_CHANGED, None, 0,
+        {"ip": ip, "first_ip": attempt.ip_address}, now,
+    )
 
 
 def submit_code(attempt, now, problem_id, language, code):
@@ -771,6 +835,7 @@ SWITCH_KINDS = [
     ProctoringEvent.Kind.WINDOW_BLUR,
     ProctoringEvent.Kind.FULLSCREEN_EXIT,
 ]
+VOICE_FLAG_MS = 10000  # Ten seconds of sustained sound is worth a reviewer's attention.
 CLIPBOARD_FLAG_CHARS = 200  # A paste this large is unlikely to be typed, so it is flagged for review.
 
 
@@ -803,6 +868,10 @@ def _create_event(attempt, kind, client_at, duration_ms, context, now):
         over_threshold = action_is_paste(context) and isinstance(pasted, (int, float)) and pasted >= CLIPBOARD_FLAG_CHARS
     if kind == ProctoringEvent.Kind.FACE_MISSING:
         over_threshold = duration_ms >= policy["missing_face_seconds"] * 1000
+    if kind in (ProctoringEvent.Kind.MULTIPLE_SCREENS, ProctoringEvent.Kind.VIRTUAL_CAMERA):
+        over_threshold = True
+    if kind == ProctoringEvent.Kind.VOICE_DETECTED:
+        over_threshold = (duration_ms or 0) >= VOICE_FLAG_MS
 
     if over_threshold and not attempt.flagged_for_review:
         attempt.flagged_for_review = True

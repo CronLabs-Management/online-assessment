@@ -318,6 +318,10 @@ def build_attempt_review(attempt):
             "revision_count": rev_counts.get(item.question_id, 0),
         })
 
+    activity_by_problem = {}
+    for act in attempt.coding_activity.order_by("created_at", "id"):
+        activity_by_problem.setdefault(act.problem_id, []).append(act)
+
     coding_rows = []
     for item in attempt.coding_items.select_related("problem").prefetch_related("problem__test_cases"):
         problem = item.problem
@@ -380,6 +384,14 @@ def build_attempt_review(attempt):
             "visit_count": len(visits),
             "versions": versions,
             "latest": versions[0] if versions else None,
+            "activity": activity_by_problem.get(problem.pk, []),
+            "run_count": sum(1 for a in activity_by_problem.get(problem.pk, []) if a.kind == "run"),
+            "language_switches": [a for a in activity_by_problem.get(problem.pk, []) if a.kind == "language_switch"],
+            "languages_used": list(dict.fromkeys(
+                [a.previous_language for a in activity_by_problem.get(problem.pk, []) if a.previous_language]
+                + [a.language for a in activity_by_problem.get(problem.pk, [])]
+                + [v["language"] for v in reversed(versions)]
+            )),
             "results": results,
         })
 
@@ -611,6 +623,7 @@ def build_attempt_review(attempt):
 
     session_info = parse_device_session(attempt)
     summary["session_info"] = session_info
+    summary["integrity"] = integrity_summary(attempt, event_counts, summary)
 
     reviews = list(attempt.reviews.select_related("reviewer").order_by("-created_at"))
     latest_review = reviews[0] if reviews else None
@@ -627,6 +640,67 @@ def build_attempt_review(attempt):
         "reviews": reviews,
         "latest_review": latest_review,
     }
+
+
+def integrity_summary(attempt, event_counts, summary):
+    """One plain-language view of the proctoring evidence: a concern level and the reasons for it.
+
+    Each signal has a weight (3 serious, 2 notable, 1 minor). The level is guidance for the reviewer,
+    never an automatic decision: browser signals can have innocent causes.
+    """
+    kinds = ProctoringEvent.Kind
+    policy = attempt.policy_snapshot or {}
+    n = event_counts.get
+    reasons = []
+
+    def add(weight, text):
+        reasons.append({"weight": weight, "text": text, "tone": {3: "bad", 2: "warn", 1: "neutral"}[weight]})
+
+    if n(kinds.MULTIPLE_FACES, 0):
+        add(3, f"Another face was seen on camera {n(kinds.MULTIPLE_FACES)} time(s).")
+    if n(kinds.SESSION_CHANGED, 0):
+        add(3, f"Tried to continue from another browser {n(kinds.SESSION_CHANGED)} time(s).")
+    if n(kinds.VIRTUAL_CAMERA, 0):
+        add(3, "A virtual or software camera was used instead of a webcam.")
+    if n(kinds.MULTIPLE_SCREENS, 0):
+        add(3, "More than one screen was connected during the test.")
+    threshold = policy.get("tab_switch_threshold", 3)
+    if summary["tab_switches"] > threshold:
+        add(2, f"Left the test page {summary['tab_switches']} times (limit {threshold}).")
+    elif summary["tab_switches"]:
+        add(1, f"Left the test page {summary['tab_switches']} time(s), within the limit of {threshold}.")
+    if n(kinds.DEVTOOLS_ATTEMPT, 0):
+        add(2, f"Tried to open developer tools {n(kinds.DEVTOOLS_ATTEMPT)} time(s).")
+    big_pastes = attempt.proctoring_events.filter(kind=kinds.CLIPBOARD, over_threshold=True).count()
+    if big_pastes:
+        add(2, f"Pasted a large block of text {big_pastes} time(s).")
+    if n(kinds.LARGE_CODE_CHANGE, 0):
+        add(2, f"Large blocks of code appeared without a paste {n(kinds.LARGE_CODE_CHANGE)} time(s).")
+    loud = attempt.proctoring_events.filter(kind=kinds.VOICE_DETECTED, over_threshold=True).count()
+    if loud:
+        add(2, f"Sustained talking or sound was heard {loud} time(s).")
+    elif n(kinds.VOICE_DETECTED, 0):
+        add(1, f"Short bursts of talking or sound {n(kinds.VOICE_DETECTED)} time(s).")
+    if summary["missing_face_seconds"] >= 60:
+        add(2, f"Face was not visible for {round(summary['missing_face_seconds'])} seconds in total.")
+    elif summary["missing_face_count"]:
+        add(1, f"Face briefly not visible {summary['missing_face_count']} time(s).")
+    if summary["head_turn_count"]:
+        add(1, f"Looked away for a sustained time {summary['head_turn_count']} time(s).")
+    if n(kinds.NETWORK_CHANGED, 0):
+        add(1, f"Continued from {n(kinds.NETWORK_CHANGED)} other IP address(es).")
+    if summary["camera_interruptions"]:
+        add(1, f"Camera was interrupted {summary['camera_interruptions']} time(s).")
+
+    score = sum(r["weight"] for r in reasons)
+    if any(r["weight"] == 3 for r in reasons) or score >= 6:
+        level, tone = "High concern", "bad"
+    elif score >= 2:
+        level, tone = "Some concern", "warn"
+    else:
+        level, tone = "No concerns", "ok"
+    reasons.sort(key=lambda r: -r["weight"])
+    return {"level": level, "tone": tone, "score": score, "reasons": reasons}
 
 
 FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r", "|", "%")

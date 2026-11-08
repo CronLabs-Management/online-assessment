@@ -43,7 +43,7 @@
   }
 </style>
 
-<div id="attempt-root" data-attempt-id="{{ attempt.pk }}" data-result-url="{% url 'attempt_result' attempt.pk %}" data-camera-required="{{ exam.camera_required|yesno:'1,0' }}" data-missing-face="{{ exam.missing_face_seconds }}" data-fullscreen-required="{{ exam.fullscreen_required|yesno:'1,0' }}" class="text-sm sm:text-base font-sans pb-12">
+<div id="attempt-root" data-attempt-id="{{ attempt.pk }}" data-result-url="{% url 'attempt_result' attempt.pk %}" data-camera-required="{{ exam.camera_required|yesno:'1,0' }}" data-missing-face="{{ exam.missing_face_seconds }}" data-microphone="{{ attempt.policy_snapshot.microphone_monitoring|yesno:'1,0' }}" data-fullscreen-required="{{ exam.fullscreen_required|yesno:'1,0' }}" class="text-sm sm:text-base font-sans pb-12">
 
   {% if exam.fullscreen_required %}
   <div id="fullscreen-gate" class="bg-slate-950/80 backdrop-blur-md p-6" role="dialog" aria-modal="true" aria-labelledby="fullscreen-title" aria-describedby="fullscreen-body">

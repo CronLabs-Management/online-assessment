@@ -350,6 +350,29 @@
             </div>
           {% endif %}
 
+          <!-- Panel: Integrity summary -->
+          <div class="panel" id="integrity-summary">
+            <div class="panel-head">
+              <div>
+                <h2>Integrity summary</h2>
+                <p>Guidance from the proctoring evidence. Browser signals can have innocent causes, so check the evidence before deciding.</p>
+              </div>
+              <span class="pill {% if summary.integrity.tone == 'bad' %}warn{% elif summary.integrity.tone == 'warn' %}warn{% else %}neutral{% endif %}" style="{% if summary.integrity.tone == 'bad' %}background:#fdecec;color:#b42318;border-color:#f5c2c0{% endif %}">{{ summary.integrity.level }}</span>
+            </div>
+            <div class="panel-body">
+              {% if summary.integrity.reasons %}
+                <ul style="margin:0;padding-left:18px;display:grid;gap:6px;font-size:13px;color:#334155">
+                  {% for reason in summary.integrity.reasons %}
+                    <li><strong style="color:{% if reason.tone == 'bad' %}#b42318{% elif reason.tone == 'warn' %}#b45309{% else %}#475569{% endif %}">{% if reason.weight == 3 %}Serious{% elif reason.weight == 2 %}Notable{% else %}Minor{% endif %}:</strong> {{ reason.text }}</li>
+                  {% endfor %}
+                </ul>
+                <button type="button" class="btn small" style="margin-top:12px" data-goto="integrity">See the evidence →</button>
+              {% else %}
+                <p style="margin:0;font-size:13px;color:#475569">No proctoring signals were recorded for this attempt.</p>
+              {% endif %}
+            </div>
+          </div>
+
           <!-- Panel: Suggested Review Order -->
           <div class="panel">
             <div class="panel-head">
@@ -617,6 +640,8 @@
                         <span class="pill neutral">{{ prob.languages|join:" · "|default:"Python · Java · C · C++" }}</span>
                         <span class="pill neutral">Test cases: {% if prob.latest %}{{ prob.latest.public_passed }}/{{ prob.latest.total_cases }} passed{% else %}not run{% endif %}</span>
                         <span class="pill neutral">Visits ({{ prob.visit_count }}): <strong style="font-family:monospace;color:#2447f5">{{ prob.visit_breakdown }}</strong> ({{ prob.total_seconds }}s total)</span>
+                        <span class="pill neutral">Runs: {{ prob.run_count }}</span>
+                        <span class="pill {% if prob.language_switches %}warn{% else %}neutral{% endif %}">Language changes: {{ prob.language_switches|length }}{% if prob.languages_used %} ({{ prob.languages_used|join:" → " }}){% endif %}</span>
                       </div>
                     </div>
                     <div class="code-score">
@@ -625,6 +650,28 @@
                     </div>
                   </div>
 
+                  {% if prob.activity %}
+                    <details style="margin:0 16px 12px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc">
+                      <summary style="cursor:pointer;padding:10px 12px;font-size:13px;font-weight:700;color:#1e293b">Code history: {{ prob.activity|length }} step{{ prob.activity|length|pluralize }} before the final submission</summary>
+                      <ol style="list-style:none;margin:0;padding:0 12px 12px;display:grid;gap:8px">
+                        {% for act in prob.activity %}
+                          <li>
+                            <details>
+                              <summary style="cursor:pointer;font-size:12px;color:#334155">
+                                <span style="font-family:monospace;color:#64748b">{{ act.created_at|time:"H:i:s" }}</span>
+                                {% if act.kind == "run" %}
+                                  · Ran {{ act.language }} · {% if act.compile_error %}compile error{% else %}{{ act.public_passed }}/{{ act.public_total }} sample cases passed{% endif %}
+                                {% else %}
+                                  · <strong style="color:#b45309">Changed language</strong> {{ act.previous_language }} → {{ act.language }}
+                                {% endif %}
+                              </summary>
+                              <pre style="background:#0F172A;color:#E2E8F0;padding:10px;border-radius:8px;font-family:monospace;font-size:11px;overflow-x:auto;margin-top:6px"><code>{{ act.source_code }}</code></pre>
+                            </details>
+                          </li>
+                        {% endfor %}
+                      </ol>
+                    </details>
+                  {% endif %}
                   {% if prob.latest %}
                     <div style="padding:0 16px 16px">
                       <pre style="background:#0F172A;color:#A7F3D0;padding:14px;border-radius:11px;font-family:monospace;font-size:12px;overflow-x:auto"><code>{{ prob.latest.source_code }}</code></pre>

@@ -12,6 +12,12 @@ const HEAD_TURN_SECONDS = 5;
 const MULTI_FACE_SECONDS = 2;
 const MULTI_FACE_COOLDOWN_MS = 20000;
 const CAMERA_STALL_SECONDS = 5;
+// Software cameras can play a recording or a second person's feed instead of the real webcam.
+const VIRTUAL_CAMERA_PATTERN = /virtual|obs|manycam|snap camera|xsplit|droidcam|epoccam|iriun|camo|ndi|mmhmm|vcam|splitcam|youcam/i;
+// Microphone: only loudness is measured, in the browser. Nothing is recorded or uploaded.
+const VOICE_LEVEL = 0.06;           // RMS above room noise; speech near a laptop is usually 0.05 to 0.2
+const VOICE_START_MS = 3000;        // ignore coughs and short noises
+const VOICE_COOLDOWN_MS = 30000;
 
 function yawOf(landmarks) {
   const nose = landmarks[1];
@@ -23,8 +29,15 @@ function yawOf(landmarks) {
 }
 
 export class Proctor {
-  constructor({ video, missingFaceSeconds = 5, onEvent, onStatus, onReadyChange, onFaceStatus }) {
+  constructor({ video, missingFaceSeconds = 5, microphone = false, onEvent, onStatus, onReadyChange, onFaceStatus }) {
     this.video = video;
+    this.microphone = microphone;
+    this.audioStream = null;
+    this.audioContext = null;
+    this.analyser = null;
+    this.voiceSince = null;
+    this.lastVoiceEvent = 0;
+    this.virtualReported = false;
     this.missingFaceSeconds = missingFaceSeconds;
     this.onEvent = onEvent;
     this.onStatus = onStatus;
@@ -135,6 +148,8 @@ export class Proctor {
         this.trackEndedHandler = () => this.onEvent("camera_revoked", 0, { reason: "track_ended" });
         track.addEventListener("ended", this.trackEndedHandler);
       }
+      this.checkVirtualCamera(track);
+      if (this.microphone) this.startMicrophone();
 
       if (!this.timer) {
         this.timer = setInterval(() => this.sample(), SAMPLE_MS);
@@ -145,6 +160,49 @@ export class Proctor {
       this.loadLandmarker();
     } finally {
       this.starting = false;
+    }
+  }
+
+  checkVirtualCamera(track) {
+    const label = (track && track.label) || "";
+    if (!this.virtualReported && label && VIRTUAL_CAMERA_PATTERN.test(label)) {
+      this.virtualReported = true;
+      this.onEvent("virtual_camera", 0, { label: label.slice(0, 120) });
+    }
+  }
+
+  async startMicrophone() {
+    if (this.audioStream || !navigator.mediaDevices) return;
+    try {
+      this.audioStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      this.audioContext = new Ctx();
+      const source = this.audioContext.createMediaStreamSource(this.audioStream);
+      this.analyser = this.audioContext.createAnalyser();
+      this.analyser.fftSize = 1024;
+      source.connect(this.analyser);
+      this.audioBuffer = new Float32Array(this.analyser.fftSize);
+    } catch (err) {
+      this.onEvent("camera_revoked", 0, { reason: "microphone " + ((err && err.name) || "unavailable") });
+    }
+  }
+
+  checkVoice(now) {
+    if (!this.analyser) return;
+    if (this.audioContext && this.audioContext.state === "suspended") this.audioContext.resume().catch(() => {});
+    this.analyser.getFloatTimeDomainData(this.audioBuffer);
+    let sum = 0;
+    for (let i = 0; i < this.audioBuffer.length; i++) sum += this.audioBuffer[i] * this.audioBuffer[i];
+    const rms = Math.sqrt(sum / this.audioBuffer.length);
+    if (rms >= VOICE_LEVEL) {
+      if (this.voiceSince === null) this.voiceSince = now;
+    } else if (this.voiceSince !== null) {
+      const duration = now - this.voiceSince;
+      this.voiceSince = null;
+      if (duration >= VOICE_START_MS && now - this.lastVoiceEvent >= VOICE_COOLDOWN_MS) {
+        this.lastVoiceEvent = now;
+        this.onEvent("voice_detected", duration, { peak_level: Math.round(rms * 1000) / 1000 });
+      }
     }
   }
 
@@ -237,6 +295,7 @@ export class Proctor {
 
     try {
       const now = Date.now();
+      this.checkVoice(now);
 
       // A frozen stream is treated as a camera interruption, not as a face.
       if (video.currentTime === this.lastVideoTime) {
@@ -426,5 +485,10 @@ export class Proctor {
     this.timer = null;
     if (this.stream) this.stream.getTracks().forEach((track) => track.stop());
     this.stream = null;
+    if (this.audioStream) this.audioStream.getTracks().forEach((track) => track.stop());
+    this.audioStream = null;
+    if (this.audioContext) this.audioContext.close().catch(() => {});
+    this.audioContext = null;
+    this.analyser = null;
   }
 }

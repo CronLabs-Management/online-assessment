@@ -8,6 +8,7 @@ const resultUrl = root.dataset.resultUrl || `/attempts/${attemptId}/result/`;
 const cameraRequired = root.dataset.cameraRequired === "1";
 const fullscreenRequired = root.dataset.fullscreenRequired === "1";
 const missingFaceSeconds = Number(root.dataset.missingFace || 5);
+const microphoneMonitoring = root.dataset.microphone === "1";
 const SNAPSHOT_KINDS = new Set(["face_missing", "multiple_faces", "head_turn", "camera_lost"]);
 const OUTBOX_KEY = `assessment-outbox-${attemptId}`;
 
@@ -1080,6 +1081,7 @@ function ensureProctor() {
   proctor = new Proctor({
     video: $("camera"),
     missingFaceSeconds,
+    microphone: microphoneMonitoring,
     onEvent: sendEvent,
     onStatus: (message) => {
       const el = $("camera-status");
@@ -1102,6 +1104,26 @@ function ensureProctor() {
     },
   });
   startProctor();
+}
+
+// A second monitor lets someone else read the questions or the candidate read notes. Chromium reports
+// it through screen.isExtended; other browsers do not, so this is evidence when present, never proof.
+let screensReported = false;
+let screensWatched = false;
+function watchScreens() {
+  if (screensWatched) return;
+  screensWatched = true;
+  if (typeof window.screen === "undefined" || !("isExtended" in window.screen)) return;
+  const check = () => {
+    if (window.screen.isExtended && !screensReported) {
+      screensReported = true;
+      sendEvent("multiple_screens", 0, { width: window.screen.width, height: window.screen.height });
+    } else if (!window.screen.isExtended) {
+      screensReported = false;
+    }
+  };
+  check();
+  if (typeof window.screen.addEventListener === "function") window.screen.addEventListener("change", check);
 }
 
 function startProctor() {
@@ -1199,6 +1221,18 @@ async function sendEvent(kind, durationMs, context = {}) {
       showProctorPrompt({
         title: "Camera Feed Disconnected",
         body: "Your camera connection was lost. Please check permissions and click Retry on the webcam preview.",
+        tone: "bad",
+      });
+    } else if (kind === "multiple_screens") {
+      showProctorPrompt({
+        title: "Second screen detected",
+        body: "Disconnect any extra monitors and use a single screen for this test. This has been recorded for the reviewer.",
+        tone: "bad",
+      });
+    } else if (kind === "virtual_camera") {
+      showProctorPrompt({
+        title: "Software camera detected",
+        body: "Please use your device's real webcam, not a virtual camera app. This has been recorded for the reviewer.",
         tone: "bad",
       });
     } else if (kind === "tab_hidden" || kind === "window_blur") {
@@ -2901,6 +2935,7 @@ window.addEventListener("resize", () => {
 setupFullscreenGate();
 setOffline(!navigator.onLine);
 refresh();
+watchScreens();
 refreshTimer = setInterval(refresh, 5000);
 setInterval(() => {
   tick();

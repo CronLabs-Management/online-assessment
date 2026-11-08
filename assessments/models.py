@@ -44,6 +44,10 @@ class Exam(models.Model):
         default=True,
         help_text="Candidates must keep the test in full-screen mode. Each time they leave it, the event is recorded.",
     )
+    microphone_monitoring = models.BooleanField(
+        default=False,
+        help_text="Listen for sustained talking through the microphone. Only sound levels are checked; no audio is recorded or uploaded.",
+    )
     snapshots_enabled = models.BooleanField(
         default=True,
         help_text="Capture a low-resolution image when a proctoring event occurs, with candidate consent.",
@@ -104,6 +108,7 @@ class Exam(models.Model):
             "camera_required": self.camera_required,
             "fullscreen_required": self.fullscreen_required,
             "snapshots_enabled": self.snapshots_enabled,
+            "microphone_monitoring": self.microphone_monitoring,
             "tab_switch_threshold": self.tab_switch_threshold,
             "missing_face_seconds": self.missing_face_seconds,
             "network_grace_seconds": self.network_grace_seconds,
@@ -658,6 +663,11 @@ class ProctoringEvent(models.Model):
         FULLSCREEN_EXIT = "fullscreen_exit", "Left full-screen mode"
         CLIPBOARD = "clipboard", "Copy, cut or paste used in the test"
         DEVTOOLS_ATTEMPT = "devtools_attempt", "Developer tools shortcut attempted"
+        MULTIPLE_SCREENS = "multiple_screens", "More than one screen connected"
+        VIRTUAL_CAMERA = "virtual_camera", "Virtual or software camera in use"
+        NETWORK_CHANGED = "network_changed", "Continued from a different IP address"
+        VOICE_DETECTED = "voice_detected", "Sustained talking or sound"
+        LARGE_CODE_CHANGE = "large_code_change", "Large block of code appeared without a paste"
 
     attempt = models.ForeignKey(Attempt, on_delete=models.CASCADE, related_name="proctoring_events")
     kind = models.CharField(max_length=20, choices=Kind.choices)
@@ -714,6 +724,35 @@ class CodingDraft(models.Model):
         constraints = [
             models.UniqueConstraint(fields=["attempt", "problem"], name="one_draft_per_problem"),
         ]
+
+
+class CodingActivity(models.Model):
+    """What a candidate did while solving a coding problem: every Run and every language switch.
+
+    Drafts are autosaved too often to keep each one, so these are the moments that tell the story.
+    """
+
+    class Kind(models.TextChoices):
+        RUN = "run", "Ran code"
+        LANGUAGE_SWITCH = "language_switch", "Changed language"
+
+    attempt = models.ForeignKey(Attempt, on_delete=models.CASCADE, related_name="coding_activity")
+    problem = models.ForeignKey(CodingProblem, on_delete=models.CASCADE, related_name="+")
+    kind = models.CharField(max_length=20, choices=Kind.choices)
+    language = models.CharField(max_length=20)
+    previous_language = models.CharField(max_length=20, blank=True, default="")
+    source_code = models.TextField(blank=True, default="")
+    public_passed = models.PositiveIntegerField(default=0)
+    public_total = models.PositiveIntegerField(default=0)
+    compile_error = models.BooleanField(default=False)
+    created_at = models.DateTimeField()
+
+    class Meta:
+        ordering = ["created_at", "id"]
+        indexes = [models.Index(fields=["attempt", "problem", "created_at"])]
+
+    def __str__(self):
+        return f"{self.get_kind_display()} {self.language} at {self.created_at:%H:%M:%S}"
 
 
 class CodingSubmission(models.Model):
@@ -876,7 +915,8 @@ DEFAULT_MONITORING_NOTICE = (
     "Your approximate location is recorded when you start.\n"
     "Your network details are recorded: IP address, connection type and speed.\n"
     "Your browser and device details are recorded, such as screen size and operating system.\n"
-    "Leaving full screen, switching tabs or windows, and copy and paste are recorded.\n"
+    "If the test uses your microphone, only sound levels are checked for talking; audio is never recorded.\n"
+    "Leaving full screen, switching tabs or windows, extra screens, and copy and paste are recorded.\n"
     "Your answers, code, and the time you spend on each question are recorded.\n"
     "This information is used only to review this assessment, is visible only to the hiring team, "
     "and evidence images are deleted after the retention period."
