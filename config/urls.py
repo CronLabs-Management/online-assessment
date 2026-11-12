@@ -1,11 +1,18 @@
 from django.contrib import admin
 from django.urls import include, path
 
-from assessments.views import CandidateLoginView, favicon_view, logout_view, robots_txt_view
+from assessments.views import (
+    CandidateLoginView,
+    favicon_view,
+    logout_view,
+    robots_txt_view,
+    service_worker_view,
+)
 
 urlpatterns = [
     path("favicon.ico", favicon_view, name="favicon"),
     path("robots.txt", robots_txt_view, name="robots_txt"),
+    path("sw.js", service_worker_view, name="service_worker"),
     path("admin/", admin.site.urls),
     path("login/", CandidateLoginView.as_view(), name="login_alias"),
     path("accounts/login/", CandidateLoginView.as_view(), name="login"),

@@ -476,7 +476,8 @@ def build_attempt_review(attempt):
 
     # 3. Coding Submissions
     for sub in all_submissions:
-        dur_str = f"{sub.passed_cases}/{sub.total_cases} cases passed" if sub.total_cases else "Executed"
+        passed = getattr(sub, "passed_cases", (getattr(sub, "public_passed", 0) + getattr(sub, "hidden_passed", 0)))
+        dur_str = f"{passed}/{sub.total_cases} cases passed" if sub.total_cases else "Executed"
         timeline.append({
             "id": f"milestone-sub-{sub.pk}",
             "kind": "coding_submission",

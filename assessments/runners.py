@@ -254,7 +254,7 @@ class LocalRunner(BaseRunner):
                 if win_key in os.environ:
                     env[win_key] = os.environ[win_key]
 
-        with tempfile.TemporaryDirectory(prefix="case-") as workdir:
+        with tempfile.TemporaryDirectory(prefix="case-", ignore_cleanup_errors=True) as workdir:
             with open(os.path.join(workdir, filename), "w", encoding="utf-8") as handle:
                 handle.write(source_code)
 

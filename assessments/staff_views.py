@@ -410,6 +410,7 @@ def staff_regenerate_credentials(request, pk):
     user = application.candidate
     user.set_password(new_password)
     user.save(update_fields=["password"])
+    Application.objects.filter(candidate=user).update(plain_password=new_password)
     application.save(update_fields=["plain_password"])
 
     send_now = request.POST.get("send_email") == "1"
@@ -620,6 +621,7 @@ def staff_candidate_edit(request, pk):
                 if new_pw and new_pw != previous_password:
                     user.set_password(new_pw)
                     user.save(update_fields=["password"])
+                    Application.objects.filter(candidate=user).update(plain_password=new_pw)
                     app.plain_password = new_pw
                     app.save(update_fields=["plain_password"])
             audit(request.user, "candidate.updated", f"application:{application.pk}", f"{application.full_name} ({application.candidate.email})")

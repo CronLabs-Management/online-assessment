@@ -93,14 +93,16 @@
           <div class="space-y-1.5">
             <label for="{{ form.phone.id_for_label }}" class="text-sm font-bold text-[#0F172A] flex items-center justify-between">
               <span>Mobile Phone Number <span class="text-rose-600" aria-hidden="true">*</span></span>
+              <span id="phone-feedback" class="text-[11px] font-semibold text-slate-400">Digits only</span>
             </label>
             <div class="relative rounded-xl">
               {{ form.phone }}
             </div>
+            <div id="phone-client-error" class="hidden text-xs font-semibold text-rose-600 mt-1"></div>
             {% if form.phone.errors %}
               <div class="text-xs font-semibold text-rose-600 mt-1">{{ form.phone.errors }}</div>
             {% endif %}
-            <p class="text-[11px] text-slate-500 font-medium">Include country calling code (e.g. +1, +91).</p>
+            <p class="text-[11px] text-slate-500 font-medium">Include country calling code (e.g. +91, +1). Letters and text are not allowed.</p>
           </div>
 
           <!-- Registered Email (Locked) -->
@@ -287,6 +289,83 @@
         if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0] && fileInput) {
           fileInput.files = e.dataTransfer.files;
           fileInput.dispatchEvent(new Event('change'));
+        }
+      });
+    }
+
+    // Real-time Phone Number Validation & Letter Filtering
+    const phoneInput = document.getElementById('id_phone');
+    const phoneFeedback = document.getElementById('phone-feedback');
+    const phoneError = document.getElementById('phone-client-error');
+
+    function validatePhoneInput() {
+      if (!phoneInput) return true;
+      const raw = phoneInput.value;
+      const hasLetters = /[a-zA-Z]/.test(raw);
+
+      if (hasLetters) {
+        phoneInput.value = raw.replace(/[a-zA-Z]/g, '');
+        if (phoneError) {
+          phoneError.textContent = "Letters and words are not allowed in mobile numbers. Please enter digits only.";
+          phoneError.classList.remove('hidden');
+        }
+      } else if (phoneError) {
+        phoneError.classList.add('hidden');
+      }
+
+      const digits = phoneInput.value.replace(/\D/g, '');
+      if (phoneFeedback) {
+        if (digits.length === 0) {
+          phoneFeedback.textContent = "Digits only";
+          phoneFeedback.className = "text-[11px] font-semibold text-slate-400";
+        } else if (digits.length < 7) {
+          phoneFeedback.textContent = `${digits.length} digits (min 7)`;
+          phoneFeedback.className = "text-[11px] font-semibold text-amber-600";
+        } else if (digits.length > 15) {
+          phoneFeedback.textContent = "Too long (max 15 digits)";
+          phoneFeedback.className = "text-[11px] font-semibold text-rose-600";
+        } else {
+          phoneFeedback.textContent = "✓ Valid mobile format";
+          phoneFeedback.className = "text-[11px] font-semibold text-emerald-600";
+        }
+      }
+
+      return digits.length >= 7 && digits.length <= 15 && !hasLetters;
+    }
+
+    if (phoneInput) {
+      phoneInput.addEventListener('input', validatePhoneInput);
+      validatePhoneInput();
+    }
+
+    // Name Validation
+    const nameInput = document.getElementById('id_full_name');
+    if (nameInput) {
+      nameInput.addEventListener('input', function() {
+        const val = nameInput.value.trim();
+        const hasLetters = /[a-zA-Z\u00C0-\u024F\u0400-\u04FF\u0900-\u097F]/.test(val);
+        if (val.length > 0 && !hasLetters) {
+          nameInput.setCustomValidity("Full legal name must contain letters.");
+        } else {
+          nameInput.setCustomValidity("");
+        }
+      });
+    }
+
+    // Form submission validation
+    const form = document.querySelector('form');
+    if (form) {
+      form.addEventListener('submit', function(e) {
+        if (!validatePhoneInput()) {
+          const digits = (phoneInput ? phoneInput.value.replace(/\D/g, '') : '');
+          if (digits.length < 7) {
+            e.preventDefault();
+            if (phoneError) {
+              phoneError.textContent = "Please enter a valid mobile number with at least 7 digits (e.g. +91 9876543210).";
+              phoneError.classList.remove('hidden');
+            }
+            if (phoneInput) phoneInput.focus();
+          }
         }
       });
     }

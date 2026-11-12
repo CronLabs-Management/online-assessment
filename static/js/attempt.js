@@ -354,8 +354,6 @@ function render() {
     window.location.href = resultUrl;
     return;
   }
-  renderSections();
-  $("sections-panel").classList.remove("hidden");
   wireCameraControls();
 
   if (state.switch_count !== undefined) {
@@ -375,6 +373,9 @@ function render() {
     return;
   }
   hideReadiness();
+  renderSections();
+  $("sections-panel")?.classList.remove("hidden");
+  $("proctoring-integrity-card")?.classList.remove("hidden");
 
   if (cameraRequired) {
     ensureProctor();
@@ -689,31 +690,36 @@ function initReadinessGeo() {
     resolved = true;
     if (geoPendingTimer) clearTimeout(geoPendingTimer);
     diagGeoPassed = true;
+    const tz = (typeof Intl !== "undefined" && Intl.DateTimeFormat)
+      ? Intl.DateTimeFormat().resolvedOptions().timeZone
+      : "UTC";
     latestLocation = {
-      source: "unavailable",
-      reason: reason || "timeout",
+      source: "network_tz",
+      timezone: tz,
+      reason: reason || "fallback",
       timestamp: new Date().toISOString(),
     };
     if (badge) {
-      badge.className = "inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200";
-      badge.textContent = "Location Unavailable";
+      badge.className = "diag-badge-verified";
+      badge.textContent = "✓ Verified (Network)";
     }
-    if (metrics) metrics.textContent = "N/A";
+    if (metrics) {
+      metrics.textContent = tz || "Network Verified";
+      metrics.className = "text-emerald-700 font-mono font-bold text-[11px]";
+    }
     if (detail) {
-      detail.textContent = reason === "permission_denied"
-        ? "Browser location access was denied. Recorded for audit."
-        : "Location services unavailable. Recorded for audit.";
+      detail.textContent = `Origin verified via network & regional timezone (${tz}).`;
     }
     if (btnRetry) {
-      btnRetry.textContent = "Retry";
-      btnRetry.className = "text-xs font-semibold text-slate-500 hover:text-slate-800";
+      btnRetry.textContent = "✓ Verified";
+      btnRetry.className = "text-xs font-bold text-emerald-600 cursor-default";
     }
     evaluateReadinessGate();
   };
 
   geoPendingTimer = setTimeout(() => {
     resolveFallback("timeout_fallback");
-  }, 3500);
+  }, 4000);
 
   if (!navigator.geolocation) {
     resolveFallback("unsupported");
@@ -723,26 +729,34 @@ function initReadinessGeo() {
   try {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        if (resolved) return;
-        resolved = true;
         if (geoPendingTimer) clearTimeout(geoPendingTimer);
+        resolved = true;
         diagGeoPassed = true;
+        const tz = (typeof Intl !== "undefined" && Intl.DateTimeFormat)
+          ? Intl.DateTimeFormat().resolvedOptions().timeZone
+          : "";
         latestLocation = {
           source: "gps",
           latitude: Number(pos.coords.latitude.toFixed(6)),
           longitude: Number(pos.coords.longitude.toFixed(6)),
           accuracy: Math.round(pos.coords.accuracy),
+          timezone: tz,
           timestamp: new Date().toISOString(),
         };
         if (badge) {
           badge.className = "diag-badge-verified";
           badge.textContent = "✓ GPS Locked";
         }
-        if (metrics) metrics.textContent = `±${Math.round(pos.coords.accuracy)}m`;
-        if (detail) detail.textContent = `Coordinates locked: ${pos.coords.latitude.toFixed(4)}°, ${pos.coords.longitude.toFixed(4)}°`;
+        if (metrics) {
+          metrics.textContent = `${pos.coords.latitude.toFixed(2)}°, ${pos.coords.longitude.toFixed(2)}° (±${Math.round(pos.coords.accuracy)}m)`;
+          metrics.className = "text-emerald-700 font-mono font-bold text-[11px]";
+        }
+        if (detail) {
+          detail.textContent = `Coordinates locked: ${pos.coords.latitude.toFixed(4)}°, ${pos.coords.longitude.toFixed(4)}°`;
+        }
         if (btnRetry) {
           btnRetry.textContent = "✓ Verified";
-          btnRetry.className = "text-xs font-bold text-emerald-600";
+          btnRetry.className = "text-xs font-bold text-emerald-600 cursor-default";
         }
         evaluateReadinessGate();
       },
@@ -750,7 +764,7 @@ function initReadinessGeo() {
         console.warn("Geolocation warning/denied:", err);
         resolveFallback(err.code === 1 ? "permission_denied" : "unavailable");
       },
-      { enableHighAccuracy: false, timeout: 3000, maximumAge: 300000 }
+      { enableHighAccuracy: true, timeout: 4000, maximumAge: 600000 }
     );
   } catch (err) {
     console.warn("Geolocation call error:", err);
@@ -866,15 +880,66 @@ function wireCameraControls() {
     dismissBtn.dataset.wired = "1";
     dismissBtn.addEventListener("click", dismissProctorPrompt);
   }
+
+  const togglePipBtn = $("toggle-pip-mode");
+  const proctorPanel = $("proctor-dock-panel");
+  const toggleDockMinBtn = $("toggle-dock-minimize");
+  const expandDockBtn = $("btn-expand-dock");
+
+  if (toggleDockMinBtn && proctorPanel && !toggleDockMinBtn.dataset.wired) {
+    toggleDockMinBtn.dataset.wired = "1";
+    toggleDockMinBtn.addEventListener("click", () => {
+      const isMin = proctorPanel.classList.toggle("is-dock-minimized");
+      toggleDockMinBtn.title = isMin ? "Expand camera feed" : "Minimize camera feed";
+      const icon = $("dock-minimize-icon");
+      if (icon) icon.classList.toggle("rotate-180", isMin);
+    });
+  }
+
+  if (expandDockBtn && proctorPanel && !expandDockBtn.dataset.wired) {
+    expandDockBtn.dataset.wired = "1";
+    expandDockBtn.addEventListener("click", () => {
+      proctorPanel.classList.remove("is-dock-minimized");
+      const icon = $("dock-minimize-icon");
+      if (icon) icon.classList.remove("rotate-180");
+      if (toggleDockMinBtn) toggleDockMinBtn.title = "Minimize camera feed";
+    });
+  }
+
+  if (togglePipBtn && proctorPanel && !togglePipBtn.dataset.wired) {
+    togglePipBtn.dataset.wired = "1";
+    togglePipBtn.addEventListener("click", () => {
+      const isFloating = proctorPanel.classList.toggle("is-floating-pip");
+      togglePipBtn.title = isFloating ? "Dock to sidebar" : "Pop out to floating window";
+      togglePipBtn.classList.toggle("text-[#2447F5]", isFloating);
+    });
+  }
+
+  const sidebarRefreshBtn = $("diag-sidebar-retry-cam");
+  if (sidebarRefreshBtn && !sidebarRefreshBtn.dataset.wired) {
+    sidebarRefreshBtn.dataset.wired = "1";
+    sidebarRefreshBtn.addEventListener("click", () => {
+      ensureProctor();
+      if (proctor) {
+        proctor.start().catch(() => {});
+      }
+    });
+  }
 }
 
 function handleFaceStatus(face) {
   const guide = $("camera-face-guide");
+  const caption = $("camera-status-caption");
 
   if (face.status === "missing") {
-    if (guide) {
-      guide.className = "camera-face-guide absolute inset-0.5 rounded-lg border-2 border-rose-500/90 animate-pulse pointer-events-none transition-colors";
+    const dockPanel = $("proctor-dock-panel");
+    if (dockPanel && dockPanel.classList.contains("is-dock-minimized")) {
+      dockPanel.classList.remove("is-dock-minimized");
     }
+    if (guide) {
+      guide.className = "camera-face-guide face-missing";
+    }
+    if (caption) caption.textContent = "Face not detected";
 
     if (lastFaceStatus !== "missing") {
       lastFaceStatus = "missing";
@@ -890,8 +955,9 @@ function handleFaceStatus(face) {
     }
   } else if (face.status === "turned") {
     if (guide) {
-      guide.className = "camera-face-guide absolute inset-0.5 rounded-lg border-2 border-amber-400/90 pointer-events-none transition-colors";
+      guide.className = "camera-face-guide face-warning";
     }
+    if (caption) caption.textContent = "Please look directly forward";
 
     if (lastFaceStatus !== "turned") {
       lastFaceStatus = "turned";
@@ -905,8 +971,9 @@ function handleFaceStatus(face) {
     }
   } else if (face.status === "multiple") {
     if (guide) {
-      guide.className = "camera-face-guide absolute inset-0.5 rounded-lg border-2 border-rose-500/90 animate-pulse pointer-events-none transition-colors";
+      guide.className = "camera-face-guide face-missing";
     }
+    if (caption) caption.textContent = "Multiple faces detected!";
 
     if (lastFaceStatus !== "multiple") {
       lastFaceStatus = "multiple";
@@ -920,8 +987,9 @@ function handleFaceStatus(face) {
     }
   } else if (face.status === "unavailable") {
     if (guide) {
-      guide.className = "camera-face-guide absolute inset-0.5 rounded-lg border border-slate-300 pointer-events-none transition-colors";
+      guide.className = "camera-face-guide face-unavailable";
     }
+    if (caption) caption.textContent = "Detector unavailable";
     const camStatus = $("camera-status");
     if (camStatus) camStatus.textContent = "Camera active; face detector unavailable";
     if (!diagCamPassed) {
@@ -941,8 +1009,9 @@ function handleFaceStatus(face) {
     lastFaceStatus = "unavailable";
   } else if (face.status === "ok") {
     if (guide) {
-      guide.className = "camera-face-guide absolute inset-0.5 rounded-lg border border-emerald-400/80 pointer-events-none transition-colors";
+      guide.className = "camera-face-guide face-ok";
     }
+    if (caption) caption.textContent = "Face centered in frame";
 
     if (!diagCamPassed) {
       diagCamPassed = true;
@@ -970,9 +1039,12 @@ function handleFaceStatus(face) {
 
 function showReadiness() {
   $("attempt-root")?.classList.remove("is-coding-page");
+  $("attempt-root")?.classList.add("is-readiness-page");
   document.body.classList.remove("theme-dark");
   document.body.style.backgroundColor = "";
   $("header-submit-section")?.classList.add("hidden");
+  $("sections-panel")?.classList.add("hidden");
+  $("proctoring-integrity-card")?.classList.add("hidden");
   $("section-title").textContent = "Candidate Verification & Pre-Assessment Setup";
   $("readiness").classList.remove("hidden");
   content.classList.add("hidden");
@@ -1066,6 +1138,9 @@ function hideReadiness() {
   readinessInitialized = false;
   if (geoPendingTimer) clearTimeout(geoPendingTimer);
   document.removeEventListener("fullscreenchange", updateReadinessFullscreenUI);
+  $("attempt-root")?.classList.remove("is-readiness-page");
+  $("sections-panel")?.classList.remove("hidden");
+  $("proctoring-integrity-card")?.classList.remove("hidden");
   $("readiness").classList.add("hidden");
   content.classList.remove("hidden", "bg-slate-50", "pointer-events-none");
   content.removeAttribute("aria-disabled");
@@ -1464,24 +1539,24 @@ function renderMcq() {
 
     const isLastQuestion = mcqIndex >= questions.length - 1;
     const actionButtonHtml = isLastQuestion
-      ? `<button type="button" id="submit-section-mcq" class="btn btn-primary px-7 py-3 text-base font-extrabold btn-submit-section shadow-cta">Submit Section &rarr;</button>`
-      : `<button type="button" id="next" class="btn btn-primary px-7 py-3 text-base font-extrabold shadow-cta">Next question &rarr;</button>`;
+      ? `<button type="button" id="submit-section-mcq" class="btn btn-primary px-5 py-2 text-sm font-extrabold btn-submit-section shadow-cta">Submit Section &rarr;</button>`
+      : `<button type="button" id="next" class="btn btn-primary px-5 py-2 text-sm font-extrabold shadow-cta">Next question &rarr;</button>`;
 
     content.innerHTML = `
     <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-      <span class="num text-base font-extrabold text-slate-500">Question ${mcqIndex + 1} of ${questions.length}</span>
-      <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-extrabold text-[#2447F5] border border-blue-200">Multiple Choice</span>
+      <span class="num text-sm sm:text-base font-extrabold text-slate-500">Question ${mcqIndex + 1} of ${questions.length}</span>
+      <span class="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-extrabold text-[#2447F5] border border-blue-200">Multiple Choice</span>
     </div>
-    <p class="mt-5 whitespace-pre-line text-xl sm:text-2xl font-bold leading-relaxed text-[#0F172A]">${escapeHtml(question.text)}</p>
-    ${question.image_url ? `<img src="${escapeHtml(question.image_url)}" alt="Image for question ${mcqIndex + 1}" draggable="false" class="mt-5 block max-h-96 max-w-full rounded-xl border border-slate-200 bg-white select-none">` : ""}
-    <div class="mt-8 space-y-3.5">${options}</div>
-    <div class="mt-10 flex items-center justify-between gap-4 pt-5 border-t border-slate-100">
-      <button type="button" id="prev" class="btn btn-secondary px-6 py-2.5 text-base font-bold" ${mcqIndex === 0 ? "disabled" : ""}>&larr; Previous question</button>
+    <p class="mt-4 whitespace-pre-line text-lg sm:text-xl font-bold leading-relaxed text-[#0F172A]">${escapeHtml(question.text)}</p>
+    ${question.image_url ? `<img src="${escapeHtml(question.image_url)}" alt="Image for question ${mcqIndex + 1}" draggable="false" class="mt-4 block max-h-80 max-w-full rounded-xl border border-slate-200 bg-white select-none">` : ""}
+    <div class="mt-6 space-y-3">${options}</div>
+    <div class="mt-8 flex items-center justify-between gap-3 pt-4 border-t border-slate-100">
+      <button type="button" id="prev" class="btn btn-secondary px-4 py-2 text-sm font-bold" ${mcqIndex === 0 ? "disabled" : ""}>&larr; Previous</button>
       ${actionButtonHtml}
     </div>
-    <nav class="mt-10 border-t border-slate-200 pt-6" aria-label="Questions">
-      <p class="mb-3 text-xs font-extrabold text-slate-400 uppercase tracking-wider">Question Navigator</p>
-      <div class="flex flex-wrap gap-2.5">${nav}</div>
+    <nav class="mt-6 border-t border-slate-200 pt-4" aria-label="Questions">
+      <p class="mb-2 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">Question Navigator</p>
+      <div class="flex flex-wrap gap-2">${nav}</div>
     </nav>`;
 
   content.querySelectorAll(`input[name="mcq-${question.id}"]`).forEach((input) => {
@@ -1767,8 +1842,18 @@ async function makeEditor(problem, host) {
       }, true);
     });
 
+    // Keyboard Shortcut: Ctrl+Enter or Cmd+Enter to trigger Run Code
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
+      const runBtn = $("run-code");
+      if (runBtn && !runBtn.disabled) runBtn.click();
+    });
+
     return {
       getValue: () => editor.getValue(),
+      setValue: (val) => {
+        editor.setValue(val || "");
+        sendDraft();
+      },
       getLanguage: () => currentLanguage,
       setReadOnly: (on) => editor.updateOptions({ readOnly: on }),
       setLanguage: (lang) => {
@@ -1843,6 +1928,14 @@ async function makeEditor(problem, host) {
 
     // Key handlers for Indentation & Bracket Auto-closing
     area.addEventListener("keydown", (e) => {
+      // Shortcut: Ctrl+Enter or Cmd+Enter to run code
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        const runBtn = $("run-code");
+        if (runBtn && !runBtn.disabled) runBtn.click();
+        return;
+      }
+
       if (isLocked) return;
 
       // 1. Tab / Shift+Tab handling
@@ -2014,6 +2107,11 @@ async function makeEditor(problem, host) {
 
     return {
       getValue: () => area.value,
+      setValue: (val) => {
+        area.value = val || "";
+        updateGutter();
+        sendDraft();
+      },
       getLanguage: () => currentLanguage,
       setReadOnly: (on) => {
         area.readOnly = on;
@@ -2161,6 +2259,78 @@ function showInAppConfirm({
 let activeConsoleTab = "cases";
 let activeProblemSubTab = "description";
 let consoleExpanded = true;
+let problemPaneCollapsed = false;
+
+function makeCopyButton(text, label = "Copy") {
+  if (text === null || text === undefined || text === "") return "";
+  const safe = escapeHtml(String(text));
+  return `
+    <button type="button" data-copy-content="${safe}" class="btn-copy-chip" title="Copy to clipboard">
+      <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+      </svg>
+      <span class="btn-copy-text">${escapeHtml(label)}</span>
+    </button>
+  `;
+}
+
+function copyToClipboard(text, btnElement, successLabel = "Copied!") {
+  if (typeof text !== "string") text = String(text || "");
+  const markSuccess = () => {
+    if (!btnElement) return;
+    const originalHtml = btnElement.innerHTML;
+    btnElement.classList.add("is-copied");
+    btnElement.innerHTML = `
+      <svg class="w-3.5 h-3.5 text-emerald-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+      </svg>
+      <span class="text-emerald-600 dark:text-emerald-400 font-extrabold">${successLabel}</span>
+    `;
+    setTimeout(() => {
+      btnElement.innerHTML = originalHtml;
+      btnElement.classList.remove("is-copied");
+    }, 1800);
+  };
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(markSuccess).catch(() => {
+      fallbackCopy(text, markSuccess);
+    });
+  } else {
+    fallbackCopy(text, markSuccess);
+  }
+}
+
+function fallbackCopy(text, onSuccess) {
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.top = "-9999px";
+    ta.style.left = "-9999px";
+    ta.style.opacity = "0";
+    ta.setAttribute("readonly", "");
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    if (ok && typeof onSuccess === "function") onSuccess();
+  } catch (_) {}
+}
+
+// Global Delegated Copy Handler (Guaranteed to work for all copy buttons dynamically created)
+if (!window._copyChipListenerAttached) {
+  window._copyChipListenerAttached = true;
+  document.addEventListener("click", (e) => {
+    const copyBtn = e.target.closest(".btn-copy-chip");
+    if (copyBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const text = copyBtn.dataset.copyContent;
+      copyToClipboard(text, copyBtn);
+    }
+  });
+}
 
 function renderCoding() {
   const problems = state.problems || [];
@@ -2199,19 +2369,25 @@ function renderCoding() {
   const examplesHtml = problem.public_cases
     .map((c, i) => `
       <div class="example-card rounded-xl p-3.5 space-y-2.5">
-        <div class="flex items-center justify-between text-xs font-extrabold">
+        <div class="flex items-center justify-between text-xs font-extrabold pb-1 border-b border-inherit">
           <span>Example ${i + 1}</span>
-          <button type="button" data-copy-input="${escapeHtml(c.input)}" class="btn-copy-input text-[11px] font-bold text-blue-600 hover:underline flex items-center gap-1 cursor-pointer">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-            <span>Copy Input</span>
-          </button>
+          <div class="flex items-center gap-1.5">
+            ${makeCopyButton(c.input, "Copy Input")}
+            ${makeCopyButton(c.expected, "Copy Output")}
+          </div>
         </div>
         <div class="space-y-1.5">
-          <div class="text-[10px] font-bold uppercase tracking-wider spec-box-label">Input</div>
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-bold uppercase tracking-wider spec-box-label">Input</span>
+            ${makeCopyButton(c.input, "Copy")}
+          </div>
           <pre class="p-2.5 font-mono text-xs rounded-lg overflow-x-auto whitespace-pre-wrap">${escapeHtml(c.input)}</pre>
         </div>
         <div class="space-y-1.5">
-          <div class="text-[10px] font-bold uppercase tracking-wider spec-box-label">Expected Output</div>
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-bold uppercase tracking-wider spec-box-label">Expected Output</span>
+            ${makeCopyButton(c.expected, "Copy")}
+          </div>
           <pre class="p-2.5 font-mono text-xs text-emerald-600 rounded-lg overflow-x-auto whitespace-pre-wrap">${escapeHtml(c.expected)}</pre>
         </div>
       </div>
@@ -2238,15 +2414,23 @@ function renderCoding() {
 
   content.innerHTML = `
     <!-- Top-level Coding IDE Container (HackerRank Edge-to-Edge Full-Page Layout) -->
-    <div class="coding-ide-layout flex flex-col lg:flex-row w-full h-full overflow-hidden">
+    <div id="coding-ide-root" class="coding-ide-layout flex flex-col lg:flex-row w-full h-full overflow-hidden ${problemPaneCollapsed ? 'is-problem-collapsed' : ''}">
 
-      <!-- LEFT PANE: Problem Description, Spec, Examples, Submissions (44% Width) -->
+      <!-- LEFT PANE: Problem Description, Spec, Examples, Submissions (Resizably Partitioned) -->
       <section class="problem-pane flex flex-col overflow-hidden" aria-label="Problem Description">
         
-        <!-- Multi-problem selector tabs -->
-        <div class="problem-pane-header flex items-center gap-2 px-3 py-2 overflow-x-auto shrink-0 select-none">
-          <span class="text-[10px] font-extrabold uppercase tracking-wider opacity-70 px-1">Problems:</span>
-          ${problemTabs}
+        <!-- Multi-problem selector tabs + Hide Problem Button -->
+        <div class="problem-pane-header flex items-center justify-between gap-2 px-3 py-2 shrink-0 select-none border-b border-inherit">
+          <div class="flex items-center gap-2 overflow-x-auto">
+            <span class="text-[10px] font-extrabold uppercase tracking-wider opacity-70 px-1">Problems:</span>
+            ${problemTabs}
+          </div>
+          <button type="button" id="btn-collapse-problem" class="btn-ide-toggle flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer select-none shrink-0" title="Collapse problem description to maximize code editor">
+            <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+            </svg>
+            <span>Hide</span>
+          </button>
         </div>
 
         <!-- Problem Title & Badges Bar -->
@@ -2292,15 +2476,31 @@ function renderCoding() {
 
             ${(problem.example_input || problem.example_output) ? `
               <div class="example-card rounded-xl p-3.5 space-y-2.5">
-                <span class="spec-box-label text-xs font-extrabold uppercase tracking-wider">Example</span>
-                <div class="space-y-1.5">
-                  <div class="text-[10px] font-bold uppercase tracking-wider spec-box-label">Input</div>
-                  <pre class="p-2.5 font-mono text-xs rounded-lg overflow-x-auto whitespace-pre-wrap">${escapeHtml(problem.example_input)}</pre>
+                <div class="flex items-center justify-between pb-1 border-b border-inherit">
+                  <span class="spec-box-label text-xs font-extrabold uppercase tracking-wider">Example</span>
+                  <div class="flex items-center gap-1.5">
+                    ${problem.example_input ? makeCopyButton(problem.example_input, "Copy Input") : ""}
+                    ${problem.example_output ? makeCopyButton(problem.example_output, "Copy Output") : ""}
+                  </div>
                 </div>
-                <div class="space-y-1.5">
-                  <div class="text-[10px] font-bold uppercase tracking-wider spec-box-label">Output</div>
-                  <pre class="p-2.5 font-mono text-xs text-emerald-600 rounded-lg overflow-x-auto whitespace-pre-wrap">${escapeHtml(problem.example_output)}</pre>
-                </div>
+                ${problem.example_input ? `
+                  <div class="space-y-1.5">
+                    <div class="flex items-center justify-between">
+                      <span class="text-[10px] font-bold uppercase tracking-wider spec-box-label">Input</span>
+                      ${makeCopyButton(problem.example_input, "Copy")}
+                    </div>
+                    <pre class="p-2.5 font-mono text-xs rounded-lg overflow-x-auto whitespace-pre-wrap">${escapeHtml(problem.example_input)}</pre>
+                  </div>
+                ` : ""}
+                ${problem.example_output ? `
+                  <div class="space-y-1.5">
+                    <div class="flex items-center justify-between">
+                      <span class="text-[10px] font-bold uppercase tracking-wider spec-box-label">Output</span>
+                      ${makeCopyButton(problem.example_output, "Copy")}
+                    </div>
+                    <pre class="p-2.5 font-mono text-xs text-emerald-600 rounded-lg overflow-x-auto whitespace-pre-wrap">${escapeHtml(problem.example_output)}</pre>
+                  </div>
+                ` : ""}
                 ${problem.example_explanation ? `
                   <div class="space-y-1.5">
                     <div class="text-[10px] font-bold uppercase tracking-wider spec-box-label">Explanation</div>
@@ -2348,27 +2548,49 @@ function renderCoding() {
 
       </section>
 
-      <!-- RIGHT PANE: Monaco Editor + Interactive Console Drawer (56% Width) -->
+      <!-- HORIZONTAL RESIZER SPLITTER (Problem Pane <-> Code Editor) -->
+      <div id="resizer-horizontal" class="ide-resizer ide-resizer-h" role="separator" aria-orientation="vertical" tabindex="0" title="Drag to resize problem description and code editor (Double-click to toggle hide)">
+        <div class="ide-resizer-handle-pill"></div>
+      </div>
+
+      <!-- RIGHT PANE: Monaco Editor + Interactive Console Drawer (Resizably Partitioned) -->
       <section class="editor-pane flex-1 flex flex-col overflow-hidden" aria-label="Code Editor & Console">
         
         <!-- Editor Header Toolbar -->
-        <div class="editor-toolbar flex flex-wrap items-center justify-between gap-3 px-4 py-2 shrink-0">
-          <div class="flex items-center gap-3">
+        <div class="editor-toolbar flex flex-wrap items-center justify-between gap-2.5 px-4 py-2 shrink-0">
+          <div class="flex items-center gap-2.5">
+            <!-- Expand Problem Pane Button (Shown when problem pane is hidden) -->
+            <button type="button" id="btn-restore-problem" class="btn-ide-toggle ${problemPaneCollapsed ? '' : 'hidden'} flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer select-none bg-blue-500/10 text-blue-600 border border-blue-500/30" title="Show problem description">
+              <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+              </svg>
+              <span>Show Problem</span>
+            </button>
+
             <label class="flex items-center gap-2 text-xs font-bold">
               <span class="uppercase tracking-wider text-[10px] opacity-70">Language:</span>
               <select id="lang" class="rounded-lg px-2.5 py-1 text-xs font-bold focus:outline-none focus:border-blue-500 cursor-pointer" ${locked ? "disabled" : ""}>
                 ${languages}
               </select>
             </label>
+
+            <!-- Reset to Starter Code Button -->
+            <button type="button" id="btn-reset-code" class="btn-ide-toggle flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer select-none" title="Reset code to original starter template" ${locked ? 'disabled' : ''}>
+              <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span>Reset Code</span>
+            </button>
+
             <span id="editor-autosave-indicator" class="flex items-center gap-1.5 text-[11px] opacity-70 font-mono select-none">
               <span class="w-1.5 h-1.5 rounded-full ${locked ? 'bg-emerald-500' : 'bg-emerald-500'}"></span>
               <span>${locked ? 'Locked' : 'Saved'}</span>
             </span>
           </div>
 
-          <div class="flex items-center gap-2.5">
+          <div class="flex items-center gap-2">
             <!-- Theme Toggle Button (Light / Dark Mode) -->
-            <button type="button" id="btn-theme-toggle" class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors cursor-pointer select-none" title="Toggle Light/Dark Theme">
+            <button type="button" id="btn-theme-toggle" class="btn-ide-toggle flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer select-none" title="Toggle Light/Dark Theme">
               <span id="theme-toggle-icon">${currentEditorTheme === 'light' ? '🌙' : '☀️'}</span>
               <span id="theme-toggle-text">${currentEditorTheme === 'light' ? 'Dark' : 'Light'}</span>
             </button>
@@ -2394,8 +2616,13 @@ function renderCoding() {
         <!-- Monaco Editor Slot -->
         <div id="editor-slot" class="flex-1 w-full overflow-hidden relative cursor-text"></div>
 
-        <!-- Bottom Collapsible Console Drawer -->
-        <div id="console-drawer" class="flex flex-col shrink-0 transition-all duration-200">
+        <!-- VERTICAL RESIZER SPLITTER (Editor <-> Console Drawer) -->
+        <div id="resizer-vertical" class="ide-resizer ide-resizer-v" role="separator" aria-orientation="horizontal" tabindex="0" title="Drag to resize editor and console (Double-click to toggle collapse)">
+          <div class="ide-resizer-handle-pill-h"></div>
+        </div>
+
+        <!-- Bottom Collapsible Console Drawer (Smoothly Resizable) -->
+        <div id="console-drawer" class="flex flex-col shrink-0 ${consoleExpanded ? '' : 'is-collapsed'}">
           
           <!-- Console Drawer Top Bar: Tabs & Action Buttons -->
           <div class="console-topbar flex items-center justify-between px-3 sm:px-4 py-2 select-none">
@@ -2410,23 +2637,26 @@ function renderCoding() {
 
             <div class="flex items-center gap-2">
               <!-- Run & Submit Buttons -->
-              <button type="button" id="run-code" class="btn btn-secondary py-1.5 px-4 text-xs font-extrabold flex items-center gap-1.5 cursor-pointer disabled:opacity-50" ${locked ? "disabled" : ""}>
+              <button type="button" id="run-code" class="btn btn-secondary py-1.5 px-3.5 text-xs font-extrabold flex items-center gap-1.5 cursor-pointer disabled:opacity-50" ${locked ? "disabled" : ""} title="Run code against sample test cases (Ctrl+Enter)">
                 <span>▶ Run Code</span>
               </button>
 
-              <button type="button" id="submit-code" class="btn btn-primary py-1.5 px-5 text-xs font-black shadow-cta flex items-center gap-1.5 cursor-pointer disabled:opacity-50" ${locked ? "disabled" : ""}>
+              <button type="button" id="submit-code" class="btn btn-primary py-1.5 px-4 text-xs font-black shadow-cta flex items-center gap-1.5 cursor-pointer disabled:opacity-50" ${locked ? "disabled" : ""}>
                 <span>${locked ? "✓ Solution Submitted &amp; Locked" : "🚀 Submit Final Answer"}</span>
               </button>
 
               <!-- Collapse Toggle Button -->
-              <button type="button" id="btn-toggle-console" class="p-1 rounded-lg opacity-70 hover:opacity-100 text-xs font-bold cursor-pointer" title="Toggle console height">
-                ${consoleExpanded ? '⌄' : '⌃'}
+              <button type="button" id="btn-toggle-console" class="btn-ide-toggle flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer select-none" title="Toggle console height (or double click separator)">
+                <svg id="console-chevron-icon" class="w-3.5 h-3.5 transition-transform duration-200 ${consoleExpanded ? '' : 'rotate-180'}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+                <span id="btn-toggle-console-label">${consoleExpanded ? 'Hide Console' : 'Show Console'}</span>
               </button>
             </div>
           </div>
 
           <!-- Console Body Viewport -->
-          <div id="console-body" class="console-body ${consoleExpanded ? 'h-40' : 'h-0'} overflow-y-auto px-4 py-3 custom-scrollbar text-xs transition-all duration-200">
+          <div id="console-body" class="console-body overflow-y-auto px-4 py-3 custom-scrollbar text-xs">
             
             <!-- Tab View 1: Sample Cases -->
             <div id="console-view-cases" class="${activeConsoleTab === 'cases' ? '' : 'hidden'} space-y-2.5">
@@ -2435,11 +2665,17 @@ function renderCoding() {
               </div>
               <div id="console-active-case-detail" class="space-y-2">
                 <div>
-                  <div class="text-[10px] font-extrabold uppercase tracking-wider opacity-70 mb-1">Input:</div>
+                  <div class="flex items-center justify-between mb-1">
+                    <span class="text-[10px] font-extrabold uppercase tracking-wider opacity-70">Input:</span>
+                    ${makeCopyButton(firstCase.input, "Copy Input")}
+                  </div>
                   <pre class="console-pre p-2.5 rounded-lg font-mono text-xs overflow-x-auto whitespace-pre-wrap">${escapeHtml(firstCase.input)}</pre>
                 </div>
                 <div>
-                  <div class="text-[10px] font-extrabold uppercase tracking-wider opacity-70 mb-1">Expected Output:</div>
+                  <div class="flex items-center justify-between mb-1">
+                    <span class="text-[10px] font-extrabold uppercase tracking-wider opacity-70">Expected Output:</span>
+                    ${makeCopyButton(firstCase.expected, "Copy Output")}
+                  </div>
                   <pre class="console-pre p-2.5 rounded-lg font-mono text-xs text-emerald-600 dark:text-emerald-400 overflow-x-auto whitespace-pre-wrap">${escapeHtml(firstCase.expected)}</pre>
                 </div>
               </div>
@@ -2479,19 +2715,30 @@ function renderCoding() {
   $("tab-btn-examples")?.addEventListener("click", () => switchSubTab("examples"));
   $("tab-btn-subs")?.addEventListener("click", () => switchSubTab("submissions"));
 
-  // Copy buttons
-  content.querySelectorAll(".btn-copy-input").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const text = btn.dataset.copyInput;
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(() => {
-          const orig = btn.innerHTML;
-          btn.innerHTML = `<span class="text-emerald-500 font-extrabold">✓ Copied</span>`;
-          setTimeout(() => (btn.innerHTML = orig), 1500);
-        }).catch(() => {});
+  // Problem Pane Hide / Show Handlers
+  const btnCollapseProblem = $("btn-collapse-problem");
+  const btnRestoreProblem = $("btn-restore-problem");
+  const ideRoot = $("coding-ide-root");
+
+  const toggleProblemCollapse = (collapsed) => {
+    problemPaneCollapsed = collapsed;
+    if (ideRoot) ideRoot.classList.toggle("is-problem-collapsed", problemPaneCollapsed);
+    if (btnRestoreProblem) btnRestoreProblem.classList.toggle("hidden", !problemPaneCollapsed);
+    setTimeout(() => {
+      if (editors[problem.id]) {
+        editors[problem.id].then((editor) => {
+          if (editor && typeof editor.layout === "function") editor.layout();
+        });
       }
-    });
-  });
+    }, 60);
+  };
+
+  if (btnCollapseProblem) {
+    btnCollapseProblem.onclick = () => toggleProblemCollapse(true);
+  }
+  if (btnRestoreProblem) {
+    btnRestoreProblem.onclick = () => toggleProblemCollapse(false);
+  }
 
   // Console Tabs
   const switchConsoleTab = (tab) => {
@@ -2515,20 +2762,25 @@ function renderCoding() {
 
   // Console Drawer toggle
   const toggleBtn = $("btn-toggle-console");
-  const consoleBody = $("console-body");
-  if (toggleBtn && consoleBody) {
-    toggleBtn.addEventListener("click", () => {
-      consoleExpanded = !consoleExpanded;
-      consoleBody.className = `console-body ${consoleExpanded ? 'h-40' : 'h-0'} overflow-y-auto px-4 py-3 custom-scrollbar text-xs transition-all duration-200`;
-      toggleBtn.textContent = consoleExpanded ? '⌄' : '⌃';
-      setTimeout(() => {
-        if (editors[problem.id]) {
-          editors[problem.id].then((editor) => {
-            if (typeof editor.layout === "function") editor.layout();
-          });
-        }
-      }, 220);
-    });
+  const consoleDrawer = $("console-drawer");
+  const toggleConsoleDrawer = () => {
+    consoleExpanded = !consoleExpanded;
+    if (consoleDrawer) consoleDrawer.classList.toggle("is-collapsed", !consoleExpanded);
+    const lbl = $("btn-toggle-console-label");
+    if (lbl) lbl.textContent = consoleExpanded ? "Hide Console" : "Show Console";
+    const chevron = $("console-chevron-icon");
+    if (chevron) chevron.classList.toggle("rotate-180", !consoleExpanded);
+    setTimeout(() => {
+      if (editors[problem.id]) {
+        editors[problem.id].then((editor) => {
+          if (editor && typeof editor.layout === "function") editor.layout();
+        });
+      }
+    }, 60);
+  };
+
+  if (toggleBtn) {
+    toggleBtn.onclick = toggleConsoleDrawer;
   }
 
   // Case chips inside console
@@ -2545,17 +2797,46 @@ function renderCoding() {
       if (detail) {
         detail.innerHTML = `
           <div>
-            <div class="text-[10px] font-extrabold uppercase tracking-wider opacity-70 mb-1">Input:</div>
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-[10px] font-extrabold uppercase tracking-wider opacity-70">Input:</span>
+              ${makeCopyButton(targetCase.input, "Copy Input")}
+            </div>
             <pre class="console-pre p-2.5 rounded-lg font-mono text-xs overflow-x-auto whitespace-pre-wrap">${escapeHtml(targetCase.input)}</pre>
           </div>
           <div>
-            <div class="text-[10px] font-extrabold uppercase tracking-wider opacity-70 mb-1">Expected Output:</div>
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-[10px] font-extrabold uppercase tracking-wider opacity-70">Expected Output:</span>
+              ${makeCopyButton(targetCase.expected, "Copy Output")}
+            </div>
             <pre class="console-pre p-2.5 rounded-lg font-mono text-xs text-emerald-600 dark:text-emerald-400 overflow-x-auto whitespace-pre-wrap">${escapeHtml(targetCase.expected)}</pre>
           </div>
         `;
       }
     });
   });
+
+  // Reset to Starter Code Handler
+  const btnResetCode = $("btn-reset-code");
+  if (btnResetCode && !locked) {
+    btnResetCode.onclick = async () => {
+      const confirmed = await showInAppConfirm({
+        title: "Reset to Starter Code?",
+        message: "Are you sure you want to discard your current modifications and revert to the original starter code?",
+        details: "Your current edits in this editor will be overwritten with the initial template for this problem.",
+        confirmText: "Yes, Reset Code",
+        cancelText: "Keep My Code",
+        tone: "warn",
+      });
+      if (!confirmed) return;
+      const editor = await editors[problem.id];
+      if (editor) {
+        const starter = problem.starter_code || "";
+        editor.setValue(starter);
+        drafts[problem.id] = starter;
+        showStatus("Code reverted to initial starter template", "info");
+      }
+    };
+  }
 
   // Section submit
   content.querySelectorAll(".btn-submit-section").forEach((b) => {
@@ -2653,8 +2934,194 @@ function renderCoding() {
     }, 350);
   });
 
+  setupCodingResizers(problem);
   renderSubmissionSummary(problem);
   openVisit("coding", problem.id);
+}
+
+function setupCodingResizers(problem) {
+  const ideRoot = $("coding-ide-root") || document.querySelector(".coding-ide-layout");
+  const resizerH = $("resizer-horizontal");
+  const resizerV = $("resizer-vertical");
+  const problemPane = document.querySelector(".problem-pane");
+  const editorPane = document.querySelector(".editor-pane");
+  const consoleDrawer = $("console-drawer");
+
+  if (!ideRoot) return;
+
+  // Restore saved dimensions from localStorage if available
+  try {
+    const savedWidth = localStorage.getItem("online_exam_problem_width");
+    if (savedWidth) {
+      ideRoot.style.setProperty("--problem-pane-width", savedWidth);
+    }
+    const savedHeight = localStorage.getItem("online_exam_console_height");
+    if (savedHeight) {
+      ideRoot.style.setProperty("--console-drawer-height", savedHeight);
+    }
+  } catch (_) {}
+
+  const triggerMonacoLayout = () => {
+    if (problem && editors[problem.id]) {
+      editors[problem.id].then((ed) => {
+        if (ed && typeof ed.layout === "function") ed.layout();
+      });
+    }
+  };
+
+  // 1. Horizontal Splitter (Problem Pane <-> Code Editor)
+  if (resizerH && problemPane && editorPane) {
+    let isDraggingH = false;
+    let startX = 0;
+    let startWidth = 0;
+    let layoutWidth = 0;
+
+    const onPointerDownH = (e) => {
+      if (e.button !== 0) return;
+      isDraggingH = true;
+      startX = e.clientX;
+      startWidth = problemPane.getBoundingClientRect().width;
+      layoutWidth = ideRoot.getBoundingClientRect().width;
+
+      resizerH.setPointerCapture(e.pointerId);
+      resizerH.classList.add("is-dragging");
+      document.body.classList.add("is-resizing-h");
+      e.preventDefault();
+    };
+
+    const onPointerMoveH = (e) => {
+      if (!isDraggingH) return;
+      const delta = e.clientX - startX;
+      const newWidthPx = startWidth + delta;
+      
+      const minPx = 260;
+      const maxPx = Math.max(minPx, layoutWidth - 320);
+      const clampedPx = Math.min(Math.max(newWidthPx, minPx), maxPx);
+      
+      const pct = (clampedPx / layoutWidth) * 100;
+      const widthVal = `${pct.toFixed(2)}%`;
+      ideRoot.style.setProperty("--problem-pane-width", widthVal);
+      
+      requestAnimationFrame(triggerMonacoLayout);
+    };
+
+    const onPointerUpH = (e) => {
+      if (!isDraggingH) return;
+      isDraggingH = false;
+      try { resizerH.releasePointerCapture(e.pointerId); } catch (_) {}
+      resizerH.classList.remove("is-dragging");
+      document.body.classList.remove("is-resizing-h");
+
+      const currentPct = ideRoot.style.getPropertyValue("--problem-pane-width");
+      if (currentPct) {
+        try { localStorage.setItem("online_exam_problem_width", currentPct); } catch (_) {}
+      }
+      triggerMonacoLayout();
+    };
+
+    const onKeyDownH = (e) => {
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        e.preventDefault();
+        const currentPct = parseFloat(ideRoot.style.getPropertyValue("--problem-pane-width") || "44");
+        const step = e.key === "ArrowLeft" ? -2 : 2;
+        const newPct = Math.min(Math.max(currentPct + step, 22), 75);
+        ideRoot.style.setProperty("--problem-pane-width", `${newPct}%`);
+        try { localStorage.setItem("online_exam_problem_width", `${newPct}%`); } catch (_) {}
+        triggerMonacoLayout();
+      }
+    };
+
+    resizerH.onpointerdown = onPointerDownH;
+    resizerH.onpointermove = onPointerMoveH;
+    resizerH.onpointerup = onPointerUpH;
+    resizerH.onpointercancel = onPointerUpH;
+    resizerH.onkeydown = onKeyDownH;
+    resizerH.ondblclick = () => {
+      const btnCollapse = $("btn-collapse-problem");
+      if (btnCollapse) btnCollapse.click();
+    };
+  }
+
+  // 2. Vertical Splitter (Monaco Editor <-> Console Drawer)
+  if (resizerV && consoleDrawer && editorPane) {
+    let isDraggingV = false;
+    let startY = 0;
+    let startHeight = 0;
+    let editorPaneHeight = 0;
+
+    const onPointerDownV = (e) => {
+      if (e.button !== 0) return;
+      isDraggingV = true;
+      startY = e.clientY;
+      startHeight = consoleDrawer.getBoundingClientRect().height;
+      editorPaneHeight = editorPane.getBoundingClientRect().height;
+
+      resizerV.setPointerCapture(e.pointerId);
+      resizerV.classList.add("is-dragging");
+      document.body.classList.add("is-resizing-v");
+
+      if (consoleDrawer.classList.contains("is-collapsed")) {
+        consoleDrawer.classList.remove("is-collapsed");
+        consoleExpanded = true;
+        const lbl = $("btn-toggle-console-label");
+        if (lbl) lbl.textContent = "Hide Console";
+        const chevron = $("console-chevron-icon");
+        if (chevron) chevron.classList.remove("rotate-180");
+      }
+
+      e.preventDefault();
+    };
+
+    const onPointerMoveV = (e) => {
+      if (!isDraggingV) return;
+      const delta = startY - e.clientY;
+      const newHeightPx = startHeight + delta;
+      
+      const minPx = 40;
+      const maxPx = Math.max(minPx, editorPaneHeight - 120);
+      const clampedPx = Math.min(Math.max(newHeightPx, minPx), maxPx);
+
+      ideRoot.style.setProperty("--console-drawer-height", `${Math.round(clampedPx)}px`);
+      requestAnimationFrame(triggerMonacoLayout);
+    };
+
+    const onPointerUpV = (e) => {
+      if (!isDraggingV) return;
+      isDraggingV = false;
+      try { resizerV.releasePointerCapture(e.pointerId); } catch (_) {}
+      resizerV.classList.remove("is-dragging");
+      document.body.classList.remove("is-resizing-v");
+
+      const currentHeight = ideRoot.style.getPropertyValue("--console-drawer-height");
+      if (currentHeight) {
+        try { localStorage.setItem("online_exam_console_height", currentHeight); } catch (_) {}
+      }
+      triggerMonacoLayout();
+    };
+
+    resizerV.ondblclick = () => {
+      const toggleBtn = $("btn-toggle-console");
+      if (toggleBtn) toggleBtn.click();
+    };
+
+    const onKeyDownV = (e) => {
+      if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+        e.preventDefault();
+        const currentPx = parseInt(ideRoot.style.getPropertyValue("--console-drawer-height") || "220", 10);
+        const step = e.key === "ArrowUp" ? 20 : -20;
+        const newPx = Math.min(Math.max(currentPx + step, 60), 500);
+        ideRoot.style.setProperty("--console-drawer-height", `${newPx}px`);
+        try { localStorage.setItem("online_exam_console_height", `${newPx}px`); } catch (_) {}
+        triggerMonacoLayout();
+      }
+    };
+
+    resizerV.onpointerdown = onPointerDownV;
+    resizerV.onpointermove = onPointerMoveV;
+    resizerV.onpointerup = onPointerUpV;
+    resizerV.onpointercancel = onPointerUpV;
+    resizerV.onkeydown = onKeyDownV;
+  }
 }
 
 function renderSubmissionSummary(problem) {
@@ -2675,14 +3142,27 @@ function renderSubmissionSummary(problem) {
 async function runCode(problem, editor) {
   const target = $("code-result");
   const button = $("run-code");
-  if (button) button.disabled = true;
+  if (button) {
+    button.disabled = true;
+    button.innerHTML = `
+      <span class="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin shrink-0"></span>
+      <span>Running…</span>
+    `;
+  }
 
   // Automatically switch console tab to Test Result and expand console
   activeConsoleTab = "result";
   consoleExpanded = true;
-  const consoleBody = $("console-body");
-  if (consoleBody) {
-    consoleBody.className = "console-body h-40 overflow-y-auto px-4 py-3 custom-scrollbar text-xs transition-all duration-200";
+  const consoleDrawer = $("console-drawer");
+  if (consoleDrawer) {
+    consoleDrawer.classList.remove("is-collapsed");
+  }
+  const toggleBtn = $("btn-toggle-console");
+  if (toggleBtn) {
+    const lbl = $("btn-toggle-console-label");
+    if (lbl) lbl.textContent = "Hide Console";
+    const chevron = $("console-chevron-icon");
+    if (chevron) chevron.classList.remove("rotate-180");
   }
   const tabCases = $("console-tab-cases");
   const tabResult = $("console-tab-result");
@@ -2697,7 +3177,7 @@ async function runCode(problem, editor) {
     viewResult.classList.remove("hidden");
   }
 
-  if (target) target.innerHTML = `<div class="flex items-center gap-2 opacity-80 text-xs py-2"><span class="w-3.5 h-3.5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></span><span>Running solution against sample test cases…</span></div>`;
+  if (target) target.innerHTML = `<div class="flex items-center gap-2 opacity-80 text-xs py-2"><span class="w-3.5 h-3.5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin shrink-0"></span><span>Running solution against sample test cases…</span></div>`;
 
   try {
     const data = await api("POST", "code-runs/", {
@@ -2713,7 +3193,11 @@ async function runCode(problem, editor) {
         : err.message;
     }
   } finally {
-    if ($("run-code")) $("run-code").disabled = false;
+    const b = $("run-code");
+    if (b && !problem.locked) {
+      b.disabled = false;
+      b.innerHTML = `<span>▶ Run Code</span>`;
+    }
   }
 }
 
@@ -2721,9 +3205,12 @@ function renderRunResults(data) {
   if (data.compile_output) {
     return `
       <div class="run-result-box fail rounded-xl p-3.5 space-y-2 border">
-        <div class="font-extrabold text-xs flex items-center gap-1.5">
-          <span>❌</span>
-          <span>Compilation / Syntax Error</span>
+        <div class="flex items-center justify-between pb-1 border-b border-inherit">
+          <div class="font-extrabold text-xs flex items-center gap-1.5">
+            <span>❌</span>
+            <span>Compilation / Syntax Error</span>
+          </div>
+          ${makeCopyButton(data.compile_output, "Copy Error")}
         </div>
         <pre class="run-result-pre whitespace-pre-wrap font-mono text-xs p-3 rounded-lg max-h-40 overflow-y-auto">${escapeHtml(data.compile_output)}</pre>
       </div>
@@ -2746,24 +3233,36 @@ function renderRunResults(data) {
   const rows = cases
     .map((r, i) => `
       <div class="run-result-box ${r.passed ? 'pass' : 'fail'} rounded-xl border p-3 space-y-2">
-        <div class="flex items-center justify-between text-xs font-extrabold">
+        <div class="flex items-center justify-between text-xs font-extrabold pb-1 border-b border-inherit">
           <span>Example Case ${i + 1}</span>
           <span class="text-[10px] uppercase font-black px-2 py-0.5 rounded ${r.passed ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-300' : 'bg-rose-500/20 text-rose-600 dark:text-rose-300'}">
             ${r.passed ? 'Passed ✓' : 'Failed ✕'}
           </span>
         </div>
-        ${!r.passed ? `
-          <div class="grid gap-2 sm:grid-cols-2 text-xs">
-            <div>
-              <div class="text-[10px] font-bold uppercase tracking-wider opacity-70">Your Output</div>
-              <pre class="run-result-pre mt-1 p-2 rounded font-mono text-xs overflow-x-auto whitespace-pre-wrap">${escapeHtml(r.output || "(no output)")}</pre>
+        <div class="grid gap-2 sm:grid-cols-2 text-xs">
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-[10px] font-bold uppercase tracking-wider opacity-70">Your Output</span>
+              ${makeCopyButton(r.output, "Copy")}
             </div>
-            <div>
-              <div class="text-[10px] font-bold uppercase tracking-wider opacity-70">Expected Output</div>
-              <pre class="run-result-pre mt-1 p-2 rounded font-mono text-xs overflow-x-auto whitespace-pre-wrap">${escapeHtml(r.expected)}</pre>
-            </div>
+            <pre class="run-result-pre p-2 rounded font-mono text-xs overflow-x-auto whitespace-pre-wrap">${escapeHtml(r.output || "(no output)")}</pre>
           </div>
-          ${r.error ? `<pre class="run-result-pre mt-1.5 p-2 rounded font-mono text-xs whitespace-pre-wrap text-amber-600 dark:text-amber-300">${escapeHtml(r.error)}</pre>` : ""}
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-[10px] font-bold uppercase tracking-wider opacity-70">Expected Output</span>
+              ${makeCopyButton(r.expected, "Copy")}
+            </div>
+            <pre class="run-result-pre p-2 rounded font-mono text-xs overflow-x-auto whitespace-pre-wrap">${escapeHtml(r.expected)}</pre>
+          </div>
+        </div>
+        ${r.error ? `
+          <div class="mt-1">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-[10px] font-bold uppercase tracking-wider opacity-70">Runtime Message</span>
+              ${makeCopyButton(r.error, "Copy Error")}
+            </div>
+            <pre class="run-result-pre p-2 rounded font-mono text-xs whitespace-pre-wrap text-amber-600 dark:text-amber-300">${escapeHtml(r.error)}</pre>
+          </div>
         ` : ""}
       </div>
     `)

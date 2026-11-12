@@ -7,6 +7,8 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils import timezone
 
+from .validators import validate_full_name, validate_phone_number
+
 # ---------------------------------------------------------------------------
 # Authoring: exams, sections, questions
 # ---------------------------------------------------------------------------
@@ -300,7 +302,7 @@ class Application(models.Model):
     )
     exam = models.ForeignKey(Exam, on_delete=models.CASCADE, related_name="applications")
     full_name = models.CharField(max_length=200)
-    phone = models.CharField(max_length=20, blank=True)
+    phone = models.CharField(max_length=20, blank=True, validators=[validate_phone_number])
     resume = models.FileField(upload_to="resumes/", null=True, blank=True, max_length=255)
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.APPROVED)
     decision_reason = models.TextField(blank=True, help_text="Why access was revoked, if it was.")
@@ -350,6 +352,13 @@ class Application(models.Model):
     def __str__(self):
         return f"{self.full_name} – {self.exam.title} ({self.get_status_display()})"
 
+    def clean(self):
+        super().clean()
+        if self.phone:
+            self.phone = validate_phone_number(self.phone)
+        if self.full_name:
+            self.full_name = validate_full_name(self.full_name)
+
     @property
     def has_resume_file(self):
         """Returns True only if a resume is attached and the file exists on storage."""
@@ -363,33 +372,52 @@ class Application(models.Model):
     def ensure_password(self):
         """Ensures this application has a visible plain password for admin, synchronized with User password hash."""
         if not self.plain_password:
+            existing_pw = ""
+            if self.candidate_id:
+                existing_pw = (
+                    Application.objects.filter(candidate_id=self.candidate_id)
+                    .exclude(plain_password="")
+                    .values_list("plain_password", flat=True)
+                    .first()
+                    or ""
+                )
             from . import notifications
-            pw = notifications.new_password()
+            pw = existing_pw or notifications.new_password()
             self.plain_password = pw
             if self.pk:
                 Application.objects.filter(pk=self.pk).update(plain_password=pw)
             if self.candidate_id:
                 try:
                     cand = self.candidate
-                    cand.set_password(pw)
-                    cand.save(update_fields=["password"])
+                    if not cand.has_usable_password():
+                        cand.set_password(pw)
+                        cand.save(update_fields=["password"])
                 except Exception:
                     pass
         return self.plain_password
 
     def save(self, *args, **kwargs):
-        is_new_pw = False
         if not self.plain_password:
-            from . import notifications
-            self.plain_password = notifications.new_password()
-            is_new_pw = True
+            existing_pw = ""
+            if self.candidate_id:
+                existing_pw = (
+                    Application.objects.filter(candidate_id=self.candidate_id)
+                    .exclude(plain_password="")
+                    .values_list("plain_password", flat=True)
+                    .first()
+                    or ""
+                )
+            if existing_pw:
+                self.plain_password = existing_pw
+            else:
+                from . import notifications
+                self.plain_password = notifications.new_password()
         super().save(*args, **kwargs)
-        if is_new_pw and self.candidate_id:
+        if self.candidate_id and not self.candidate.has_usable_password():
             try:
                 cand = self.candidate
-                if not cand.has_usable_password():
-                    cand.set_password(self.plain_password)
-                    cand.save(update_fields=["password"])
+                cand.set_password(self.plain_password)
+                cand.save(update_fields=["password"])
             except Exception:
                 pass
 
@@ -796,6 +824,10 @@ class CodingSubmission(models.Model):
         constraints = [
             models.UniqueConstraint(fields=["attempt", "problem", "version"], name="unique_submission_version"),
         ]
+
+    @property
+    def passed_cases(self):
+        return self.public_passed + self.hidden_passed
 
 
 class CodingTestResult(models.Model):

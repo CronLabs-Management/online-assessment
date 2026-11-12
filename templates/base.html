@@ -14,7 +14,7 @@
   <link
     href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
     rel="stylesheet">
-  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=20261106_v9">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=20261111_clean_v4">
   {# Built from tailwind/ (npm run build). Loaded after app.css so utilities win, as before. #}
   <link rel="stylesheet" href="{% static 'css/tailwind.css' %}?v=20261108">
   {% block extra_head %}{% endblock %}
@@ -126,8 +126,8 @@
   </div>
 
   {% block footer %}
-  <footer class="mt-auto border-t border-slate-200 bg-white py-5 {% block footer_class %}{% endblock %}">
-    <div class="mx-auto flex max-w-6xl items-center justify-between px-4 sm:px-6 text-xs text-slate-500 font-medium">
+  <footer class="mt-auto border-t border-slate-200 bg-white py-2 {% block footer_class %}{% endblock %}">
+    <div class="mx-auto flex max-w-6xl items-center justify-between px-4 sm:px-6 text-[11px] text-slate-500 font-medium">
       <span>&copy; {% now "Y" %} {{ site_settings.site_name|default:"Assessments" }}. All rights reserved.</span>
       <span class="text-slate-400">Proctored Assessment Platform</span>
     </div>

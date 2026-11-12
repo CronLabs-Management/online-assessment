@@ -2,7 +2,7 @@ import os
 import re
 
 from django import forms
-from django.contrib.auth import get_user_model
+from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.forms import AuthenticationForm
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -23,6 +23,7 @@ from .models import (
     StaffRole,
 )
 from .permissions import PERMISSION_CODES, PERMISSIONS
+from .validators import validate_full_name, validate_phone_number
 
 User = get_user_model()
 
@@ -86,6 +87,47 @@ class ExamForm(forms.ModelForm):
         self.fields["opens_at"].input_formats = ["%Y-%m-%dT%H:%M"]
         self.fields["closes_at"].input_formats = ["%Y-%m-%dT%H:%M"]
 
+    def clean_title(self):
+        title = (self.cleaned_data.get("title") or "").strip()
+        if not title:
+            raise ValidationError("Assessment title is required.")
+        if len(title) < 3:
+            raise ValidationError("Assessment title must be at least 3 characters long.")
+        return title
+
+    def clean_duration_minutes(self):
+        duration = self.cleaned_data.get("duration_minutes")
+        if duration is not None and duration <= 0:
+            raise ValidationError("Assessment duration must be at least 1 minute.")
+        if duration is not None and duration > 1440:
+            raise ValidationError("Assessment duration cannot exceed 24 hours (1440 minutes).")
+        return duration
+
+    def clean(self):
+        data = super().clean()
+        opens_at = data.get("opens_at")
+        closes_at = data.get("closes_at")
+        if opens_at and closes_at and closes_at <= opens_at:
+            self.add_error("closes_at", "The closing time must be after the opening time.")
+
+        tab_threshold = data.get("tab_switch_threshold")
+        if tab_threshold is not None and tab_threshold < 1:
+            self.add_error("tab_switch_threshold", "Screen switch threshold must be at least 1.")
+
+        missing_face = data.get("missing_face_seconds")
+        if missing_face is not None and missing_face < 1:
+            self.add_error("missing_face_seconds", "Missing face threshold must be at least 1 second.")
+
+        net_grace = data.get("network_grace_seconds")
+        if net_grace is not None and net_grace < 0:
+            self.add_error("network_grace_seconds", "Network grace period cannot be negative.")
+
+        max_pause = data.get("max_pause_minutes")
+        if max_pause is not None and max_pause < 0:
+            self.add_error("max_pause_minutes", "Maximum pause credit cannot be negative.")
+
+        return data
+
 
 class ExamSectionForm(forms.ModelForm):
     apply_marks_to_existing = forms.BooleanField(
@@ -126,10 +168,26 @@ class ExamSectionForm(forms.ModelForm):
             else:
                 field.widget.attrs.setdefault("class", "w-full rounded border px-3 py-2")
 
+    def clean_title(self):
+        title = (self.cleaned_data.get("title") or "").strip()
+        if not title:
+            raise ValidationError("Section title is required.")
+        if len(title) < 2:
+            raise ValidationError("Section title must be at least 2 characters long.")
+        return title
+
+    def clean_duration_minutes(self):
+        duration = self.cleaned_data.get("duration_minutes")
+        if duration is not None and duration <= 0:
+            raise ValidationError("Section duration must be at least 1 minute.")
+        return duration
+
     def clean_marks_per_question(self):
         value = self.cleaned_data.get("marks_per_question")
         if value in (None, ""):
             return (self.instance.marks_per_question if self.instance and self.instance.pk else None) or 1
+        if value <= 0:
+            raise ValidationError("Marks per question must be at least 1.")
         return value
 
     def clean(self):
@@ -197,6 +255,18 @@ class MCQQuestionForm(forms.ModelForm):
         for _name, field in self.fields.items():
             if _name not in ("image", "remove_image"):
                 field.widget.attrs.setdefault("class", "w-full rounded border px-3 py-2")
+
+    def clean_text(self):
+        text = (self.cleaned_data.get("text") or "").strip()
+        if not text:
+            raise ValidationError("Question text is required.")
+        return text
+
+    def clean_marks(self):
+        marks = self.cleaned_data.get("marks")
+        if marks is not None and marks < 1:
+            raise ValidationError("Question marks must be at least 1.")
+        return marks
 
     def clean_image(self):
         image = self.cleaned_data.get("image")
@@ -301,6 +371,26 @@ class CodingProblemForm(forms.ModelForm):
         for field in self.fields.values():
             field.widget.attrs.setdefault("class", "w-full rounded border px-3 py-2")
 
+    def clean_title(self):
+        title = (self.cleaned_data.get("title") or "").strip()
+        if not title:
+            raise ValidationError("Problem title is required.")
+        if len(title) < 2:
+            raise ValidationError("Problem title must be at least 2 characters long.")
+        return title
+
+    def clean_statement(self):
+        stmt = (self.cleaned_data.get("statement") or "").strip()
+        if not stmt:
+            raise ValidationError("Problem statement is required.")
+        return stmt
+
+    def clean_marks(self):
+        marks = self.cleaned_data.get("marks")
+        if marks is not None and marks < 1:
+            raise ValidationError("Marks must be at least 1.")
+        return marks
+
     def clean_languages(self):
         raw_items = [item.strip().lower() for item in self.cleaned_data["languages"].split(",") if item.strip()]
         items = ["cpp" if item == "c++" else item for item in raw_items]
@@ -327,6 +417,12 @@ class CodingTestCaseForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["is_hidden"].widget.attrs.update({"class": "h-4 w-4"})
+
+    def clean_expected_output(self):
+        output = (self.cleaned_data.get("expected_output") or "").strip()
+        if not output:
+            raise ValidationError("Expected output is required for each test case.")
+        return output
 
 
 CodingTestCaseFormSet = inlineformset_factory(
@@ -376,6 +472,53 @@ class EmailLoginForm(AuthenticationForm):
             return user.get_username()
         return value.lower() if "@" in value else value
 
+    def clean(self):
+        username = self.cleaned_data.get("username")
+        password = self.cleaned_data.get("password")
+
+        if username is not None and password:
+            # 1. Standard authentication with raw input
+            self.user_cache = authenticate(
+                self.request, username=username, password=password
+            )
+
+            # 2. If copy-paste added leading/trailing whitespace, try stripped password
+            stripped_pw = password.strip()
+            if self.user_cache is None and stripped_pw != password:
+                self.user_cache = authenticate(
+                    self.request, username=username, password=stripped_pw
+                )
+
+            # 3. If standard check failed, check if the password matches any Application.plain_password
+            # assigned to this candidate across their enrolled exams.
+            if self.user_cache is None:
+                candidate_user = (
+                    User.objects.filter(username__iexact=username).first()
+                    or User.objects.filter(email__iexact=username).first()
+                )
+                if candidate_user and candidate_user.is_active:
+                    for test_pw in (stripped_pw, password):
+                        if not test_pw:
+                            continue
+                        matching_app = candidate_user.applications.filter(
+                            plain_password=test_pw
+                        ).first()
+                        if matching_app:
+                            candidate_user.set_password(test_pw)
+                            candidate_user.save(update_fields=["password"])
+                            Application.objects.filter(candidate=candidate_user).update(plain_password=test_pw)
+                            self.user_cache = authenticate(
+                                self.request, username=username, password=test_pw
+                            ) or candidate_user
+                            break
+
+            if self.user_cache is None:
+                raise self.get_invalid_login_error()
+            else:
+                self.confirm_login_allowed(self.user_cache)
+
+        return self.cleaned_data
+
 
 class CandidateImportForm(forms.Form):
     """Support adding candidates via structured input columns or bulk spreadsheet pasting."""
@@ -396,7 +539,8 @@ class CandidateImportForm(forms.Form):
         label="Mobile Number",
         max_length=20,
         required=False,
-        widget=forms.TextInput(attrs={"placeholder": "+91 9876543210", "class": "w-full rounded border px-3 py-2"}),
+        validators=[validate_phone_number],
+        widget=forms.TextInput(attrs={"type": "tel", "inputmode": "tel", "placeholder": "+91 9876543210", "class": "w-full rounded border px-3 py-2"}),
     )
     candidates = forms.CharField(
         label="Or Paste Bulk Mailing List",
@@ -406,6 +550,18 @@ class CandidateImportForm(forms.Form):
         required=False,
         help_text="One candidate per line: email, full name, phone. Commas or tabs work.",
     )
+
+    def clean_single_phone(self):
+        phone = (self.cleaned_data.get("single_phone") or "").strip()
+        if phone:
+            return validate_phone_number(phone)
+        return phone
+
+    def clean_single_full_name(self):
+        name = (self.cleaned_data.get("single_full_name") or "").strip()
+        if name:
+            return validate_full_name(name)
+        return name
 
     def clean(self):
         cleaned = super().clean()
@@ -425,6 +581,17 @@ class CandidateImportForm(forms.Form):
         single_email = (self.cleaned_data.get("single_email") or "").strip().lower()
         single_name = (self.cleaned_data.get("single_full_name") or "").strip()
         single_phone = (self.cleaned_data.get("single_phone") or "").strip()
+        if single_phone:
+            try:
+                single_phone = validate_phone_number(single_phone)
+            except ValidationError as ve:
+                errors.append(f"Single candidate import: {ve.message}")
+        if single_name:
+            try:
+                single_name = validate_full_name(single_name)
+            except ValidationError as ve:
+                errors.append(f"Single candidate import: {ve.message}")
+
         if single_email:
             if not single_name:
                 errors.append("Single candidate import: Candidate full name is required.")
@@ -450,8 +617,21 @@ class CandidateImportForm(forms.Form):
             if len(parts) < 2 or not parts[1]:
                 errors.append(f"Line {number}: Candidate full name is required.")
                 continue
-            name = parts[1][:200]
-            phone = parts[2][:20] if len(parts) > 2 else ""
+            name = parts[1][:200].strip()
+            try:
+                name = validate_full_name(name)
+            except ValidationError as ve:
+                errors.append(f"Line {number}: “{parts[1]}” is not a valid candidate name. {ve.message}")
+                continue
+
+            phone = parts[2][:20].strip() if len(parts) > 2 else ""
+            if phone:
+                try:
+                    phone = validate_phone_number(phone)
+                except ValidationError as ve:
+                    errors.append(f"Line {number}: “{parts[2]}” is not a valid phone number. {ve.message}")
+                    continue
+
             if email in seen:
                 errors.append(f"Line {number}: “{email}” was duplicated in the submitted list and only processed once.")
                 continue
@@ -542,8 +722,8 @@ class CandidateEditForm(forms.ModelForm):
             "resume": "Candidate Resume",
         }
         widgets = {
-            "full_name": forms.TextInput(attrs={"class": "w-full rounded border px-3 py-2"}),
-            "phone": forms.TextInput(attrs={"class": "w-full rounded border px-3 py-2"}),
+            "full_name": forms.TextInput(attrs={"class": "w-full rounded border px-3 py-2", "autocomplete": "name"}),
+            "phone": forms.TextInput(attrs={"type": "tel", "inputmode": "tel", "class": "w-full rounded border px-3 py-2", "autocomplete": "tel"}),
             "plain_password": forms.TextInput(attrs={"class": "w-full rounded border px-3 py-2 font-mono font-bold"}),
         }
         help_texts = {
@@ -554,6 +734,26 @@ class CandidateEditForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if self.instance and self.instance.candidate_id:
             self.fields["email"].initial = self.instance.candidate.email or self.instance.candidate.username
+
+    def clean_phone(self):
+        phone = (self.cleaned_data.get("phone") or "").strip()
+        if phone:
+            return validate_phone_number(phone)
+        return phone
+
+    def clean_full_name(self):
+        name = (self.cleaned_data.get("full_name") or "").strip()
+        if not name:
+            raise ValidationError("Candidate full name is required.")
+        return validate_full_name(name)
+
+    def clean_plain_password(self):
+        pwd = (self.cleaned_data.get("plain_password") or "").strip()
+        if not pwd:
+            raise ValidationError("Candidate login password is required.")
+        if len(pwd) < 6:
+            raise ValidationError("Password must be at least 6 characters.")
+        return pwd
 
 
 class ConfirmDetailsForm(forms.ModelForm):
@@ -597,9 +797,13 @@ class ConfirmDetailsForm(forms.ModelForm):
             "full_name": forms.TextInput(attrs={
                 "placeholder": "Enter your full legal name",
                 "class": "w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 font-semibold text-sm focus:border-blue-600 focus:ring-2 focus:ring-blue-100 focus:outline-none transition-all",
+                "autocomplete": "name",
             }),
             "phone": forms.TextInput(attrs={
-                "placeholder": "e.g. +1 555-0199 or +91 9876543210",
+                "type": "tel",
+                "inputmode": "tel",
+                "autocomplete": "tel",
+                "placeholder": "e.g. +91 9876543210 or 9876543210",
                 "class": "w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 font-semibold text-sm focus:border-blue-600 focus:ring-2 focus:ring-blue-100 focus:outline-none transition-all",
             }),
         }
@@ -622,6 +826,18 @@ class ConfirmDetailsForm(forms.ModelForm):
             account_email = cand.email or cand.username
             self.fields["email"].initial = account_email
             self.initial["email"] = account_email
+
+    def clean_phone(self):
+        phone = (self.cleaned_data.get("phone") or "").strip()
+        if not phone:
+            raise ValidationError("Mobile phone number is required.")
+        return validate_phone_number(phone)
+
+    def clean_full_name(self):
+        name = (self.cleaned_data.get("full_name") or "").strip()
+        if not name:
+            raise ValidationError("Full legal name is required.")
+        return validate_full_name(name)
 
     def clean_email(self):
         email = (self.cleaned_data.get("email") or "").strip().lower()
@@ -712,6 +928,18 @@ class SiteSettingsForm(forms.ModelForm):
                 field.widget.attrs.setdefault("class", "w-32 rounded border px-3 py-2")
             else:
                 field.widget.attrs.setdefault("class", "w-full rounded border px-3 py-2")
+
+    def clean_site_name(self):
+        name = (self.cleaned_data.get("site_name") or "").strip()
+        if name and len(name) < 2:
+            raise ValidationError("Platform name must be at least 2 characters long.")
+        return name
+
+    def clean_snapshot_retention_days(self):
+        days = self.cleaned_data.get("snapshot_retention_days")
+        if days is not None and (days < 1 or days > 365):
+            raise ValidationError("Snapshot retention days must be between 1 and 365.")
+        return days
 
     def clean_site_logo(self):
         logo = self.cleaned_data.get("site_logo")
@@ -878,6 +1106,12 @@ class StaffMemberForm(forms.Form):
                 "role": profile.role_id,
                 "is_active": profile.is_active,
             })
+
+    def clean_full_name(self):
+        name = (self.cleaned_data.get("full_name") or "").strip()
+        if not name:
+            raise forms.ValidationError("Full name is required.")
+        return validate_full_name(name)
 
     def clean_email(self):
         email = (self.cleaned_data.get("email") or "").strip().lower()

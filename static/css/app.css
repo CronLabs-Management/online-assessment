@@ -1225,69 +1225,37 @@ th {
 }
 
 /* ==========================================================================
-   Attempt Page Layout & Sticky Resizable Camera
+   Candidate Assessment Layout & Ultra-compact Proctor Camera Dock
    ========================================================================== */
-.attempt-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 28px;
-  align-items: start;
+
+/* Prevent horizontal viewport overflow across the entire assessment interface */
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
 }
 
-@media (min-width: 860px) {
-  .attempt-grid {
-    grid-template-columns: 290px 1fr;
-  }
-
-  .attempt-sidebar {
-    position: sticky;
-    top: 128px;
-    align-self: flex-start;
-    max-height: calc(100vh - 145px);
-    overflow-y: auto;
-    z-index: 20;
-  }
+#attempt-root,
+#attempt-outer-container,
+.attempt-layout,
+.attempt-main {
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
-.camera-card {
-  background: #ffffff;
-  border: 1px solid var(--slate-200);
-  border-radius: 12px;
-  padding: 16px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-
-.camera-card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
-}
-
-.camera-title {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--slate-500);
-}
-
-/* Attempt Workspace Layout */
 .attempt-layout {
   display: grid;
   grid-template-columns: 290px minmax(0, 1fr);
   gap: 24px;
   align-items: flex-start;
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 24px 20px 140px;
   width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
 }
 
 @media (max-width: 1024px) {
   .attempt-layout {
     grid-template-columns: 1fr;
-    padding: 16px 12px 140px;
     gap: 20px;
   }
 }
@@ -1297,10 +1265,10 @@ th {
   flex-direction: column;
   gap: 20px;
   position: sticky;
-  top: 128px;
-  max-height: calc(100vh - 145px);
-  overflow-y: auto;
+  top: 96px;
   z-index: 10;
+  max-height: none;
+  overflow: visible;
 }
 
 .attempt-main {
@@ -1310,339 +1278,95 @@ th {
   gap: 24px;
 }
 
-/* Floating Sticky Proctor Camera Widget - Elevated Modern Design */
-.sticky-proctor-widget {
-  position: fixed;
-  bottom: 24px;
-  z-index: 9999;
-  background: #0b1120;
-  border: 1.5px solid rgba(59, 130, 246, 0.4);
-  border-radius: 18px;
-  box-shadow: 0 20px 45px -8px rgba(11, 17, 32, 0.7), 0 0 24px rgba(36, 71, 245, 0.22);
-  backdrop-filter: blur(16px);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  transition: width 0.22s cubic-bezier(0.16, 1, 0.3, 1), height 0.22s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s ease, left 0.25s ease, right 0.25s ease;
-  user-select: none;
-}
-
-.sticky-proctor-widget.corner-right {
-  right: 24px;
-  left: auto;
-}
-
-.sticky-proctor-widget.corner-left {
-  left: 24px;
-  right: auto;
-}
-
-/* S, M, L Presets with proper 4:3 aspect ratio - NEVER horizontally stretched */
-.sticky-proctor-widget.size-s {
-  width: 200px;
-}
-
-.sticky-proctor-widget.size-s #camera-container {
-  height: 150px;
-}
-
-.sticky-proctor-widget.size-m {
-  width: 260px;
-}
-
-.sticky-proctor-widget.size-m #camera-container {
-  height: 195px;
-}
-
-.sticky-proctor-widget.size-l {
-  width: 340px;
-}
-
-.sticky-proctor-widget.size-l #camera-container {
-  height: 255px;
-}
-
-/* Minimized / Collapsed state */
-.sticky-proctor-widget.is-collapsed {
-  width: 220px !important;
-}
-
-.sticky-proctor-widget.is-collapsed #camera-container,
-.sticky-proctor-widget.is-collapsed .widget-telemetry {
+/* While pre-assessment device diagnosis gate is active, keep sidebar ultra-compact and focused */
+#attempt-root.is-readiness-page .attempt-sidebar > section:not(#proctor-dock-panel),
+#attempt-root:has(#readiness:not(.hidden)) .attempt-sidebar > section:not(#proctor-dock-panel) {
   display: none !important;
 }
 
-/* Header bar inside sticky widget */
-.widget-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
-  background: #111c35;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  gap: 8px;
-}
-
-.widget-title {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 11px;
-  font-weight: 800;
-  color: #f8fafc;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-}
-
-.live-dot-beacon {
+/* Micro Video Viewport (Strict 104px x 78px reference thumbnail) */
+.proctor-micro-viewport {
   position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 9px;
-  height: 9px;
-}
-
-.live-dot-ping {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  background-color: #10b981;
-  opacity: 0.75;
-  animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
-}
-
-.live-dot-core {
-  position: relative;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background-color: #10b981;
-  box-shadow: 0 0 6px #10b981;
-}
-
-@keyframes ping {
-
-  75%,
-  100% {
-    transform: scale(2.2);
-    opacity: 0;
-  }
-}
-
-.widget-controls {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.widget-icon-btn {
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  color: #94a3b8;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: bold;
-  line-height: 1;
-  padding: 0;
-  transition: all 0.15s ease;
-}
-
-.widget-icon-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-  color: #ffffff;
-  border-color: rgba(255, 255, 255, 0.3);
-}
-
-/* Camera presets inside sticky widget */
-.camera-presets {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  background-color: rgba(11, 17, 32, 0.85);
-  padding: 2px;
-  border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.cam-size-btn,
-.preset-btn {
-  padding: 1px 7px;
-  border-radius: 4px;
-  font-size: 10px;
-  font-weight: 800;
-  border: 1px solid transparent;
-  background: transparent;
-  color: #94a3b8;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  line-height: 1.3;
-}
-
-.cam-size-btn:hover,
-.preset-btn:hover {
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.12);
-}
-
-.cam-size-btn.active,
-.preset-btn.active {
-  background: #2447f5;
-  color: #ffffff;
-  border-color: #3b82f6;
-  box-shadow: 0 1px 4px rgba(36, 71, 245, 0.4);
-}
-
-/* Video Box inside widget */
-#camera-container {
-  position: relative;
-  width: 100%;
+  width: 104px;
+  min-width: 104px;
+  max-width: 104px;
+  height: 78px;
+  min-height: 78px;
+  max-height: 78px;
   overflow: hidden;
-  background: linear-gradient(180deg, #020617 0%, #0b1120 100%);
-  transition: height 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 12px;
+  background-color: #020617;
+  border: 1px solid #334155;
+  box-sizing: border-box;
+  flex-shrink: 0;
 }
 
-#camera-container video {
-  width: 100%;
-  height: 100%;
+.proctor-micro-viewport video,
+video#camera {
+  width: 104px;
+  min-width: 104px;
+  max-width: 104px;
+  height: 78px;
+  min-height: 78px;
+  max-height: 78px;
   object-fit: cover;
   display: block;
+  margin: 0;
+  padding: 0;
+  border-radius: 10px;
+  pointer-events: none !important;
 }
 
-/* Face Alignment Guide Oval */
+/* Centered Face Guide Outline (Exact mathematical center inside 104px x 78px viewport) */
 .camera-face-guide {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 72%;
-  height: 86%;
-  border: 2px dashed rgba(56, 189, 248, 0.75);
-  border-radius: 50%;
+  width: 68px;
+  height: 56px;
+  border-radius: 12px;
+  border: 1.5px solid rgba(16, 185, 129, 0.65);
   pointer-events: none;
-  transition: all 0.2s ease;
+  transition: border-color 0.2s ease, border-style 0.2s ease, box-shadow 0.2s ease;
   z-index: 5;
+  box-sizing: border-box;
 }
 
 .camera-face-guide.face-ok {
-  border-color: #10b981;
+  border-color: rgba(16, 185, 129, 0.65);
   border-style: solid;
-  box-shadow: 0 0 14px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.25);
 }
 
 .camera-face-guide.face-warning {
-  border-color: #ef4444;
+  border-color: #f59e0b;
   border-style: dashed;
-  box-shadow: 0 0 14px rgba(239, 68, 68, 0.35);
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.45);
+}
+
+.camera-face-guide.face-missing {
+  border-color: #ef4444;
+  border-style: solid;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.55);
   animation: pulseWarning 1s infinite;
 }
 
-@keyframes pulseWarning {
+.camera-face-guide.face-unavailable {
+  border-color: rgba(148, 163, 184, 0.5);
+  border-style: dashed;
+}
 
+@keyframes pulseWarning {
   0%,
   100% {
     opacity: 1;
     transform: translate(-50%, -50%) scale(1);
   }
-
   50% {
     opacity: 0.65;
-    transform: translate(-50%, -50%) scale(0.98);
+    transform: translate(-50%, -50%) scale(0.96);
   }
-}
-
-/* Badges on video */
-#camera-overlay-badge {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  border-radius: 9999px;
-  background: rgba(11, 17, 32, 0.88);
-  backdrop-filter: blur(6px);
-  padding: 2.5px 8px;
-  font-size: 10px;
-  font-weight: 800;
-  color: #34d399;
-  border: 1px solid rgba(52, 211, 153, 0.4);
-  user-select: none;
-  z-index: 10;
-}
-
-#face-status-badge {
-  position: absolute;
-  bottom: 8px;
-  left: 8px;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  border-radius: 9999px;
-  background: rgba(11, 17, 32, 0.9);
-  backdrop-filter: blur(6px);
-  padding: 2.5px 8px;
-  font-size: 10px;
-  font-weight: 700;
-  color: #e2e8f0;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  user-select: none;
-  z-index: 10;
-  transition: all 0.2s ease;
-}
-
-/* Telemetry bar at bottom of sticky widget */
-.widget-telemetry {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 6px 12px;
-  background: #0b1120;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  font-size: 10px;
-  font-weight: 600;
-  color: #94a3b8;
-}
-
-.widget-telemetry-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-/* Integrity Signals Card */
-.integrity-stats-card {
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid var(--slate-100);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  font-size: 12px;
-}
-
-.integrity-stat-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  color: var(--slate-600);
-}
-
-.integrity-stat-badge {
-  font-weight: 700;
-  color: var(--slate-900);
-  background: var(--slate-100);
-  padding: 2px 8px;
-  border-radius: 4px;
-  border: 1px solid var(--slate-200);
-  font-family: var(--font-mono);
 }
 
 /* Diagnostic Badges & System Diagnostics */
@@ -4157,7 +3881,40 @@ tr:hover td {
   border: none !important;
 }
 
-#attempt-root.is-coding-page .attempt-sidebar,
+#attempt-root.is-coding-page .attempt-sidebar {
+  display: contents !important;
+}
+
+#attempt-root.is-coding-page .attempt-sidebar > section:not(#proctor-dock-panel) {
+  display: none !important;
+}
+
+#attempt-root.is-coding-page #proctor-dock-panel {
+  display: block !important;
+  position: fixed !important;
+  bottom: 24px !important;
+  right: 24px !important;
+  top: auto !important;
+  width: auto !important;
+  max-width: 220px !important;
+  padding: 8px !important;
+  z-index: 90 !important;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.4) !important;
+  border-radius: 16px !important;
+  background: rgba(15, 23, 42, 0.94) !important;
+  backdrop-filter: blur(8px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+
+#attempt-root.is-coding-page #proctor-dock-panel .proctor-dock-title,
+#attempt-root.is-coding-page #proctor-dock-panel .proctor-dock-caption {
+  color: #f8fafc !important;
+}
+
+#attempt-root.is-coding-page #proctor-dock-panel .proctor-dock-sub {
+  color: #94a3b8 !important;
+}
+
 #attempt-root.is-coding-page #exam-instructions-drawer {
   display: none !important;
 }
@@ -4212,9 +3969,9 @@ tr:hover td {
 
 #attempt-root.is-coding-page.theme-light .coding-ide-layout .problem-pane,
 #attempt-root.is-coding-page:not(.theme-dark) .coding-ide-layout .problem-pane {
-  width: 44% !important;
-  min-width: 360px !important;
-  max-width: 48% !important;
+  width: var(--problem-pane-width, 44%) !important;
+  min-width: 280px !important;
+  max-width: 75% !important;
   height: 100% !important;
   display: flex !important;
   flex-direction: column !important;
@@ -4222,7 +3979,7 @@ tr:hover td {
   color: #0f172a !important;
   border: none !important;
   border-radius: 0 !important;
-  border-right: 1.5px solid #e2e8f0 !important;
+  border-right: none !important;
   overflow: hidden !important;
 }
 
@@ -4349,7 +4106,30 @@ tr:hover td {
 #attempt-root.is-coding-page.theme-light #console-drawer,
 #attempt-root.is-coding-page:not(.theme-dark) #console-drawer {
   background: #ffffff !important;
-  border-top: 1px solid #e2e8f0 !important;
+  border-top: none !important;
+  height: var(--console-drawer-height, 220px) !important;
+  min-height: 38px !important;
+  max-height: 80% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+
+#attempt-root.is-coding-page.theme-light #console-drawer.is-collapsed,
+#attempt-root.is-coding-page:not(.theme-dark) #console-drawer.is-collapsed {
+  height: auto !important;
+}
+
+#attempt-root.is-coding-page.theme-light #console-drawer.is-collapsed #console-body,
+#attempt-root.is-coding-page:not(.theme-dark) #console-drawer.is-collapsed #console-body {
+  display: none !important;
+}
+
+#attempt-root.is-coding-page.theme-light #console-drawer:not(.is-collapsed) #console-body,
+#attempt-root.is-coding-page:not(.theme-dark) #console-drawer:not(.is-collapsed) #console-body {
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
 }
 
 #attempt-root.is-coding-page.theme-light .console-topbar,
@@ -4446,6 +4226,156 @@ tr:hover td {
   background: #94a3b8 !important;
 }
 
+/* ==========================================================================
+   Interactive Coding IDE Resizers (Horizontal & Vertical Splitters)
+   ========================================================================== */
+.ide-resizer {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 25;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  background: transparent;
+  transition: background-color 0.15s ease;
+}
+
+/* Horizontal Resizer (Problem Pane <-> Code Editor) */
+.ide-resizer-h {
+  width: 10px;
+  cursor: col-resize;
+  margin: 0 -5px;
+}
+
+.ide-resizer-h::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 4.5px;
+  width: 1.5px;
+  background: #e2e8f0;
+  transition: background-color 0.15s ease, width 0.15s ease;
+}
+
+.ide-resizer-handle-pill {
+  width: 4px;
+  height: 28px;
+  border-radius: 9999px;
+  background: #94a3b8;
+  z-index: 2;
+  transition: all 0.15s ease;
+  opacity: 0.7;
+}
+
+.ide-resizer-h:hover::before,
+.ide-resizer-h.is-dragging::before {
+  background: #2447F5;
+  width: 3px;
+  left: 3.5px;
+}
+
+.ide-resizer-h:hover .ide-resizer-handle-pill,
+.ide-resizer-h.is-dragging .ide-resizer-handle-pill {
+  background: #2447F5;
+  height: 38px;
+  opacity: 1;
+  box-shadow: 0 0 10px rgba(36, 71, 245, 0.45);
+}
+
+/* Vertical Resizer (Monaco Editor <-> Console Drawer) */
+.ide-resizer-v {
+  height: 10px;
+  cursor: row-resize;
+  margin: -5px 0;
+}
+
+.ide-resizer-v::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 4.5px;
+  height: 1.5px;
+  background: #e2e8f0;
+  transition: background-color 0.15s ease, height 0.15s ease;
+}
+
+.ide-resizer-handle-pill-h {
+  width: 28px;
+  height: 4px;
+  border-radius: 9999px;
+  background: #94a3b8;
+  z-index: 2;
+  transition: all 0.15s ease;
+  opacity: 0.7;
+}
+
+.ide-resizer-v:hover::before,
+.ide-resizer-v.is-dragging::before {
+  background: #2447F5;
+  height: 3px;
+  top: 3.5px;
+}
+
+.ide-resizer-v:hover .ide-resizer-handle-pill-h,
+.ide-resizer-v.is-dragging .ide-resizer-handle-pill-h {
+  background: #2447F5;
+  width: 38px;
+  opacity: 1;
+  box-shadow: 0 0 10px rgba(36, 71, 245, 0.45);
+}
+
+/* Dark Theme overrides for Resizers */
+#attempt-root.theme-dark .ide-resizer-h::before,
+#attempt-root.theme-dark .ide-resizer-v::before {
+  background: #1e293b;
+}
+
+#attempt-root.theme-dark .ide-resizer-handle-pill,
+#attempt-root.theme-dark .ide-resizer-handle-pill-h {
+  background: #475569;
+}
+
+#attempt-root.theme-dark .ide-resizer-h:hover::before,
+#attempt-root.theme-dark .ide-resizer-h.is-dragging::before,
+#attempt-root.theme-dark .ide-resizer-v:hover::before,
+#attempt-root.theme-dark .ide-resizer-v.is-dragging::before {
+  background: #3b82f6;
+}
+
+#attempt-root.theme-dark .ide-resizer-h:hover .ide-resizer-handle-pill,
+#attempt-root.theme-dark .ide-resizer-h.is-dragging .ide-resizer-handle-pill,
+#attempt-root.theme-dark .ide-resizer-v:hover .ide-resizer-handle-pill-h,
+#attempt-root.theme-dark .ide-resizer-v.is-dragging .ide-resizer-handle-pill-h {
+  background: #3b82f6;
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+}
+
+/* Global cursor & drag styles while resizing */
+body.is-resizing-h,
+body.is-resizing-h * {
+  cursor: col-resize !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+body.is-resizing-v,
+body.is-resizing-v * {
+  cursor: row-resize !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+@media (max-width: 1023px) {
+  .ide-resizer-h {
+    display: none !important;
+  }
+}
+
 /* Dark Mode Rules (Active when user clicks theme toggle to switch to Dark) */
 #attempt-root.is-coding-page.theme-dark {
   background-color: #020617 !important;
@@ -4540,16 +4470,16 @@ tr:hover td {
 }
 
 #attempt-root.is-coding-page.theme-dark .coding-ide-layout .problem-pane {
-  width: 44% !important;
-  min-width: 360px !important;
-  max-width: 48% !important;
+  width: var(--problem-pane-width, 44%) !important;
+  min-width: 280px !important;
+  max-width: 75% !important;
   height: 100% !important;
   display: flex !important;
   flex-direction: column !important;
   background: #0b1120 !important;
   border: none !important;
   border-radius: 0 !important;
-  border-right: 2px solid #1e293b !important;
+  border-right: none !important;
   overflow: hidden !important;
 }
 
@@ -4656,7 +4586,27 @@ tr:hover td {
 
 #attempt-root.is-coding-page.theme-dark #console-drawer {
   background: #020617 !important;
-  border-top: 1px solid #1e293b !important;
+  border-top: none !important;
+  height: var(--console-drawer-height, 220px) !important;
+  min-height: 38px !important;
+  max-height: 80% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+
+#attempt-root.is-coding-page.theme-dark #console-drawer.is-collapsed {
+  height: auto !important;
+}
+
+#attempt-root.is-coding-page.theme-dark #console-drawer.is-collapsed #console-body {
+  display: none !important;
+}
+
+#attempt-root.is-coding-page.theme-dark #console-drawer:not(.is-collapsed) #console-body {
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
 }
 
 #attempt-root.is-coding-page.theme-dark .console-topbar {
@@ -4805,49 +4755,48 @@ tr:hover td {
   background: rgba(100, 116, 139, 1);
 }
 
-/* Strictly Enforced 3cm x 3cm Proctoring Video (Header Dock & Preview) */
-#header-proctor-dock,
-.proctor-camera-dock,
-.proctor-preview-box {
-  width: 3cm !important;
-  height: 3cm !important;
-  min-width: 3cm !important;
-  min-height: 3cm !important;
-  max-width: 3cm !important;
-  max-height: 3cm !important;
-  overflow: hidden !important;
-  position: relative !important;
-  border-radius: 14px !important;
-  box-sizing: border-box !important;
-  background-color: #020617 !important;
-  border: 2px solid rgba(59, 130, 246, 0.45) !important;
-  box-shadow: 0 4px 12px rgba(2, 6, 23, 0.35) !important;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-  flex-shrink: 0 !important;
+/* Proctoring Camera Panel & Live Feed Styling */
+#proctor-dock-panel {
+  transition: all 0.2s ease;
 }
 
-#header-proctor-dock:hover,
-.proctor-camera-dock:hover,
-.proctor-preview-box:hover {
-  border-color: rgba(56, 189, 248, 0.8) !important;
-  box-shadow: 0 4px 16px rgba(56, 189, 248, 0.25) !important;
+#proctor-dock-panel.is-floating-pip {
+  position: fixed !important;
+  top: 72px !important;
+  right: 20px !important;
+  width: auto !important;
+  max-width: 220px !important;
+  padding: 8px !important;
+  z-index: 1000 !important;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.4) !important;
+  border-radius: 16px !important;
+  background: rgba(15, 23, 42, 0.94) !important;
+  backdrop-filter: blur(8px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  animation: pipSlideIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-#header-proctor-dock video,
-.proctor-camera-dock video,
-.proctor-preview-box video,
-video#camera {
-  width: 3cm !important;
-  height: 3cm !important;
-  min-width: 3cm !important;
-  min-height: 3cm !important;
-  max-width: 3cm !important;
-  max-height: 3cm !important;
-  object-fit: cover !important;
-  display: block !important;
-  margin: 0 !important;
-  padding: 0 !important;
+#proctor-dock-panel.is-floating-pip .proctor-dock-title,
+#proctor-dock-panel.is-floating-pip .proctor-dock-caption {
+  color: #f8fafc !important;
 }
+
+#proctor-dock-panel.is-floating-pip .proctor-dock-sub {
+  color: #94a3b8 !important;
+}
+
+@keyframes pipSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+
 
 video#preview-video {
   width: 100% !important;
@@ -5126,3 +5075,143 @@ video#preview-video {
     transform: translateY(-1px) !important;
     box-shadow: 0 2px 6px rgba(180, 83, 9, 0.15) !important;
   }
+
+/* --------------------------------------------------------------------------
+   Interactive Buttons & Controls (Coding IDE & Proctoring)
+   -------------------------------------------------------------------------- */
+
+/* Universal Copy Chip Button */
+.btn-copy-chip {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  padding: 3px 8px !important;
+  border-radius: 6px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  user-select: none !important;
+  line-height: 1.2 !important;
+  border: 1px solid #cbd5e1 !important;
+  background-color: #f1f5f9 !important;
+  color: #334155 !important;
+}
+
+.btn-copy-chip:hover {
+  background-color: #e2e8f0 !important;
+  color: #0f172a !important;
+  border-color: #94a3b8 !important;
+}
+
+.btn-copy-chip:active {
+  transform: scale(0.96) !important;
+}
+
+.btn-copy-chip.is-copied {
+  background-color: rgba(16, 185, 129, 0.12) !important;
+  border-color: #10b981 !important;
+  color: #059669 !important;
+}
+
+/* Dark Mode Copy Chip */
+#attempt-root.theme-dark .btn-copy-chip,
+#attempt-root.is-coding-page.theme-dark .btn-copy-chip {
+  background-color: rgba(30, 41, 59, 0.8) !important;
+  border: 1px solid #334155 !important;
+  color: #cbd5e1 !important;
+}
+
+#attempt-root.theme-dark .btn-copy-chip:hover,
+#attempt-root.is-coding-page.theme-dark .btn-copy-chip:hover {
+  background-color: #334155 !important;
+  color: #ffffff !important;
+  border-color: #475569 !important;
+}
+
+#attempt-root.theme-dark .btn-copy-chip.is-copied,
+#attempt-root.is-coding-page.theme-dark .btn-copy-chip.is-copied {
+  background-color: rgba(16, 185, 129, 0.2) !important;
+  border-color: #10b981 !important;
+  color: #34d399 !important;
+}
+
+/* Generic IDE Action & Toggle Buttons (Console Toggle, Reset, Theme, Problem Collapse) */
+.btn-ide-toggle {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  padding: 4px 10px !important;
+  border-radius: 8px !important;
+  font-size: 11.5px !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  user-select: none !important;
+  background-color: #f8fafc !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #475569 !important;
+}
+
+.btn-ide-toggle:hover:not(:disabled) {
+  background-color: #f1f5f9 !important;
+  border-color: #94a3b8 !important;
+  color: #0f172a !important;
+  transform: translateY(-0.5px) !important;
+}
+
+.btn-ide-toggle:active:not(:disabled) {
+  transform: translateY(0) scale(0.97) !important;
+}
+
+.btn-ide-toggle:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+}
+
+/* Dark Theme IDE Action Buttons */
+#attempt-root.theme-dark .btn-ide-toggle,
+#attempt-root.is-coding-page.theme-dark .btn-ide-toggle {
+  background-color: rgba(30, 41, 59, 0.7) !important;
+  border: 1px solid #334155 !important;
+  color: #cbd5e1 !important;
+}
+
+#attempt-root.theme-dark .btn-ide-toggle:hover:not(:disabled),
+#attempt-root.is-coding-page.theme-dark .btn-ide-toggle:hover:not(:disabled) {
+  background-color: #334155 !important;
+  border-color: #475569 !important;
+  color: #ffffff !important;
+}
+
+/* Problem Pane Collapse State */
+.coding-ide-layout.is-problem-collapsed .problem-pane {
+  display: none !important;
+}
+
+.coding-ide-layout.is-problem-collapsed #resizer-horizontal {
+  display: none !important;
+}
+
+.coding-ide-layout.is-problem-collapsed .editor-pane {
+  flex: 1 1 100% !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* Proctor Camera Reference Dock Minimized State */
+#proctor-dock-panel.is-dock-minimized .proctor-dock-body {
+  display: none !important;
+}
+
+#proctor-dock-panel.is-dock-minimized #proctor-dock-minimized-bar {
+  display: flex !important;
+}
+
+#proctor-dock-panel.is-dock-minimized {
+  padding: 8px 12px !important;
+}
+
+#proctor-dock-panel.is-dock-minimized #dock-minimize-icon {
+  transform: rotate(180deg) !important;
+}

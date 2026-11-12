@@ -252,7 +252,7 @@ def api_readiness(request, pk):
     if isinstance(location, dict):
         clean_dev["location"] = {
             k: location[k]
-            for k in ("latitude", "longitude", "accuracy", "altitude", "timestamp")
+            for k in ("latitude", "longitude", "accuracy", "altitude", "timestamp", "timezone", "source", "reason")
             if k in location and isinstance(location[k], (int, float, str))
         }
     if isinstance(network, dict):

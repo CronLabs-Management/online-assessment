@@ -1026,6 +1026,11 @@ def robots_txt_view(request):
     return HttpResponse(content, content_type="text/plain")
 
 
+def service_worker_view(request):
+    """Serve an empty script for browser service worker probes to avoid 404 warnings."""
+    return HttpResponse("", content_type="application/javascript", status=200)
+
+
 @login_required
 def verify_email(request, token):
     """Confirm a candidate email change after verifying token possession."""

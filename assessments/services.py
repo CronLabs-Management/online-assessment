@@ -1403,6 +1403,7 @@ def candidate_state(attempt, now):
                 "example_explanation": problem.example_explanation,
                 "languages": problem.language_list,
                 "marks": problem.marks,
+                "starter_code": problem.starter_code or "",
                 "public_cases": [
                     {"input": case.input_data, "expected": case.expected_output}
                     for case in problem.test_cases.filter(is_hidden=False).order_by("order", "id")
