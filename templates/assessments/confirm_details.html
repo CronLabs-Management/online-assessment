@@ -1,368 +1,205 @@
 {% extends "base.html" %}
-{% block title %}Verify Candidate Details | {{ exam.title }}{% endblock %}
+{% block title %}Confirm your details | {{ exam.title }}{% endblock %}
 
 {% block content %}
-<div class="mx-auto max-w-3xl py-6 sm:py-10 space-y-8">
-  
-  <!-- Stepper & Top Navigation -->
-  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
-    <a href="{% url 'home' %}" class="inline-flex items-center gap-2 text-xs sm:text-sm font-bold text-slate-600 hover:text-slate-900 transition-colors">
-      <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M15 19l-7-7 7-7"/>
-      </svg>
-      <span>Back to Dashboard</span>
-    </a>
+<div class="mx-auto w-full max-w-2xl">
+  <a href="{% url 'home' %}" class="ui-back">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+    My assessments
+  </a>
 
-    <!-- 3-Step Progress Tracker -->
-    <ol class="flex items-center gap-3 sm:gap-5 text-xs sm:text-sm font-bold list-none p-0 m-0 select-none">
-      <li class="flex items-center gap-2 text-[#2447F5]">
-        <span class="w-7 h-7 rounded-full bg-[#2447F5] text-white flex items-center justify-center font-extrabold text-xs shadow-xs ring-4 ring-blue-100">1</span>
-        <span class="font-extrabold">Verification</span>
-      </li>
-      <span class="text-slate-300">&bull;</span>
-      <li class="flex items-center gap-2 text-slate-400">
-        <span class="w-7 h-7 rounded-full bg-slate-100 border-2 border-slate-300 text-slate-400 flex items-center justify-center font-extrabold text-xs">2</span>
-        <span>System Check</span>
-      </li>
-      <span class="text-slate-300">&bull;</span>
-      <li class="flex items-center gap-2 text-slate-400">
-        <span class="w-7 h-7 rounded-full bg-slate-100 border-2 border-slate-300 text-slate-400 flex items-center justify-center font-extrabold text-xs">3</span>
-        <span>Start Test</span>
-      </li>
-    </ol>
+  <ol class="flex flex-wrap items-center gap-x-3 gap-y-2 mb-6 text-[13px] font-semibold list-none p-0" aria-label="Steps before the test">
+    <li aria-current="step" class="inline-flex items-center gap-2 text-slate-900">
+      <span class="grid place-items-center w-6 h-6 rounded-full bg-[#2447F5] text-white text-xs ring-4 ring-blue-100" aria-hidden="true">1</span>
+      Your details</li>
+    <li aria-hidden="true" class="w-6 h-px bg-slate-300"></li>
+    <li class="inline-flex items-center gap-2 text-slate-400">
+      <span class="grid place-items-center w-6 h-6 rounded-full border-2 border-slate-300 text-xs" aria-hidden="true">2</span>
+      Rules</li>
+    <li aria-hidden="true" class="w-6 h-px bg-slate-300"></li>
+    <li class="inline-flex items-center gap-2 text-slate-400">
+      <span class="grid place-items-center w-6 h-6 rounded-full border-2 border-slate-300 text-xs" aria-hidden="true">3</span>
+      Device check and test</li>
+  </ol>
+
+  <div class="ui-page-head">
+    <div>
+      <div class="ui-eyebrow">Step 1 of 3 · {{ exam.title }}</div>
+      <h1 class="ui-title">Confirm your details</h1>
+      <p class="ui-subtitle">Your examiner sees these with your answers. Check them carefully; you can still edit them until you start the test.</p>
+    </div>
   </div>
 
-  <!-- Verification Card -->
-  <div class="bg-white border-[1.5px] border-slate-200 rounded-3xl p-6 sm:p-10 shadow-card">
-    
-    <!-- Card Header Banner -->
-    <div class="border-b border-slate-100 pb-6 mb-7">
-      <div class="flex flex-wrap items-center justify-between gap-3 mb-2.5">
-        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-[#EEF1FE] text-[#2447F5] border border-blue-200">
-          <span class="w-1.5 h-1.5 rounded-full bg-[#2447F5]"></span>
-          Step 1 of 3: Identity &amp; Profile Verification
+  <form method="post" enctype="multipart/form-data" id="confirm-details-form" class="ui-card">
+    {% csrf_token %}
+
+    <fieldset class="ui-card-body flex flex-col gap-5 border-0 m-0">
+      <legend class="ui-card-title mb-1 float-left w-full">About you</legend>
+
+      <div>
+        <div class="flex items-baseline justify-between gap-3 mb-1.5">
+          <label for="{{ form.full_name.id_for_label }}" class="text-sm font-semibold text-slate-900">Full name <span class="text-rose-600" aria-hidden="true">*</span></label>
+          <span class="text-xs text-slate-500">As on your photo ID</span>
+        </div>
+        {{ form.full_name }}
+        {% for error in form.full_name.errors %}<p class="mt-1.5 text-[13px] font-medium text-rose-700">{{ error }}</p>{% endfor %}
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+        <div>
+          <div class="flex items-baseline justify-between gap-3 mb-1.5">
+            <label for="{{ form.phone.id_for_label }}" class="text-sm font-semibold text-slate-900">Mobile number <span class="text-rose-600" aria-hidden="true">*</span></label>
+            <span id="phone-feedback" class="text-xs text-slate-500" aria-live="polite">Include country code</span>
+          </div>
+          {{ form.phone }}
+          <p id="phone-client-error" class="hidden mt-1.5 text-[13px] font-medium text-rose-700" role="alert"></p>
+          {% for error in form.phone.errors %}<p class="mt-1.5 text-[13px] font-medium text-rose-700">{{ error }}</p>{% endfor %}
+        </div>
+        <div>
+          <div class="flex items-baseline justify-between gap-3 mb-1.5">
+            <label for="{{ form.email.id_for_label }}" class="text-sm font-semibold text-slate-900">Email</label>
+            <span class="text-xs text-slate-500">Your sign-in, cannot be changed</span>
+          </div>
+          {{ form.email }}
+        </div>
+      </div>
+    </fieldset>
+
+    <section class="ui-card-body border-t border-slate-100 flex flex-col gap-4" aria-labelledby="resume-title">
+      <div class="flex items-baseline justify-between gap-3">
+        <h2 id="resume-title" class="ui-card-title">Resume</h2>
+        <span class="text-xs text-slate-500">PDF or Word, up to 10 MB</span>
+      </div>
+
+      {% if application.has_resume_file %}
+      <div class="flex flex-wrap items-center gap-3 p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/60">
+        <span class="grid place-items-center w-9 h-9 rounded-lg bg-white text-emerald-700 border border-emerald-200 shrink-0"><svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></span>
+        <div class="flex-1 min-w-[10rem]">
+          <div class="text-sm font-semibold text-emerald-900">Resume attached</div>
+          <div class="text-[13px] text-emerald-800">Choose a new file below to replace it.</div>
+        </div>
+        <div class="flex gap-2">
+          <a href="{% url 'candidate_resume' exam.pk %}" target="_blank" rel="noopener" class="ui-btn ui-btn-sm">View</a>
+          <button type="submit" name="action" value="remove_resume" class="ui-btn ui-btn-sm ui-btn-danger-outline" formnovalidate data-no-busy>Remove</button>
+        </div>
+      </div>
+      {% endif %}
+
+      <label id="resume-dropzone" for="id_resume" class="block border-2 border-dashed border-slate-300 rounded-xl p-6 text-center cursor-pointer bg-slate-50/60 transition-colors hover:border-[#2447F5] hover:bg-blue-50/40">
+        {{ form.resume }}
+        <span class="mx-auto mb-2.5 grid place-items-center w-10 h-10 rounded-xl bg-blue-50 text-[#2447F5]"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg></span>
+        <span class="block text-sm font-semibold text-slate-800"><span class="text-[#2447F5]">Choose a file</span> or drag it here</span>
+        <span class="block mt-1 text-[13px] text-slate-500">{% if application.has_resume_file %}A new file replaces the current one.{% else %}Adding a resume is recommended.{% endif %}</span>
+        <span id="resume-selected-display" class="hidden mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-[13px] font-semibold text-emerald-800">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+          <span id="resume-filename-label"></span>
+          <span id="resume-filesize-label" class="font-normal text-emerald-700"></span>
         </span>
-        <span class="text-xs text-slate-600 font-bold bg-slate-100 px-3 py-1 rounded-full border border-slate-200">{{ exam.title }}</span>
-      </div>
-      <h1 class="text-2xl sm:text-3xl font-extrabold text-[#0F172A] tracking-tight">Verify Your Information</h1>
-      <p class="mt-2 text-sm text-slate-600 leading-relaxed font-medium">
-        Please review and confirm your candidate details and upload your resume before proceeding to the live hardware and proctoring check.
-      </p>
+      </label>
+      {% for error in form.resume.errors %}<p class="text-[13px] font-medium text-rose-700">{{ error }}</p>{% endfor %}
+    </section>
 
-      <!-- Trust & Security Banner -->
-      <div class="mt-4 flex items-center justify-between gap-3 rounded-2xl bg-slate-50 border border-slate-200 px-4 py-2.5 text-xs text-slate-600">
-        <div class="flex items-center gap-2">
-          <span class="text-base">🔒</span>
-          <span class="font-semibold">Candidate data is encrypted and strictly confidential.</span>
-        </div>
-        <a href="{% url 'platform_manual' %}#chapter-1" target="_blank" class="font-bold text-[#2447F5] hover:underline flex items-center gap-1 shrink-0">
-          <span>Read FAQ</span>
-          <span>&rarr;</span>
-        </a>
-      </div>
-    </div>
-
-    <!-- Form -->
-    <form method="post" enctype="multipart/form-data" class="space-y-6">
-      {% csrf_token %}
-
-      <!-- Section: Personal Details -->
-      <div class="space-y-5">
-        <div class="flex items-center gap-2 border-b border-slate-100 pb-2">
-          <span class="w-2 h-2 rounded-full bg-[#2447F5]"></span>
-          <h2 class="text-xs font-extrabold uppercase tracking-wider text-slate-400">Personal Information</h2>
-        </div>
-        
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          <!-- Full Legal Name -->
-          <div class="space-y-1.5 sm:col-span-2">
-            <label for="{{ form.full_name.id_for_label }}" class="text-sm font-bold text-[#0F172A] flex items-center justify-between">
-              <span>Full Legal Name <span class="text-rose-600" aria-hidden="true">*</span></span>
-              <span class="text-[11px] font-semibold text-slate-400">As shown on Photo ID</span>
-            </label>
-            <div class="relative rounded-xl">
-              {{ form.full_name }}
-            </div>
-            {% if form.full_name.errors %}
-              <div class="text-xs font-semibold text-rose-600 mt-1">{{ form.full_name.errors }}</div>
-            {% endif %}
-          </div>
-
-          <!-- Phone Number -->
-          <div class="space-y-1.5">
-            <label for="{{ form.phone.id_for_label }}" class="text-sm font-bold text-[#0F172A] flex items-center justify-between">
-              <span>Mobile Phone Number <span class="text-rose-600" aria-hidden="true">*</span></span>
-              <span id="phone-feedback" class="text-[11px] font-semibold text-slate-400">Include country code</span>
-            </label>
-            <div class="relative rounded-xl">
-              {{ form.phone }}
-            </div>
-            <div id="phone-client-error" class="hidden text-xs font-semibold text-rose-600 mt-1"></div>
-            {% if form.phone.errors %}
-              <div class="text-xs font-semibold text-rose-600 mt-1">{{ form.phone.errors }}</div>
-            {% endif %}
-          </div>
-
-          <!-- Registered Email (Locked) -->
-          <div class="space-y-1.5">
-            <div class="flex items-center justify-between">
-              <label for="{{ form.email.id_for_label }}" class="text-sm font-bold text-[#0F172A] flex items-center gap-1.5">
-                <span>Account Email</span>
-              </label>
-              <span class="inline-flex items-center gap-1 text-[10px] font-extrabold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
-                🔒 Bound to Account
-              </span>
-            </div>
-            <div class="relative rounded-xl opacity-90">
-              {{ form.email }}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Section: Resume / CV Upload -->
-      <div class="space-y-4 pt-2">
-        <div class="flex items-center justify-between border-b border-slate-100 pb-2">
-          <div class="flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-[#2447F5]"></span>
-            <h2 class="text-xs font-extrabold uppercase tracking-wider text-slate-400">Resume / Curriculum Vitae</h2>
-          </div>
-          <span class="text-[11px] font-bold text-slate-400">PDF, DOC, DOCX up to 10 MB</span>
-        </div>
-
-        {% if application.has_resume_file %}
-          <!-- Current Resume on File -->
-          <div class="p-4 rounded-2xl border border-emerald-200 bg-emerald-50/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div class="flex items-center gap-3 min-w-0">
-              <div class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
-                <svg width="20" height="20" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-              </div>
-              <div class="min-w-0">
-                <div class="text-xs font-bold text-emerald-900 truncate">
-                  Current Resume on File
-                </div>
-                <div class="text-[11px] text-emerald-700 font-medium">
-                  Candidate resume is verified and attached to this application.
-                </div>
-              </div>
-            </div>
-            <div class="flex items-center gap-2 shrink-0">
-              <a href="{% url 'candidate_resume' exam.pk %}" target="_blank" class="btn btn-secondary text-xs font-bold py-1.5 px-3 rounded-lg border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-50 shadow-2xs inline-flex items-center gap-1">
-                <svg width="14" height="14" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                <span>View Current</span>
-              </a>
-              <button type="button" onclick="document.getElementById('id_resume').click();" class="btn btn-secondary text-xs font-bold py-1.5 px-3 rounded-lg border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-2xs">
-                Replace File
-              </button>
-              <button type="submit" name="action" value="remove_resume" class="btn btn-secondary text-xs font-bold py-1.5 px-3 rounded-lg border-rose-200 bg-white text-rose-700 hover:bg-rose-50 shadow-2xs inline-flex items-center gap-1" title="Remove resume from application" formnovalidate>
-                <svg width="14" height="14" class="w-3.5 h-3.5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                <span>Remove</span>
-              </button>
-            </div>
-          </div>
-        {% else %}
-          <!-- No Resume Attached Advisory Card -->
-          <div class="p-4 rounded-2xl border border-amber-200 bg-amber-50/70 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div class="flex items-center gap-3 min-w-0">
-              <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 border border-amber-200 flex items-center justify-center shrink-0">
-                <svg width="20" height="20" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-              </div>
-              <div class="min-w-0">
-                <div class="text-xs font-extrabold text-amber-950 flex items-center gap-2">
-                  <span>No Resume Attached</span>
-                  <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-amber-200 text-amber-900 border border-amber-300">
-                    Not Uploaded
-                  </span>
-                </div>
-                <div class="text-[11px] text-amber-800 font-medium mt-0.5">
-                  No CV or resume file is currently linked to your application. Please select a document below.
-                </div>
-              </div>
-            </div>
-            <button type="button" onclick="document.getElementById('id_resume').click();" class="btn btn-primary text-xs font-bold py-1.5 px-3.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white shadow-2xs shrink-0 whitespace-nowrap inline-flex items-center gap-1.5">
-              <svg width="14" height="14" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-              <span>Upload Resume</span>
-            </button>
-          </div>
-        {% endif %}
-
-        <!-- Modern Upload Dropzone -->
-        <div id="resume-dropzone" onclick="document.getElementById('id_resume').click();" class="border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-2xl p-6 text-center cursor-pointer bg-slate-50/60 hover:bg-blue-50/30 transition-all select-none">
-          {{ form.resume }}
-          <div class="mx-auto w-12 h-12 rounded-2xl bg-blue-50 text-[#2447F5] flex items-center justify-center mb-3">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
-            </svg>
-          </div>
-          <div class="text-sm font-bold text-slate-800">
-            <span class="text-[#2447F5] hover:underline">Click to browse</span> or drag and drop your resume here
-          </div>
-          <p class="text-xs text-slate-500 mt-1 font-medium">
-            Accepted file formats: <strong>PDF (.pdf)</strong>, <strong>Word (.docx)</strong> up to 10 MB
-          </p>
-
-          <!-- Selected File Preview Badge -->
-          <div id="resume-selected-display" class="hidden mt-4 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-emerald-50 border border-emerald-300 text-xs font-bold text-emerald-800 shadow-2xs">
-            <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-            <span id="resume-filename-label">filename.pdf</span>
-            <span id="resume-filesize-label" class="font-normal text-emerald-600 text-[11px]">(0 KB)</span>
-          </div>
-        </div>
-        {% if form.resume.errors %}
-          <div class="text-xs font-semibold text-rose-600 mt-1">{{ form.resume.errors }}</div>
-        {% endif %}
-      </div>
-
-      <!-- Monitoring notice: candidates agree before any camera, location or network check -->
-      <section class="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-5 space-y-3" aria-labelledby="monitoring-notice-title">
-        <h2 id="monitoring-notice-title" class="text-sm font-bold text-slate-900">{{ notice.monitoring_notice_title|default:"Before you begin: how this test is monitored" }}</h2>
-        <ul class="list-disc pl-6 ml-1 space-y-1.5 text-sm text-slate-700">
+    {# Monitoring notice: candidates agree before any camera, location or network check. Wording comes from Settings. #}
+    <section class="ui-card-body border-t border-slate-100" aria-labelledby="monitoring-notice-title">
+      <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
+        <h2 id="monitoring-notice-title" class="text-[15px] font-semibold text-slate-900">{{ notice.monitoring_notice_title|default:"Before you begin: how this test is monitored" }}</h2>
+        <ul class="mt-2.5 list-disc pl-5 space-y-1.5 text-sm leading-relaxed text-slate-700">
           {% for line in notice.monitoring_notice_lines %}<li>{{ line }}</li>{% endfor %}
         </ul>
-        <label class="flex items-start gap-3 pt-2 text-sm font-semibold text-slate-900 cursor-pointer">
+        <label class="mt-4 flex items-start gap-3 p-3 -mx-1 rounded-lg text-sm font-semibold text-slate-900 cursor-pointer transition-colors hover:bg-white">
           {{ form.monitoring_consent }}
           <span>{{ form.monitoring_consent.label }}</span>
         </label>
-        {% for error in form.monitoring_consent.errors %}<p class="text-xs font-semibold text-rose-600">{{ error }}</p>{% endfor %}
-        {% if application.monitoring_consent_at %}<p class="text-xs text-slate-500">You agreed on {{ application.monitoring_consent_at|date:"j M Y, H:i" }}.</p>{% endif %}
-      </section>
-
-      <!-- Action Button -->
-      <div class="pt-6 border-t border-slate-100 space-y-2.5">
-        <button type="submit" class="btn btn-primary h-[56px] w-full text-base font-extrabold shadow-cta flex items-center justify-center gap-2 cursor-pointer">
-          <span>Save Details &amp; Proceed to System Check</span>
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-          </svg>
-        </button>
-        <p class="text-center text-xs text-slate-500 font-medium">
-          Next step: Live webcam, geolocation, and network latency check.
-        </p>
+        {% for error in form.monitoring_consent.errors %}<p class="mt-1 text-[13px] font-medium text-rose-700">{{ error }}</p>{% endfor %}
+        {% if application.monitoring_consent_at %}<p class="mt-1 text-xs text-slate-500">You agreed on {{ application.monitoring_consent_at|date:"j M Y, H:i" }}.</p>{% endif %}
       </div>
+    </section>
 
-    </form>
-  </div>
+    <div class="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 px-5 sm:px-6 py-4 border-t border-slate-100 bg-slate-50/60 rounded-b-[18px]">
+      <p class="text-[13px] text-slate-500">Next: the test rules, then a camera, location and network check.</p>
+      <button type="submit" class="ui-btn ui-btn-primary">
+        Save and continue
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </button>
+    </div>
+  </form>
 </div>
 
 <script>
-  (function() {
-    const fileInput = document.getElementById('id_resume');
-    const display = document.getElementById('resume-selected-display');
-    const nameLabel = document.getElementById('resume-filename-label');
-    const sizeLabel = document.getElementById('resume-filesize-label');
-    const dropzone = document.getElementById('resume-dropzone');
+  (function () {
+    var form = document.getElementById("confirm-details-form");
+    var fileInput = document.getElementById("id_resume");
+    var display = document.getElementById("resume-selected-display");
+    var nameLabel = document.getElementById("resume-filename-label");
+    var sizeLabel = document.getElementById("resume-filesize-label");
+    var dropzone = document.getElementById("resume-dropzone");
 
     if (fileInput) {
-      fileInput.addEventListener('change', function() {
-        if (fileInput.files && fileInput.files[0]) {
-          const file = fileInput.files[0];
-          if (nameLabel) nameLabel.textContent = file.name;
-          if (sizeLabel) {
-            const kb = Math.round(file.size / 1024);
-            const mb = (file.size / (1024 * 1024)).toFixed(1);
-            sizeLabel.textContent = kb > 1024 ? `(${mb} MB)` : `(${kb} KB)`;
-          }
-          if (display) display.classList.remove('hidden');
-        }
+      fileInput.addEventListener("change", function () {
+        var file = fileInput.files && fileInput.files[0];
+        if (!file) return;
+        nameLabel.textContent = file.name;
+        var kb = Math.round(file.size / 1024);
+        sizeLabel.textContent = kb > 1024 ? "(" + (file.size / 1048576).toFixed(1) + " MB)" : "(" + kb + " KB)";
+        display.classList.remove("hidden");
       });
     }
-
-    if (dropzone) {
-      ['dragenter', 'dragover'].forEach(eventName => {
-        dropzone.addEventListener(eventName, (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          dropzone.classList.add('border-blue-500', 'bg-blue-50/50');
-        });
+    if (dropzone && fileInput) {
+      ["dragenter", "dragover"].forEach(function (name) {
+        dropzone.addEventListener(name, function (e) { e.preventDefault(); dropzone.classList.add("border-[#2447F5]", "bg-blue-50/40"); });
       });
-      ['dragleave', 'drop'].forEach(eventName => {
-        dropzone.addEventListener(eventName, (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          dropzone.classList.remove('border-blue-500', 'bg-blue-50/50');
-        });
+      ["dragleave", "drop"].forEach(function (name) {
+        dropzone.addEventListener(name, function (e) { e.preventDefault(); dropzone.classList.remove("border-[#2447F5]", "bg-blue-50/40"); });
       });
-      dropzone.addEventListener('drop', (e) => {
-        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0] && fileInput) {
+      dropzone.addEventListener("drop", function (e) {
+        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
           fileInput.files = e.dataTransfer.files;
-          fileInput.dispatchEvent(new Event('change'));
+          fileInput.dispatchEvent(new Event("change"));
         }
       });
     }
 
-    // Real-time Phone Number Validation & Letter Filtering
-    const phoneInput = document.getElementById('id_phone');
-    const phoneFeedback = document.getElementById('phone-feedback');
-    const phoneError = document.getElementById('phone-client-error');
-
-    function validatePhoneInput() {
+    // Phone: strip letters as they are typed and show a live digit count.
+    var phoneInput = document.getElementById("id_phone");
+    var phoneFeedback = document.getElementById("phone-feedback");
+    var phoneError = document.getElementById("phone-client-error");
+    function digitsOf(v) { return v.replace(/\D/g, ""); }
+    function validatePhone() {
       if (!phoneInput) return true;
-      const raw = phoneInput.value;
-      const hasLetters = /[a-zA-Z]/.test(raw);
-
-      if (hasLetters) {
-        phoneInput.value = raw.replace(/[a-zA-Z]/g, '');
-        if (phoneError) {
-          phoneError.textContent = "Letters and words are not allowed in mobile numbers. Please enter digits only.";
-          phoneError.classList.remove('hidden');
-        }
-      } else if (phoneError) {
-        phoneError.classList.add('hidden');
+      if (/[a-zA-Z]/.test(phoneInput.value)) {
+        phoneInput.value = phoneInput.value.replace(/[a-zA-Z]/g, "");
+        phoneError.textContent = "Use digits only, with an optional + and spaces.";
+        phoneError.classList.remove("hidden");
+      } else {
+        phoneError.classList.add("hidden");
       }
-
-      const digits = phoneInput.value.replace(/\D/g, '');
-      if (phoneFeedback) {
-        if (digits.length === 0) {
-          phoneFeedback.textContent = "Digits only";
-          phoneFeedback.className = "text-[11px] font-semibold text-slate-400";
-        } else if (digits.length < 7) {
-          phoneFeedback.textContent = `${digits.length} digits (min 7)`;
-          phoneFeedback.className = "text-[11px] font-semibold text-amber-600";
-        } else if (digits.length > 15) {
-          phoneFeedback.textContent = "Too long (max 15 digits)";
-          phoneFeedback.className = "text-[11px] font-semibold text-rose-600";
-        } else {
-          phoneFeedback.textContent = "✓ Valid mobile format";
-          phoneFeedback.className = "text-[11px] font-semibold text-emerald-600";
-        }
-      }
-
-      return digits.length >= 7 && digits.length <= 15 && !hasLetters;
+      var n = digitsOf(phoneInput.value).length;
+      if (n === 0) { phoneFeedback.textContent = "Include country code"; phoneFeedback.className = "text-xs text-slate-500"; }
+      else if (n < 7) { phoneFeedback.textContent = n + " digits, at least 7 needed"; phoneFeedback.className = "text-xs text-amber-700"; }
+      else if (n > 15) { phoneFeedback.textContent = "Too long, 15 digits at most"; phoneFeedback.className = "text-xs text-rose-700"; }
+      else { phoneFeedback.textContent = "Looks good"; phoneFeedback.className = "text-xs text-emerald-700"; }
+      return n >= 7 && n <= 15;
     }
+    if (phoneInput) { phoneInput.addEventListener("input", validatePhone); validatePhone(); }
 
-    if (phoneInput) {
-      phoneInput.addEventListener('input', validatePhoneInput);
-      validatePhoneInput();
-    }
-
-    // Name Validation
-    const nameInput = document.getElementById('id_full_name');
+    var nameInput = document.getElementById("id_full_name");
     if (nameInput) {
-      nameInput.addEventListener('input', function() {
-        const val = nameInput.value.trim();
-        const hasLetters = /[a-zA-Z\u00C0-\u024F\u0400-\u04FF\u0900-\u097F]/.test(val);
-        if (val.length > 0 && !hasLetters) {
-          nameInput.setCustomValidity("Full legal name must contain letters.");
-        } else {
-          nameInput.setCustomValidity("");
-        }
+      nameInput.addEventListener("input", function () {
+        var val = nameInput.value.trim();
+        var hasLetters = /[a-zA-ZÀ-ɏЀ-ӿऀ-ॿ]/.test(val);
+        nameInput.setCustomValidity(val.length > 0 && !hasLetters ? "Your name must contain letters." : "");
       });
     }
 
-    // Form submission validation
-    const form = document.querySelector('form');
     if (form) {
-      form.addEventListener('submit', function(e) {
-        if (!validatePhoneInput()) {
-          const digits = (phoneInput ? phoneInput.value.replace(/\D/g, '') : '');
-          if (digits.length < 7) {
-            e.preventDefault();
-            if (phoneError) {
-              phoneError.textContent = "Please enter a valid mobile number with at least 7 digits (e.g. +91 9876543210).";
-              phoneError.classList.remove('hidden');
-            }
-            if (phoneInput) phoneInput.focus();
-          }
+      form.addEventListener("submit", function (e) {
+        // "Remove resume" skips the checks, like formnovalidate.
+        if (e.submitter && e.submitter.hasAttribute("formnovalidate")) return;
+        if (phoneInput && digitsOf(phoneInput.value).length < 7) {
+          e.preventDefault();
+          phoneError.textContent = "Enter a mobile number with at least 7 digits, for example +91 98765 43210.";
+          phoneError.classList.remove("hidden");
+          phoneInput.focus();
         }
       });
     }

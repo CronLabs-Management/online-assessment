@@ -1,553 +1,254 @@
 {% extends "base.html" %}
 {% load tz %}
-{% block title %}{{ exam.title }} | System Check & Instructions{% endblock %}
+{% block title %}{{ exam.title }}: rules and start{% endblock %}
 
 {% block content %}
-<div class="space-y-7 max-w-7xl mx-auto pb-12">
-  
-  <!-- Stepper & Top Navigation -->
-  <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
-    <a href="{% url 'home' %}" class="inline-flex items-center gap-2 text-xs sm:text-sm font-bold text-slate-600 hover:text-slate-900 transition-colors">
-      <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M15 19l-7-7 7-7"/>
-      </svg>
-      <span>Back to Assessments</span>
-    </a>
+<a href="{% url 'home' %}" class="ui-back">
+  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+  My assessments
+</a>
 
-    <!-- 3-Step Indicator Bar -->
-    <ol class="flex items-center gap-3 sm:gap-6 text-xs sm:text-sm font-bold list-none p-0 m-0 select-none">
-      <li class="flex items-center gap-2 text-slate-900">
-        <a href="{% url 'confirm_details' exam.pk %}" class="flex items-center gap-2 text-[#0B6B43] hover:underline">
-          <span class="w-7 h-7 rounded-full bg-[#0B6B43] text-white flex items-center justify-center font-extrabold text-xs shadow-xs">✓</span>
-          <span class="hidden sm:inline">Verification</span>
-        </a>
-      </li>
-      <span class="text-slate-300">&bull;</span>
-      <li class="flex items-center gap-2 text-[#0F172A]">
-        <span class="w-7 h-7 rounded-full bg-[#2447F5] text-white flex items-center justify-center font-extrabold text-xs shadow-xs ring-4 ring-blue-100">2</span>
-        <span class="text-[#2447F5] font-extrabold">Rules &amp; Guidelines</span>
-      </li>
-      <span class="text-slate-300">&bull;</span>
-      <li class="flex items-center gap-2 text-slate-400">
-        <span class="w-7 h-7 rounded-full bg-slate-100 border-2 border-slate-300 text-slate-400 flex items-center justify-center font-extrabold text-xs">3</span>
-        <span class="hidden sm:inline">Device Diagnostics &amp; Test</span>
-      </li>
-    </ol>
+{# Where the candidate is in the three steps before the test. #}
+<ol class="flex flex-wrap items-center gap-x-3 gap-y-2 mb-6 text-[13px] font-semibold list-none p-0" aria-label="Steps before the test">
+  <li><a href="{% url 'confirm_details' exam.pk %}" class="inline-flex items-center gap-2 text-emerald-700 hover:underline">
+    <span class="grid place-items-center w-6 h-6 rounded-full bg-emerald-600 text-white" aria-hidden="true"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg></span>
+    Your details</a></li>
+  <li aria-hidden="true" class="w-6 h-px bg-slate-300"></li>
+  <li aria-current="step" class="inline-flex items-center gap-2 text-slate-900">
+    <span class="grid place-items-center w-6 h-6 rounded-full bg-[#2447F5] text-white text-xs ring-4 ring-blue-100" aria-hidden="true">2</span>
+    Rules</li>
+  <li aria-hidden="true" class="w-6 h-px bg-slate-300"></li>
+  <li class="inline-flex items-center gap-2 text-slate-400">
+    <span class="grid place-items-center w-6 h-6 rounded-full border-2 border-slate-300 text-xs" aria-hidden="true">3</span>
+    Device check and test</li>
+</ol>
+
+<div class="ui-page-head">
+  <div>
+    <div class="ui-eyebrow">{% include "assessments/partials/state_badge.html" with state=state %}</div>
+    <h1 class="ui-title">{{ exam.title }}</h1>
+    <p class="ui-subtitle">{{ exam.duration_minutes }} minutes in total{% if sections %}, in {{ sections|length }} section{{ sections|length|pluralize }}{% endif %}. Read the rules below, then start when you are ready.</p>
   </div>
-
-  <!-- Header Banner -->
-  <div class="flex flex-col gap-2">
-    <div class="flex items-center gap-2.5 flex-wrap">
-      <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-[#EEF1FE] text-[#2447F5] border border-blue-200">
-        <span class="w-1.5 h-1.5 rounded-full bg-[#2447F5]"></span>
-        Step 2 of 3: Assessment Briefing &amp; Rules
-      </span>
-      {% include "assessments/partials/state_badge.html" with state=state %}
-    </div>
-    <h1 class="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#0F172A] tracking-tight">
-      Review Rules &amp; Assessment Guidelines
-    </h1>
-    <p class="text-sm sm:text-base text-slate-600 font-medium">
-      <strong>{{ exam.title }}</strong> &bull; <span class="font-mono font-bold text-slate-900">{{ exam.duration_minutes }} minutes total</span> &bull; 
-      {% if exam.sections.count %}
-        {{ exam.sections.count }} Section{{ exam.sections.count|pluralize }}
-      {% else %}
-        Full assessment
-      {% endif %}
-    </p>
-  </div>
-
-  <!-- Candidate Verified Profile Banner -->
-  <div class="rounded-2xl border-[1.5px] border-slate-200 bg-white p-4 sm:p-5 shadow-card flex flex-col md:flex-row md:items-center justify-between gap-4">
-    <div class="flex items-center gap-3.5 flex-1 min-w-0">
-      <div class="w-11 h-11 min-w-11 rounded-2xl bg-blue-100 text-[#2447F5] font-black flex items-center justify-center text-base shadow-2xs shrink-0">
-        {{ application.full_name|default:application.candidate.email|slice:":1"|upper }}
-      </div>
-      <div class="min-w-0 flex-1">
-        <div class="flex items-center gap-2 flex-wrap">
-          <span class="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Candidate Identity</span>
-          {% if application.has_resume_file %}
-            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#E3F5EC] text-[#0B6B43] border border-emerald-200 text-[11px] font-bold shrink-0">
-              <svg width="12" height="12" class="w-3 h-3 text-[#0B6B43] shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-              <span>Verified Credentials &amp; Resume</span>
-            </span>
-          {% else %}
-            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 text-[11px] font-bold shrink-0">
-              <svg width="12" height="12" class="w-3 h-3 text-slate-600 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-              <span>Verified Credentials &bull; No Resume</span>
-            </span>
-          {% endif %}
-        </div>
-        <div class="text-xs sm:text-sm font-extrabold text-[#0F172A] mt-1 flex flex-wrap items-center gap-2 sm:gap-3">
-          <span>{{ application.full_name }}</span>
-          <span class="text-slate-300">&bull;</span>
-          <span class="font-medium text-slate-600">{{ application.candidate.email }}</span>
-          {% if application.phone %}
-            <span class="text-slate-300">&bull;</span>
-            <span class="font-medium text-slate-600">{{ application.phone }}</span>
-          {% endif %}
-          <span class="text-slate-300">&bull;</span>
-          {% if application.has_resume_file %}
-            <a href="{% url 'candidate_resume' exam.pk %}" target="_blank" class="inline-flex items-center gap-1 text-xs font-bold text-[#2447F5] hover:underline">
-              <svg width="14" height="14" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-              <span>View Resume &rarr;</span>
-            </a>
-          {% else %}
-            <span class="inline-flex items-center gap-1.5 text-xs text-amber-800 font-bold bg-amber-50 px-2.5 py-0.5 rounded-lg border border-amber-200">
-              <span>⚠️ No resume attached</span>
-              <a href="{% url 'confirm_details' exam.pk %}" class="text-[#2447F5] underline ml-1 font-extrabold">Upload now</a>
-            </span>
-          {% endif %}
-        </div>
-      </div>
-    </div>
-    <a href="{% url 'confirm_details' exam.pk %}" class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold text-slate-700 bg-slate-50 border border-slate-300 hover:bg-slate-100 transition-colors shrink-0 whitespace-nowrap shadow-2xs">
-      <span>Edit Details &amp; Resume</span>
-      <svg width="14" height="14" class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
-    </a>
-  </div>
-
-  <!-- Waiting Room Active Countdown (if waiting) -->
-  {% if state.code == "waiting" %}
-  <div class="rounded-3xl border-[1.5px] border-[#D5DEFB] bg-[#F1F5FF] p-8 sm:p-10 text-center shadow-card space-y-4">
-    <div class="inline-flex items-center gap-2 rounded-full bg-blue-100 border border-blue-200 px-3.5 py-1 text-xs font-extrabold text-[#2447F5]">
-      <span class="w-2 h-2 rounded-full bg-[#2447F5] animate-pulse"></span>
-      Waiting Room Active
-    </div>
-
-    <h2 class="text-2xl sm:text-3xl font-extrabold text-[#0F172A]">Assessment Opens Soon</h2>
-    <p class="mx-auto max-w-lg text-sm sm:text-base text-slate-600 leading-relaxed font-medium">
-      Scheduled to unlock on <strong class="text-slate-900 font-bold">{{ exam.opens_at|localtime|date:"l, d F Y · H:i" }}</strong>.
-      This page will refresh automatically when your testing window opens.
-    </p>
-
-    <div class="my-6 flex items-center justify-center gap-2 sm:gap-3" id="countdown-board">
-      <div class="flex min-w-[70px] sm:min-w-[85px] flex-col items-center rounded-2xl bg-[#0F172A] border border-slate-800 p-3 sm:p-4 shadow-sm">
-        <span id="cd-days" class="font-mono text-2xl sm:text-3xl font-extrabold text-white num">00</span>
-        <span class="mt-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Days</span>
-      </div>
-      <span class="font-mono text-xl sm:text-2xl text-slate-400 font-bold">:</span>
-      <div class="flex min-w-[70px] sm:min-w-[85px] flex-col items-center rounded-2xl bg-[#0F172A] border border-slate-800 p-3 sm:p-4 shadow-sm">
-        <span id="cd-hours" class="font-mono text-2xl sm:text-3xl font-extrabold text-white num">00</span>
-        <span class="mt-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Hours</span>
-      </div>
-      <span class="font-mono text-xl sm:text-2xl text-slate-400 font-bold">:</span>
-      <div class="flex min-w-[70px] sm:min-w-[85px] flex-col items-center rounded-2xl bg-[#0F172A] border border-slate-800 p-3 sm:p-4 shadow-sm">
-        <span id="cd-mins" class="font-mono text-2xl sm:text-3xl font-extrabold text-white num">00</span>
-        <span class="mt-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Mins</span>
-      </div>
-      <span class="font-mono text-xl sm:text-2xl text-slate-400 font-bold">:</span>
-      <div class="flex min-w-[70px] sm:min-w-[85px] flex-col items-center rounded-2xl bg-[#0F172A] border border-slate-800 p-3 sm:p-4 shadow-sm">
-        <span id="cd-secs" class="font-mono text-2xl sm:text-3xl font-extrabold text-[#FFB020] num">00</span>
-        <span class="mt-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Secs</span>
-      </div>
-    </div>
-
-    <script>
-      (function() {
-        const serverNowMs = new Date("{{ server_now.isoformat }}").getTime();
-        const opensAtMs = new Date("{{ exam.opens_at.isoformat }}").getTime();
-        const pageLoadDeviceMs = Date.now();
-
-        const elDays = document.getElementById("cd-days");
-        const elHours = document.getElementById("cd-hours");
-        const elMins = document.getElementById("cd-mins");
-        const elSecs = document.getElementById("cd-secs");
-
-        function updateCountdown() {
-          const elapsed = Date.now() - pageLoadDeviceMs;
-          const currentServerMs = serverNowMs + elapsed;
-          const diffSec = Math.floor((opensAtMs - currentServerMs) / 1000);
-
-          if (diffSec <= 0) {
-            if (elSecs) elSecs.textContent = "00";
-            setTimeout(function() { window.location.reload(); }, 1200);
-            return;
-          }
-
-          const days = Math.floor(diffSec / 86400);
-          const hours = Math.floor((diffSec % 86400) / 3600);
-          const mins = Math.floor((diffSec % 3600) / 60);
-          const secs = diffSec % 60;
-
-          if (elDays) elDays.textContent = String(days).padStart(2, "0");
-          if (elHours) elHours.textContent = String(hours).padStart(2, "0");
-          if (elMins) elMins.textContent = String(mins).padStart(2, "0");
-          if (elSecs) elSecs.textContent = String(secs).padStart(2, "0");
-        }
-
-        updateCountdown();
-        setInterval(updateCountdown, 1000);
-      })();
-    </script>
-  </div>
-  {% endif %}
-
-  <!-- Submission or Closed State -->
-  {% if state.code == "closed" or state.code == "ended" %}
-  <div class="rounded-3xl border-[1.5px] border-slate-200 bg-white p-8 sm:p-10 text-center shadow-card space-y-4">
-    {% if state.code == "ended" %}
-      <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-200">
-        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-      </div>
-      <h2 class="text-2xl sm:text-3xl font-extrabold text-[#0F172A]">Assessment Submitted</h2>
-      <p class="mx-auto max-w-lg text-sm sm:text-base text-slate-600 font-medium leading-relaxed">
-        Your answers and code solutions have been securely recorded.
-      </p>
-      {% if attempt %}
-        <div class="pt-2">
-          <a href="{% url 'attempt_result' attempt.pk %}" class="btn btn-primary px-7 py-3 text-sm font-extrabold shadow-cta">
-            <span>View Submission Confirmation &rarr;</span>
-          </a>
-        </div>
-      {% endif %}
-    {% else %}
-      <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-500 border border-slate-200">
-        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-      </div>
-      <h2 class="text-2xl sm:text-3xl font-extrabold text-[#0F172A]">This Assessment Has Closed</h2>
-      <p class="mx-auto max-w-lg text-sm sm:text-base text-slate-600 font-medium leading-relaxed">
-        The assessment window officially closed on <strong class="text-slate-900 font-bold">{{ exam.closes_at|localtime|date:"l, d F Y · H:i" }}</strong>.
-      </p>
-    {% endif %}
-  </div>
-  {% endif %}
-
-  <style>
-    .exam-layout-grid {
-      display: flex !important;
-      flex-direction: column !important;
-      gap: 24px !important;
-      width: 100% !important;
-      box-sizing: border-box !important;
-    }
-    @media (min-width: 1024px) {
-      .exam-layout-grid {
-        display: grid !important;
-        grid-template-columns: minmax(0, 1.35fr) minmax(380px, 1fr) !important;
-        gap: 32px !important;
-        align-items: start !important;
-        width: 100% !important;
-      }
-    }
-    .exam-left-panel {
-      width: 100% !important;
-      min-width: 0 !important;
-    }
-    .exam-right-panel {
-      width: 100% !important;
-      min-width: 0 !important;
-    }
-  </style>
-
-  <!-- Main 2-Column Responsive Layout: Rules (Left) and System Diagnostics (Right) -->
-  <div class="exam-layout-grid">
-    
-    <!-- Left Column: Assessment Breakdown & Code of Conduct -->
-    <div class="exam-left-panel flex flex-col gap-6">
-
-      <!-- Section Allocation Breakdown Table -->
-      <section class="bg-white border-[1.5px] border-slate-200 rounded-3xl p-6 sm:p-7 shadow-card flex flex-col gap-4">
-        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-          <div>
-            <span class="text-xs font-extrabold uppercase tracking-wider text-slate-400">Test Structure</span>
-            <h2 class="text-xl sm:text-2xl font-extrabold text-[#0F172A] tracking-tight mt-0.5">Assessment Sections</h2>
-          </div>
-          <span class="text-xs font-bold text-[#2447F5] bg-blue-50 border border-blue-200 px-3 py-1 rounded-full">
-            {{ exam.sections.count|default:"1" }} Section{{ exam.sections.count|pluralize }}
-          </span>
-        </div>
-        <div class="overflow-x-auto rounded-2xl border border-slate-200">
-          <table class="w-full text-left text-sm border-collapse">
-            <thead>
-              <tr class="border-b border-slate-200 bg-[#F4F6FB] text-[11px] font-extrabold uppercase tracking-wider text-slate-600">
-                <th class="py-3 px-4">#</th>
-                <th class="py-3 px-4">Section Name</th>
-                <th class="py-3 px-4">Format</th>
-                <th class="py-3 px-4">Allocated Time</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100 bg-white">
-              {% for section in exam.sections.all %}
-                <tr class="hover:bg-slate-50 transition-colors">
-                  <td class="py-3 px-4 font-mono font-bold text-slate-400">0{{ section.order }}</td>
-                  <td class="py-3 px-4 font-bold text-slate-900">{{ section.title }}</td>
-                  <td class="py-3 px-4">
-                    {% if section.kind == "coding" %}
-                      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-[#EEF1FE] text-[#2447F5] border border-blue-200">
-                        Coding Challenge
-                      </span>
-                    {% else %}
-                      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-[#E3F5EC] text-[#0B6B43] border border-emerald-200">
-                        Multiple Choice
-                      </span>
-                    {% endif %}
-                  </td>
-                  <td class="py-3 px-4 font-mono font-bold text-[#2447F5]">{{ section.duration_minutes }} min</td>
-                </tr>
-              {% empty %}
-                <tr>
-                  <td colspan="4" class="py-6 px-4 text-center text-slate-500 text-sm font-medium">
-                    Standard continuous assessment without segregated sections ({{ exam.duration_minutes }} minutes total).
-                  </td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-
-        {% if exam.instructions %}
-        <div class="pt-3 border-t border-slate-100">
-          <div class="text-xs font-extrabold uppercase tracking-wider text-slate-500 mb-1.5">Special Instructions from Instructor:</div>
-          <div class="whitespace-pre-line text-xs sm:text-sm leading-relaxed text-slate-700 bg-amber-50/70 p-4 rounded-2xl border border-amber-200/80">
-            {{ exam.instructions }}
-          </div>
-        </div>
-        {% endif %}
-      </section>
-
-      <!-- Code of Conduct & Honor Code Summary (Crisp 4-chip grid) -->
-      <section class="bg-white border-[1.5px] border-slate-200 rounded-3xl p-6 sm:p-7 flex flex-col gap-5 shadow-card">
-        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-          <div>
-            <span class="text-xs font-extrabold uppercase tracking-wider text-slate-400">Honor Code</span>
-            <h3 class="text-xl font-extrabold text-[#0F172A] tracking-tight mt-0.5">Rules &amp; Guidelines</h3>
-          </div>
-          <a href="{% url 'platform_manual' %}#chapter-1" target="_blank" class="inline-flex items-center gap-1 text-xs font-bold text-[#2447F5] hover:underline">
-            <span>View Manual Guide</span>
-            <span>&rarr;</span>
-          </a>
-        </div>
-        
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-          <!-- Chip 1 -->
-          <div class="flex items-start gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
-            <span class="w-6 h-6 rounded-lg bg-[#0F172A] text-[#FFB020] font-extrabold text-xs flex items-center justify-center shrink-0">1</span>
-            <div>
-              <div class="text-sm font-bold text-[#0F172A]">Continuous Fullscreen</div>
-              <div class="text-xs text-slate-500 font-medium mt-0.5">Departing full-screen or switching tabs is recorded in the reviewer log.</div>
-            </div>
-          </div>
-
-          <!-- Chip 2 -->
-          <div class="flex items-start gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
-            <span class="w-6 h-6 rounded-lg bg-[#0F172A] text-[#FFB020] font-extrabold text-xs flex items-center justify-center shrink-0">2</span>
-            <div>
-              <div class="text-sm font-bold text-[#0F172A]">Keep Face Centered</div>
-              <div class="text-xs text-slate-500 font-medium mt-0.5">Maintain clear lighting and face forward towards the camera throughout.</div>
-            </div>
-          </div>
-
-          <!-- Chip 3 -->
-          <div class="flex items-start gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
-            <span class="w-6 h-6 rounded-lg bg-[#0F172A] text-[#FFB020] font-extrabold text-xs flex items-center justify-center shrink-0">3</span>
-            <div>
-              <div class="text-sm font-bold text-[#0F172A]">Work Independently</div>
-              <div class="text-xs text-slate-500 font-medium mt-0.5">No secondary screens, mobile devices, communication apps, or notes allowed.</div>
-            </div>
-          </div>
-
-          <!-- Chip 4 -->
-          <div class="flex items-start gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
-            <span class="w-6 h-6 rounded-lg bg-[#0F172A] text-[#FFB020] font-extrabold text-xs flex items-center justify-center shrink-0">4</span>
-            <div>
-              <div class="text-sm font-bold text-[#0F172A]">Continuous Auto-Save</div>
-              <div class="text-xs text-slate-500 font-medium mt-0.5">All answers and code are automatically synced with the server in real time.</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-    </div>
-
-    <!-- Right Column: Pre-Flight Readiness & Launch Action -->
-    <div class="exam-right-panel flex flex-col gap-6">
-      
-      <section class="bg-white border-[1.5px] border-slate-200 rounded-3xl p-6 sm:p-7 flex flex-col gap-5 shadow-card">
-        
-        <!-- Header -->
-        <div class="border-b border-slate-100 pb-3">
-          <div class="flex items-center gap-2 mb-1">
-            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase tracking-wider bg-blue-100 text-[#2447F5]">
-              <span class="w-1.5 h-1.5 rounded-full bg-[#2447F5]"></span>
-              Pre-Flight Checklist
-            </span>
-          </div>
-          <h2 class="text-xl font-extrabold text-[#0F172A] tracking-tight">System Readiness</h2>
-          <p class="text-xs text-slate-500 font-medium mt-0.5">Live hardware check will run immediately after entering the assessment room.</p>
-        </div>
-
-        <!-- Sleek Scannable Prerequisites List -->
-        <div class="flex flex-col gap-2.5">
-          <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
-            <div class="flex items-center gap-3">
-              <div class="w-8 h-8 rounded-xl {% if exam.camera_required %}bg-blue-100 text-[#2447F5]{% else %}bg-slate-200 text-slate-600{% endif %} flex items-center justify-center shrink-0">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-              </div>
-              <div>
-                <div class="text-sm font-bold text-slate-900">Webcam Feed</div>
-                <div class="text-[11px] text-slate-500 font-medium">Front-facing camera</div>
-              </div>
-            </div>
-            {% if exam.camera_required %}
-              <span class="text-xs font-bold text-[#2447F5] bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200">Required</span>
-            {% else %}
-              <span class="text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">Optional</span>
-            {% endif %}
-          </div>
-
-          <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
-            <div class="flex items-center gap-3">
-              <div class="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>
-              </div>
-              <div>
-                <div class="text-sm font-bold text-slate-900">Fullscreen Window</div>
-                <div class="text-[11px] text-slate-500 font-medium">Locked browser focus</div>
-              </div>
-            </div>
-            <span class="text-xs font-bold text-purple-700 bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-200">Enforced</span>
-          </div>
-
-          <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
-            <div class="flex items-center gap-3">
-              <div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-              </div>
-              <div>
-                <div class="text-sm font-bold text-slate-900">Connection</div>
-                <div class="text-[11px] text-slate-500 font-medium">Real-time server sync</div>
-              </div>
-            </div>
-            <span class="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">&ge; 1.0 Mbps</span>
-          </div>
-        </div>
-
-        <!-- Privacy & Proctoring Note -->
-        <div class="p-3 rounded-2xl bg-blue-50/70 border border-blue-200/80 text-xs text-slate-600 flex items-start gap-2.5">
-          <svg class="w-4 h-4 text-[#2447F5] shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-          <div class="leading-relaxed">
-            <strong class="text-slate-800">Security &amp; Integrity:</strong> Real-time device and browser checks ensure a fair, distraction-free environment for all candidates.
-          </div>
-        </div>
-
-        <!-- Rules Agreement Checkbox -->
-        <label for="agree" class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-start gap-3 cursor-pointer hover:bg-slate-100/70 transition-colors select-none">
-          <input id="agree" type="checkbox" class="mt-0.5 h-4 w-4 rounded accent-[#2447F5] cursor-pointer shrink-0">
-          <span class="text-xs text-slate-700 font-semibold leading-relaxed">
-            I have read how this test is monitored (camera, location, network and screen activity) and I am ready to start the device checks.
-          </span>
-        </label>
-
-        <!-- Launch / Action Button -->
-        {% if state.code == "confirm" and not attempt %}
-          <div class="pt-1">
-            <a href="{% url 'confirm_details' exam.pk %}" class="btn btn-primary h-[56px] w-full text-base font-extrabold shadow-cta flex items-center justify-center gap-2">
-              <span>Verify Candidate Details &rarr;</span>
-            </a>
-          </div>
-        {% elif state.code == "open" and not attempt %}
-          <form method="post" id="form-start-attempt" action="{% url 'start_attempt' exam.pk %}" class="pt-1 space-y-2">
-            {% csrf_token %}
-            <input type="hidden" name="location" id="input-start-loc">
-            <input type="hidden" name="network" id="input-start-net">
-            <button type="submit" id="btn-start-test" disabled class="btn btn-primary h-[56px] w-full text-base font-extrabold shadow-cta cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2">
-              <span id="btn-start-text">Enter Assessment Room</span>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M5 12h14"></path>
-                <path d="M13 6l6 6-6 6"></path>
-              </svg>
-            </button>
-            <div class="text-[11px] text-slate-500 font-medium text-center">
-              Timer starts only after pre-flight device diagnostics are verified.
-            </div>
-          </form>
-        {% elif state.code == "in_progress" %}
-          <div class="pt-1">
-            <a href="{% url 'attempt_page' attempt.pk %}" class="btn btn-primary h-[56px] w-full text-base font-extrabold shadow-cta flex items-center justify-center gap-2">
-              <span>Continue Assessment &rarr;</span>
-            </a>
-          </div>
-        {% elif state.code == "ended" and attempt %}
-          <div class="pt-1">
-            <a href="{% url 'attempt_result' attempt.pk %}" class="btn btn-secondary h-[54px] w-full text-sm font-extrabold flex items-center justify-center">
-              View Confirmation
-            </a>
-          </div>
-        {% elif state.code == "waiting" and not attempt %}
-          <div class="pt-1 space-y-2">
-            <button type="button" disabled class="btn btn-secondary h-[56px] w-full text-base font-extrabold opacity-60 cursor-not-allowed flex items-center justify-center gap-2">
-              <span>Assessment Opens at {{ exam.opens_at|localtime|date:"H:i" }}</span>
-            </button>
-            <div class="text-[11px] text-slate-500 font-medium text-center">
-              Please wait until the scheduled assessment window begins.
-            </div>
-          </div>
-        {% elif state.code == "closed" and not attempt %}
-          <div class="pt-1">
-            <button type="button" disabled class="btn btn-secondary h-[56px] w-full text-base font-extrabold opacity-60 cursor-not-allowed flex items-center justify-center gap-2">
-              <span>Assessment Window Has Closed</span>
-            </button>
-          </div>
-        {% endif %}
-
-      </section>
-
-    </div>
-
-  </div>
-
 </div>
 
-<!-- Lightweight Step 2 Checkbox Enabler & Background Telemetry -->
+{% if state.code == "waiting" %}
+<section class="ui-card ui-card-pad text-center mb-6" aria-live="polite">
+  <span class="ui-badge ui-badge-info">Opens soon</span>
+  <h2 class="mt-3 text-xl font-bold text-slate-900">Your test opens {{ exam.opens_at|localtime|date:"l j F, H:i" }}</h2>
+  <p class="mt-1.5 text-[15px] text-slate-500">This page reloads by itself when the window opens.</p>
+  <div class="mt-5 inline-flex items-stretch gap-2" id="countdown-board" role="timer" aria-label="Time until the test opens">
+    <div class="min-w-[64px] rounded-xl bg-slate-900 px-3 py-2.5"><div id="cd-days" class="font-mono text-2xl font-semibold text-white num">00</div><div class="text-[11px] font-medium text-slate-400">days</div></div>
+    <div class="min-w-[64px] rounded-xl bg-slate-900 px-3 py-2.5"><div id="cd-hours" class="font-mono text-2xl font-semibold text-white num">00</div><div class="text-[11px] font-medium text-slate-400">hours</div></div>
+    <div class="min-w-[64px] rounded-xl bg-slate-900 px-3 py-2.5"><div id="cd-mins" class="font-mono text-2xl font-semibold text-white num">00</div><div class="text-[11px] font-medium text-slate-400">min</div></div>
+    <div class="min-w-[64px] rounded-xl bg-slate-900 px-3 py-2.5"><div id="cd-secs" class="font-mono text-2xl font-semibold text-amber-300 num">00</div><div class="text-[11px] font-medium text-slate-400">sec</div></div>
+  </div>
+  <script>
+    (function () {
+      var serverNowMs = new Date("{{ server_now.isoformat }}").getTime();
+      var opensAtMs = new Date("{{ exam.opens_at.isoformat }}").getTime();
+      var loadedAt = Date.now();
+      var els = ["cd-days", "cd-hours", "cd-mins", "cd-secs"].map(function (id) { return document.getElementById(id); });
+      function pad(n) { return String(n).padStart(2, "0"); }
+      function tick() {
+        var diff = Math.floor((opensAtMs - (serverNowMs + Date.now() - loadedAt)) / 1000);
+        if (diff <= 0) { els[3].textContent = "00"; setTimeout(function () { window.location.reload(); }, 1200); return; }
+        var parts = [Math.floor(diff / 86400), Math.floor((diff % 86400) / 3600), Math.floor((diff % 3600) / 60), diff % 60];
+        parts.forEach(function (v, i) { var t = pad(v); if (els[i].textContent !== t) els[i].textContent = t; });
+        setTimeout(tick, 1000 - ((Date.now() - loadedAt) % 1000));
+      }
+      tick();
+    })();
+  </script>
+</section>
+{% endif %}
+
+{% if state.code == "closed" or state.code == "ended" %}
+<section class="ui-card ui-empty mb-6">
+  {% if state.code == "ended" %}
+    <div class="ui-empty-icon" style="background:var(--ui-success-soft);color:var(--ui-success)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></div>
+    <h2>Your test is submitted</h2>
+    <p>Your answers and code were saved. You can close this page.</p>
+    {% if attempt %}<a href="{% url 'attempt_result' attempt.pk %}" class="ui-btn mt-5">View submission</a>{% endif %}
+  {% else %}
+    <div class="ui-empty-icon" style="background:var(--ui-surface-3);color:var(--ui-text-3)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke-width="2"/><path stroke-linecap="round" stroke-width="2" d="M12 7v5l3 2"/></svg></div>
+    <h2>This test window has closed</h2>
+    <p>It closed {{ exam.closes_at|localtime|date:"l j F, H:i" }}.</p>
+  {% endif %}
+</section>
+{% endif %}
+
+<div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px] items-start">
+  <div class="flex flex-col gap-6 min-w-0">
+
+    {# Who is taking the test. #}
+    <section class="ui-card ui-card-pad flex flex-col sm:flex-row sm:items-center gap-4" aria-label="Your details">
+      <span class="ui-avatar ui-avatar-lg" aria-hidden="true">{{ application.full_name|default:application.candidate.email|slice:":1"|upper }}</span>
+      <div class="min-w-0 flex-1">
+        <div class="font-semibold text-slate-900">{{ application.full_name }}</div>
+        <div class="text-sm text-slate-500 break-all">{{ application.candidate.email }}{% if application.phone %} · {{ application.phone }}{% endif %}</div>
+        <div class="mt-1.5">
+          {% if application.has_resume_file %}
+            <a href="{% url 'candidate_resume' exam.pk %}" target="_blank" rel="noopener" class="text-sm font-semibold">View your resume</a>
+          {% else %}
+            <span class="ui-badge ui-badge-warning">No resume attached</span>
+          {% endif %}
+        </div>
+      </div>
+      <a href="{% url 'confirm_details' exam.pk %}" class="ui-btn ui-btn-sm self-start sm:self-center">Edit details</a>
+    </section>
+
+    <section class="ui-card" aria-labelledby="structure-title">
+      <div class="ui-card-head">
+        <div>
+          <h2 id="structure-title" class="ui-card-title">What the test contains</h2>
+          <p class="ui-card-desc">Sections run in order. Each one has its own timer and locks when you submit it.</p>
+        </div>
+      </div>
+      <ol class="list-none p-0 m-0">
+        {% for section in sections %}
+        <li class="flex items-center gap-4 px-5 sm:px-6 py-3.5 {% if not forloop.last %}border-b border-slate-100{% endif %}">
+          <span class="grid place-items-center w-7 h-7 rounded-lg bg-slate-100 text-xs font-semibold text-slate-600 num shrink-0">{{ forloop.counter }}</span>
+          <div class="min-w-0 flex-1">
+            <div class="font-semibold text-slate-900">{{ section.title }}</div>
+            <div class="text-[13px] text-slate-500">{% if section.kind == "coding" %}Coding problems{% else %}Multiple choice{% endif %}</div>
+          </div>
+          <span class="text-sm font-semibold text-slate-700 num whitespace-nowrap">{{ section.duration_minutes }} min</span>
+        </li>
+        {% empty %}
+        <li class="px-6 py-5 text-sm text-slate-500">One continuous test of {{ exam.duration_minutes }} minutes.</li>
+        {% endfor %}
+      </ol>
+      {% if exam.instructions %}
+      <div class="px-5 sm:px-6 py-4 border-t border-slate-100">
+        <h3 class="text-sm font-semibold text-slate-900 mb-1.5">Instructions from your examiner</h3>
+        <div class="whitespace-pre-line text-[15px] leading-relaxed text-slate-600">{{ exam.instructions }}</div>
+      </div>
+      {% endif %}
+    </section>
+
+    <section class="ui-card" aria-labelledby="rules-title">
+      <div class="ui-card-head">
+        <div>
+          <h2 id="rules-title" class="ui-card-title">Rules during the test</h2>
+          <p class="ui-card-desc">Breaking a rule is recorded for the reviewer. It does not end your test.</p>
+        </div>
+        <a href="{% url 'platform_manual' %}#chapter-1" target="_blank" rel="noopener" class="text-sm font-semibold whitespace-nowrap">Full guide</a>
+      </div>
+      <ul class="grid sm:grid-cols-2 gap-px bg-slate-100 list-none p-0 m-0 rounded-b-[18px] overflow-hidden">
+        <li class="bg-white p-5">
+          <div class="font-semibold text-slate-900">{% if exam.fullscreen_required %}Stay in full screen{% else %}Stay on this tab{% endif %}</div>
+          <p class="mt-1 text-sm text-slate-500 leading-relaxed">{% if exam.fullscreen_required %}Leaving full screen or switching tabs or windows is recorded.{% else %}Full screen is recommended. Switching tabs or windows is recorded.{% endif %}</p>
+        </li>
+        <li class="bg-white p-5">
+          <div class="font-semibold text-slate-900">{% if exam.camera_required %}Keep your face in view{% else %}Sit in a quiet place{% endif %}</div>
+          <p class="mt-1 text-sm text-slate-500 leading-relaxed">{% if exam.camera_required %}Use good light and face the camera. Being out of frame or having someone else in view is recorded.{% else %}Have nothing on your desk that you do not need for the test.{% endif %}</p>
+        </li>
+        <li class="bg-white p-5">
+          <div class="font-semibold text-slate-900">Work on your own</div>
+          <p class="mt-1 text-sm text-slate-500 leading-relaxed">No other people, second screens, phones, chat apps or notes.</p>
+        </li>
+        <li class="bg-white p-5">
+          <div class="font-semibold text-slate-900">Your work saves as you go</div>
+          <p class="mt-1 text-sm text-slate-500 leading-relaxed">If your connection drops, sign in again and continue. The timer pauses for a short while.</p>
+        </li>
+      </ul>
+    </section>
+  </div>
+
+  <aside class="ui-card lg:sticky lg:top-[84px]" aria-labelledby="ready-title">
+    <div class="ui-card-head">
+      <div>
+        <h2 id="ready-title" class="ui-card-title">Ready to start</h2>
+        <p class="ui-card-desc">Your device is checked on the next screen. The timer starts only after the checks pass.</p>
+      </div>
+    </div>
+    <div class="ui-card-body flex flex-col gap-4">
+      <ul class="list-none p-0 m-0 flex flex-col gap-2.5 text-sm" aria-label="What the device check needs">
+        <li class="flex items-center gap-3">
+          <span class="ui-stat-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg></span>
+          <span class="flex-1 font-medium text-slate-800">Camera</span>
+          {% if exam.camera_required %}<span class="ui-badge ui-badge-info">Required</span>{% else %}<span class="ui-badge">Optional</span>{% endif %}
+        </li>
+        <li class="flex items-center gap-3">
+          <span class="ui-stat-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg></span>
+          <span class="flex-1 font-medium text-slate-800">Full screen</span>
+          {% if exam.fullscreen_required %}<span class="ui-badge ui-badge-info">Required</span>{% else %}<span class="ui-badge">Recommended</span>{% endif %}
+        </li>
+        <li class="flex items-center gap-3">
+          <span class="ui-stat-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12.55a11 11 0 0114 0M1.42 9a16 16 0 0121.16 0M8.53 16.11a6 6 0 016.95 0M12 20h.01"/></svg></span>
+          <span class="flex-1 font-medium text-slate-800">Internet connection</span>
+          <span class="ui-badge">Checked live</span>
+        </li>
+      </ul>
+
+      {% if state.code == "open" and not attempt %}
+        <label for="agree" class="flex items-start gap-3 p-3.5 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer transition-colors hover:border-slate-300 has-[:checked]:border-blue-300 has-[:checked]:bg-blue-50/60">
+          <input id="agree" type="checkbox" class="mt-0.5 shrink-0">
+          <span class="text-sm text-slate-700 leading-relaxed">I have read how this test is monitored (camera, location, network and screen activity) and I am ready to start the device checks.</span>
+        </label>
+        <form method="post" id="form-start-attempt" action="{% url 'start_attempt' exam.pk %}">
+          {% csrf_token %}
+          <input type="hidden" name="location" id="input-start-loc">
+          <input type="hidden" name="network" id="input-start-net">
+          <button type="submit" id="btn-start-test" disabled class="ui-btn ui-btn-primary ui-btn-lg ui-btn-block">
+            <span id="btn-start-text">Start device check</span>
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </button>
+          <p id="agree-hint" class="mt-2 text-center text-[13px] text-slate-500">Tick the box above to continue.</p>
+        </form>
+      {% elif state.code == "confirm" and not attempt %}
+        <a href="{% url 'confirm_details' exam.pk %}" class="ui-btn ui-btn-primary ui-btn-lg ui-btn-block">Confirm your details</a>
+      {% elif state.code == "in_progress" %}
+        <a href="{% url 'attempt_page' attempt.pk %}" class="ui-btn ui-btn-primary ui-btn-lg ui-btn-block">Continue test</a>
+      {% elif state.code == "ended" and attempt %}
+        <a href="{% url 'attempt_result' attempt.pk %}" class="ui-btn ui-btn-lg ui-btn-block">View submission</a>
+      {% elif state.code == "waiting" and not attempt %}
+        <button type="button" disabled class="ui-btn ui-btn-lg ui-btn-block">Opens at {{ exam.opens_at|localtime|date:"H:i" }}</button>
+      {% elif state.code == "closed" and not attempt %}
+        <button type="button" disabled class="ui-btn ui-btn-lg ui-btn-block">Window closed</button>
+      {% endif %}
+    </div>
+  </aside>
+</div>
+
 <script>
-  (function() {
-    const agree = document.getElementById('agree');
-    const btn = document.getElementById('btn-start-test');
+  (function () {
+    var agree = document.getElementById("agree");
+    var btn = document.getElementById("btn-start-test");
+    var hint = document.getElementById("agree-hint");
     if (agree && btn) {
-      agree.addEventListener('change', function() {
+      agree.addEventListener("change", function () {
         btn.disabled = !agree.checked;
+        if (hint) hint.textContent = agree.checked ? "Next: camera, location and network checks." : "Tick the box above to continue.";
       });
     }
 
-    // Pre-seed location fallback with regional timezone
+    // Location: start from the time zone, upgrade to GPS if the candidate allows it.
     try {
-      const locEl = document.getElementById('input-start-loc');
+      var locEl = document.getElementById("input-start-loc");
       if (locEl) {
-        const tz = (typeof Intl !== 'undefined' && Intl.DateTimeFormat)
-          ? Intl.DateTimeFormat().resolvedOptions().timeZone
-          : 'UTC';
-        locEl.value = JSON.stringify({
-          source: 'network_tz',
-          timezone: tz,
-          timestamp: new Date().toISOString()
-        });
-      }
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(function(pos) {
-          if (locEl) {
+        var tz = (typeof Intl !== "undefined" && Intl.DateTimeFormat) ? Intl.DateTimeFormat().resolvedOptions().timeZone : "UTC";
+        locEl.value = JSON.stringify({ source: "network_tz", timezone: tz, timestamp: new Date().toISOString() });
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(function (pos) {
             locEl.value = JSON.stringify({
-              source: 'gps',
+              source: "gps",
               latitude: Number(pos.coords.latitude.toFixed(6)),
               longitude: Number(pos.coords.longitude.toFixed(6)),
               accuracy: Math.round(pos.coords.accuracy),
               timestamp: new Date().toISOString()
             });
-          }
-        }, function() {}, { enableHighAccuracy: false, timeout: 2000, maximumAge: 300000 });
+          }, function () {}, { enableHighAccuracy: false, timeout: 2000, maximumAge: 300000 });
+        }
       }
     } catch (_) {}
 
-    // Capture connection details in the background
+    // Connection details, recorded with the start of the attempt.
     try {
-      const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-      const netEl = document.getElementById('input-start-net');
+      var conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+      var netEl = document.getElementById("input-start-net");
       if (netEl && conn) {
-        netEl.value = JSON.stringify({
-          effectiveType: conn.effectiveType || '4g',
-          downlink: conn.downlink || 10,
-          rtt: conn.rtt || 50
-        });
+        netEl.value = JSON.stringify({ effectiveType: conn.effectiveType || "4g", downlink: conn.downlink || 10, rtt: conn.rtt || 50 });
       }
     } catch (_) {}
   })();

@@ -1,140 +1,45 @@
 {% extends "base.html" %}
 {% load tz %}
-{% block title %}Assessment Submitted | {{ exam.title }}{% endblock %}
+{% block title %}Submitted | {{ exam.title }}{% endblock %}
 {% block content %}
-<div class="oa-success-container">
-  <div class="oa-success-card space-y-6">
-
-    <!-- Hero Success Icon with Morph Aura & Bounce -->
-    <div class="oa-success-halo-wrap">
-      <div class="oa-success-halo"></div>
-      <div class="oa-success-badge" title="Submission Confirmed">
-        <svg class="w-9 h-9" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"
-          stroke-linejoin="round" viewBox="0 0 24 24">
-          <path d="M5 13l4 4L19 7" />
-        </svg>
+<div class="mx-auto w-full max-w-lg py-4 sm:py-10">
+  <section class="ui-card overflow-hidden" aria-labelledby="result-title">
+    <div class="px-6 sm:px-8 pt-8 pb-6 text-center">
+      <div class="mx-auto mb-5 grid place-items-center w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 ring-8 ring-emerald-50/60" aria-hidden="true">
+        <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
       </div>
+      <h1 id="result-title" class="text-2xl font-bold tracking-tight text-slate-900">Your test is submitted</h1>
+      <p class="mt-2 text-[15px] leading-relaxed text-slate-500">Thank you. Your answers and code are saved and can no longer be changed. You can close this page.</p>
     </div>
 
-    <!-- Status & Titles -->
-    <div class="space-y-2.5">
-      <div>
-        <span class="oa-pill-status">
-          <span class="relative flex h-2 w-2">
-            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
-          </span>
-          Submission Recorded
-        </span>
+    <dl class="mx-6 sm:mx-8 mb-6 rounded-xl border border-slate-200 divide-y divide-slate-100 text-sm">
+      <div class="flex items-start justify-between gap-4 px-4 py-3">
+        <dt class="text-slate-500">Test</dt>
+        <dd class="font-semibold text-slate-900 text-right break-words min-w-0">{{ exam.title }}</dd>
       </div>
-      <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">Assessment Submitted</h1>
-      <div class="pt-0.5">
-        <span
-          class="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-xl bg-blue-50/80 border border-blue-200/60 text-[#2447F5] font-bold text-xs sm:text-sm max-w-full">
-          <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round"
-              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-          <span class="truncate">{{ exam.title }}</span>
-        </span>
+      <div class="flex items-start justify-between gap-4 px-4 py-3">
+        <dt class="text-slate-500">Candidate</dt>
+        <dd class="text-right min-w-0">
+          <div class="font-semibold text-slate-900 break-words">{{ request.user.get_full_name|default:request.user.username }}</div>
+          {% if request.user.email and request.user.get_full_name %}<div class="text-[13px] text-slate-500 break-all">{{ request.user.email }}</div>{% endif %}
+        </dd>
       </div>
-    </div>
-
-    <!-- Submission Receipt Spec Box -->
-    <div class="oa-spec-receipt">
-      <div class="oa-spec-row">
-        <span class="oa-spec-label">
-          <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2"
-            viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round"
-              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-          </svg>
-          Candidate
-        </span>
-        <div class="oa-spec-value">
-          <div>{{ request.user.get_full_name|default:request.user.username }}</div>
-          {% if request.user.email and request.user.get_full_name %}
-          <span class="text-[11px] font-medium text-slate-500 block truncate">{{ request.user.email }}</span>
-          {% endif %}
-        </div>
-      </div>
-
-      {% if summary.ended_at_dt %}
-      <div class="oa-spec-row">
-        <span class="oa-spec-label">
-          <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2"
-            viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          Completion Time
-        </span>
-        <div class="oa-spec-value font-mono text-xs sm:text-sm">
-          {{ summary.ended_at_dt|localtime|date:"D, d M Y · H:i" }}
-        </div>
-      </div>
-      {% elif attempt.ended_at %}
-      <div class="oa-spec-row">
-        <span class="oa-spec-label">
-          <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2"
-            viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          Completion Time
-        </span>
-        <div class="oa-spec-value font-mono text-xs sm:text-sm">
-          {{ attempt.ended_at|localtime|date:"D, d M Y · H:i" }}
-        </div>
+      {% if summary.ended_at_dt or attempt.ended_at %}
+      <div class="flex items-start justify-between gap-4 px-4 py-3">
+        <dt class="text-slate-500">Submitted</dt>
+        <dd class="font-semibold text-slate-900 num">{% if summary.ended_at_dt %}{{ summary.ended_at_dt|localtime|date:"D j M Y, H:i" }}{% else %}{{ attempt.ended_at|localtime|date:"D j M Y, H:i" }}{% endif %}</dd>
       </div>
       {% endif %}
-
-      <div class="oa-spec-row">
-        <span class="oa-spec-label">
-          <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2"
-            viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round"
-              d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-          </svg>
-          Submission Status
-        </span>
-        <div class="oa-spec-value">
-          <span class="oa-pill-verified">
-            <svg class="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                clip-rule="evenodd" />
-            </svg>
-            Verified &amp; Sealed
-          </span>
-        </div>
+      <div class="flex items-center justify-between gap-4 px-4 py-3">
+        <dt class="text-slate-500">Status</dt>
+        <dd><span class="ui-badge ui-badge-success ui-badge-dot">Recorded</span></dd>
       </div>
-    </div>
+    </dl>
 
-    <!-- Integrity & Human Review Assurance Notice -->
-    <div class="flex items-start gap-3 p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 text-left">
-      <div
-        class="w-8 h-8 rounded-lg bg-blue-50 text-[#2447F5] flex items-center justify-center shrink-0 mt-0.5 border border-blue-100">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round"
-            d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-        </svg>
-      </div>
-      <p class="text-xs text-slate-600 leading-relaxed font-medium">
-        Your answers and code submissions have been securely locked. Flagged moments are routed to a human reviewer, not
-        straight to an automated verdict.
-      </p>
+    <div class="px-6 sm:px-8 py-4 border-t border-slate-100 bg-slate-50/60 flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
+      <p class="text-[13px] text-slate-500">Results are reviewed by people, not decided automatically. You will hear from the team that invited you.</p>
+      <a href="{% url 'home' %}" class="ui-btn shrink-0">My assessments</a>
     </div>
-
-    <!-- Action Button -->
-    <div class="pt-1">
-      <a href="{% url 'home' %}" class="oa-btn-dashboard group">
-        <svg class="w-4 h-4 transition-transform duration-200 group-hover:-translate-x-1" fill="none"
-          stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-        </svg>
-        <span>Return to Dashboard</span>
-      </a>
-    </div>
-
-  </div>
+  </section>
 </div>
 {% endblock %}
