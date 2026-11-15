@@ -234,7 +234,7 @@ class AIInterviewFeatureTests(TestCase):
         url = reverse("staff_exam_candidates", args=[self.exam.pk])
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Interview Rounds (2)")
+        self.assertContains(response, 'Interview rounds <span class="text-slate-500 num">2</span>', html=False)
         self.assertContains(response, "R1: Done ✓")
         self.assertContains(response, "Round 2 Pending")
 

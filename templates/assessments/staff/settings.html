@@ -1,23 +1,16 @@
 {% extends "base.html" %}
-{% block title %}System Settings | Platform Governance{% endblock %}
+{% block title %}Settings{% endblock %}
 {% block content %}
-<div class="space-y-6 text-left w-full">
-  <!-- Top Header & Breadcrumb -->
-  <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 text-left">
-    <div class="text-left">
-      <div class="flex items-center gap-2 mb-1 text-left">
-        <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-[#EEF1FE] text-[#1E3AC8] border border-blue-200">System Governance</span>
-        <span class="text-xs text-slate-400">&bull;</span>
-        <span class="text-xs text-slate-500 font-medium">Global Configuration</span>
-      </div>
-      <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight text-left">Platform Settings</h1>
-      <p class="mt-1 text-xs sm:text-sm text-slate-600 text-left">
-        Manage organization branding, footer content, evidence retention compliance, and email transport connectivity.
-      </p>
+<div class="w-full">
+  <div class="ui-page-head">
+    <div>
+      <h1 class="ui-title">Settings</h1>
+      <p class="ui-subtitle">Branding, footer text, evidence retention, candidate wording, AI and email for the whole platform.</p>
     </div>
-    <div class="shrink-0">
-      <a href="{% url 'platform_manual' %}#chapter-6" target="_blank" class="btn btn-secondary text-xs font-bold inline-flex items-center gap-1.5 py-2 px-3 rounded-lg border-slate-200 hover:bg-slate-50 text-slate-700 shadow-2xs">
-        <span>📖</span> Settings Manual Guide &rarr;
+    <div class="ui-page-actions">
+      <a href="{% url 'platform_manual' %}#chapter-6" target="_blank" rel="noopener" class="ui-btn">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+        Settings guide
       </a>
     </div>
   </div>
@@ -26,13 +19,13 @@
   <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start text-left">
     <!-- Left Column: Core Form Settings (8 cols) -->
     <div class="lg:col-span-8 space-y-6 text-left">
-      <form method="post" enctype="multipart/form-data" class="space-y-6 text-left">
+      <form method="post" enctype="multipart/form-data" class="flex flex-col gap-6 text-left">
         {% csrf_token %}
 
         <!-- Card 1: Branding & Identity -->
-        <section class="card p-6 border-l-4 border-l-[#2447F5] space-y-5 shadow-xs text-left">
+        <section class="card p-6 space-y-5 shadow-xs text-left">
           <div class="pb-3 border-b border-slate-100 text-left">
-            <h2 class="text-base font-bold text-slate-900 text-left">1. Branding &amp; Organization Identity</h2>
+            <h2 class="text-base font-bold text-slate-900">Branding</h2>
             <p class="text-xs text-slate-500 mt-0.5 text-left">Customize platform title, navigation header logo, and browser favicon.</p>
           </div>
 
@@ -87,9 +80,9 @@
         </section>
 
         <!-- Card 2: Footer & Compliance Messaging -->
-        <section class="card p-6 border-l-4 border-l-blue-600 space-y-5 shadow-xs text-left">
+        <section class="card p-6 space-y-5 shadow-xs text-left">
           <div class="pb-3 border-b border-slate-100 text-left">
-            <h2 class="text-base font-bold text-slate-900 text-left">2. Footer &amp; Compliance Messaging</h2>
+            <h2 class="text-base font-bold text-slate-900">Footer</h2>
             <p class="text-xs text-slate-500 mt-0.5 text-left">Configure copyright ownership and platform description displayed across all footer instances.</p>
           </div>
 
@@ -123,9 +116,9 @@
         </section>
 
         <!-- Card 3: Proctoring Evidence Retention -->
-        <section class="card p-6 border-l-4 border-l-indigo-600 space-y-4 shadow-xs text-left">
+        <section class="card p-6 space-y-4 shadow-xs text-left">
           <div class="pb-3 border-b border-slate-100 text-left">
-            <h2 class="text-base font-bold text-slate-900 text-left">3. Evidence Snapshot Retention Lifecycle</h2>
+            <h2 class="text-base font-bold text-slate-900">Evidence retention</h2>
             <p class="text-xs text-slate-500 mt-0.5 text-left">Camera violation snapshots are automatically purged according to compliance retention policies.</p>
           </div>
 
@@ -157,12 +150,12 @@
         </section>
 
         <!-- Card 4: Google Gemini AI Integration -->
-        <section class="card p-6 border-l-4 border-l-[#0E2378] space-y-5 shadow-xs text-left">
+        <section class="card p-6 space-y-5 shadow-xs text-left">
           <div class="flex items-center justify-between pb-3 border-b border-slate-100 text-left">
             <div>
               <div class="flex items-center gap-2">
-                <span class="text-base font-bold text-slate-900 text-left">4. Google Gemini AI Integration</span>
-                <span class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-[#EEF1FE] text-[#0E2378] border border-blue-200">AI Interview Copilot</span>
+                <h2 class="text-base font-bold text-slate-900">AI interview questions (Gemini)</h2>
+                
               </div>
               <p class="text-xs text-slate-500 mt-0.5 text-left">Connect the Google Gemini API to analyze candidate resumes and generate face-to-face interview questions with expected answer criteria.</p>
             </div>
@@ -198,11 +191,9 @@
           </div>
         </section>
 
-        <!-- Submit Bar -->
-        <div class="flex items-center gap-3 pt-2 text-left">
-          <button type="submit" class="btn btn-primary text-xs font-semibold py-2.5 px-6 shadow-xs">
-            Save Platform Settings
-          </button>
+        <div class="ui-savebar">
+          <p class="text-[13px] text-slate-500 hidden sm:block">Changes apply to every test and candidate.</p>
+          <button type="submit" class="ui-btn ui-btn-primary">Save settings</button>
         </div>
       </form>
     </div>
@@ -210,9 +201,9 @@
     <!-- Right Column: Diagnostics & Environment Overview (4 cols) -->
     <div class="lg:col-span-4 space-y-6 text-left">
       <!-- Card 4: Email Notification Transport -->
-      <section class="card p-5 border-l-4 border-l-emerald-600 space-y-4 shadow-xs text-left">
+      <section class="card p-5 space-y-4 shadow-xs text-left">
         <div class="flex items-center justify-between pb-3 border-b border-slate-100 text-left">
-          <h2 class="text-sm font-bold text-slate-900 text-left">Email Transport Status</h2>
+          <h2 class="text-sm font-bold text-slate-900 text-left">Email</h2>
           <div>
             {% if email_status.is_configured %}
               <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
@@ -252,7 +243,7 @@
           </div>
           <div class="flex justify-between py-1">
             <span class="text-slate-500">Backend</span>
-            <span class="font-mono text-[10px] text-slate-600 truncate max-w-[170px]" title="{{ email_status.backend }}">{{ email_status.backend|slice:":25" }}...</span>
+            <span class="font-mono text-[10px] text-slate-600 truncate max-w-[170px]" title="{{ email_status.backend }}">{{ email_status.backend|cut:"django.core.mail.backends."|truncatechars:28 }}</span>
           </div>
         </div>
 
@@ -261,41 +252,43 @@
           {% csrf_token %}
           <input type="hidden" name="action" value="test_email">
           <div class="text-left">
-            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-800 text-left">Test Email Dispatch</h3>
+            <h3 class="text-xs font-semibold text-slate-800">Send a test email</h3>
             <p class="text-[11px] text-slate-500 mt-0.5 text-left">Send a diagnostic email to test SMTP connectivity.</p>
           </div>
           <div class="space-y-2 text-left">
             <input type="email" name="test_recipient" value="{{ request.user.email }}" placeholder="recipient@example.com" required class="w-full text-xs py-2 px-3">
             <button type="submit" class="btn btn-secondary text-xs font-semibold py-2 w-full shadow-xs">
-              Send Diagnostic Email
+              Send test email
             </button>
           </div>
         </form>
       </section>
 
-      <!-- Card 5: System Overview & Compliance -->
-      <section class="card p-5 border-l-4 border-l-slate-600 space-y-3 shadow-xs text-left">
-        <div class="pb-2 border-b border-slate-100 text-left">
-          <h2 class="text-sm font-bold text-slate-900 text-left">Platform Environment</h2>
+      <section class="card p-5 space-y-3 text-left" aria-labelledby="env-title">
+        <div class="pb-2 border-b border-slate-100">
+          <h2 id="env-title" class="text-sm font-bold text-slate-900">Platform environment</h2>
+          <p class="text-[11px] text-slate-500 mt-0.5">Read from the server configuration.</p>
         </div>
-        <div class="space-y-2 text-xs text-left">
-          <div class="flex justify-between py-1 border-b border-slate-50">
-            <span class="text-slate-500">Server Timezone</span>
-            <span class="font-mono font-medium text-slate-800">UTC</span>
+        <dl class="space-y-2 text-xs">
+          <div class="flex justify-between gap-3 py-1 border-b border-slate-50">
+            <dt class="text-slate-500">Time zone</dt>
+            <dd class="font-mono font-medium text-slate-800">{{ environment.time_zone }}</dd>
           </div>
-          <div class="flex justify-between py-1 border-b border-slate-50">
-            <span class="text-slate-500">Code Sandbox Runner</span>
-            <span class="font-mono font-semibold text-[#1E3AC8]">Local / Docker</span>
+          <div class="flex justify-between gap-3 py-1 border-b border-slate-50">
+            <dt class="text-slate-500">Code runner</dt>
+            <dd class="font-semibold text-right {% if environment.runner_ok %}text-slate-800{% else %}text-amber-700{% endif %}">{{ environment.runner }}</dd>
           </div>
-          <div class="flex justify-between py-1 border-b border-slate-50">
-            <span class="text-slate-500">Database Engine</span>
-            <span class="font-semibold text-slate-800">SQLite3 / PostgreSQL</span>
+          <div class="flex justify-between gap-3 py-1{% if environment.debug %} border-b border-slate-50{% endif %}">
+            <dt class="text-slate-500">Database</dt>
+            <dd class="font-semibold text-slate-800">{{ environment.database }}</dd>
           </div>
-          <div class="flex justify-between py-1">
-            <span class="text-slate-500">Session Isolation</span>
-            <span class="font-semibold text-emerald-700">Enforced</span>
+          {% if environment.debug %}
+          <div class="flex justify-between gap-3 py-1">
+            <dt class="text-slate-500">Mode</dt>
+            <dd><span class="ui-badge ui-badge-warning">Debug</span></dd>
           </div>
-        </div>
+          {% endif %}
+        </dl>
       </section>
     </div>
   </div>

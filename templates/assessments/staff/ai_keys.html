@@ -2,15 +2,15 @@
 {% block title %}AI keys | Settings{% endblock %}
 {% block content %}
 <div class="space-y-6">
-  <a href="{% url 'staff_settings' %}" class="crumb">
-    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-    <span>Settings</span>
+  <a href="{% url 'staff_settings' %}" class="ui-back">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+    Settings
   </a>
-  <div>
-    <h1 class="text-2xl font-bold text-slate-900 tracking-tight">AI keys</h1>
-    <p class="mt-1 text-sm text-slate-600 max-w-3xl">
-      Requests are spread across the active keys, starting with the lowest priority number. When a key hits a rate limit or its daily quota, it rests and the request moves straight on to the next key, so question generation keeps working without anyone changing keys by hand.
-    </p>
+  <div class="ui-page-head">
+    <div>
+      <h1 class="ui-title">AI keys</h1>
+      <p class="ui-subtitle">Requests are spread across the active keys, starting with the lowest priority number. When a key hits a rate limit or its daily quota, it rests and the request moves straight on to the next key, so question generation keeps working without anyone changing keys by hand.</p>
+    </div>
   </div>
 
   <div class="card overflow-hidden">

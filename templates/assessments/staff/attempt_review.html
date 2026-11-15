@@ -1,15 +1,11 @@
 {% extends "base.html" %}
 {% load assessment_tags %}
-{% block title %}Candidate Review Workspace — Enhanced Prototype | {{ summary.candidate }}{% endblock %}
-{% block header %}{% endblock %}
-{% block footer %}{% endblock %}
-{% block body_class %}m-0 p-0 bg-[#f6f8fb]{% endblock %}
-{% block wrapper_class %}m-0 p-0 w-full min-h-screen{% endblock %}
-{% block main_class %}m-0 p-0 w-full flex-grow{% endblock %}
+{% block title %}Review: {{ summary.candidate }}{% endblock %}
+{% block main_class %}mx-auto max-w-6xl w-full px-4 sm:px-6 py-6 sm:py-8 flex-grow flex flex-col{% endblock %}
 
 {% block content %}
 <style>
-#review-workspace{--bg:#f6f8fb;--surface:#fff;--text:#172033;--muted:#657087;--line:#e2e7ef;--blue:#335eea;--blue-soft:#edf2ff;--green:#16794b;--green-soft:#eaf8f0;--amber:#965d08;--amber-soft:#fff5df;--red:#b42345;--red-soft:#fff0f2;--shadow:0 4px 16px rgba(18,35,68,.04);--radius:16px;background:var(--bg);color:var(--text);font:14px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;min-height:100vh;margin:0;padding:0}
+#review-workspace{--bg:var(--ui-bg);--surface:#fff;--text:var(--ui-text);--muted:var(--ui-text-3);--line:var(--ui-border);--blue:var(--ui-brand);--blue-soft:var(--ui-brand-soft);--green:var(--ui-success);--green-soft:var(--ui-success-soft);--amber:var(--ui-warning);--amber-soft:var(--ui-warning-soft);--red:var(--ui-danger);--red-soft:var(--ui-danger-soft);--shadow:var(--ui-shadow-sm);--radius:var(--ui-r-xl);background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;font-family:inherit;margin:0;padding:0;background:transparent}
 #review-workspace *{box-sizing:border-box}
 #review-workspace button,#review-workspace input,#review-workspace select,#review-workspace textarea{font:inherit}
 #review-workspace button{cursor:pointer}
@@ -17,7 +13,7 @@
 #review-workspace .brand{display:flex;align-items:center;gap:11px;font-size:16px;font-weight:800}
 #review-workspace .logo{width:30px;height:30px;border-radius:9px;background:#243b85;color:#fff;display:grid;place-items:center;font-size:13px;font-weight:800}
 #review-workspace .user{color:var(--muted);font-size:12px}
-#review-workspace .page{max-width:1240px;margin:24px auto 60px;padding:0 24px}
+#review-workspace .page{margin:0 0 40px;padding:0}
 #review-workspace .crumb{font-size:12px;color:var(--muted);margin-bottom:14px;font-weight:500}
 #review-workspace .crumb span{color:#97a0b2;padding:0 8px}
 #review-workspace .candidate{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:22px 24px;box-shadow:var(--shadow);display:flex;align-items:center;justify-content:space-between;gap:18px}
@@ -34,10 +30,10 @@
 #review-workspace .btn{border:1px solid #d5dcea !important;background:#fff !important;color:#26334d !important;border-radius:10px !important;padding:9px 13px !important;font-weight:700 !important;font-size:12px !important;display:inline-flex !important;align-items:center !important;gap:6px !important;text-decoration:none !important;line-height:normal !important;cursor:pointer !important}
 #review-workspace .btn:hover{border-color:#9aadd7 !important;background:#f9faff !important}
 #review-workspace .btn.primary{background:var(--blue) !important;color:#fff !important;border-color:var(--blue) !important}
-#review-workspace .btn.primary:hover{background:#254bd0 !important}
+#review-workspace .btn.primary:hover{background:var(--ui-brand-hover) !important}
 #review-workspace .btn.subtle{background:var(--blue-soft) !important;color:#2949bf !important;border-color:#dbe3ff !important}
 #review-workspace .btn.small{padding:7px 10px !important;font-size:11px !important}
-#review-workspace .section-nav{position:sticky;top:0;z-index:8;background:rgba(246,248,251,.94);backdrop-filter:blur(12px);padding:14px 0 10px;margin-bottom:18px}
+#review-workspace .section-nav{position:sticky;top:var(--ui-header-h);z-index:8;background:rgba(245,247,251,.92);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);padding:14px 0 10px;margin-bottom:18px}
 #review-workspace .nav-inner{display:flex;gap:5px;overflow-x:auto;background:#fff;border:1px solid var(--line);border-radius:14px;padding:5px;box-shadow:var(--shadow)}
 #review-workspace .nav-btn{white-space:nowrap;border:0 !important;background:transparent !important;padding:10px 13px !important;border-radius:10px !important;color:#536078 !important;font-size:12px !important;font-weight:750 !important;display:inline-flex !important;align-items:center !important;cursor:pointer !important}
 #review-workspace .nav-btn .count{display:inline-grid;place-items:center;min-width:20px;height:20px;border-radius:7px;background:#f0f2f7;margin-left:6px;padding:0 4px;color:#46536a;font-size:10px}
@@ -47,7 +43,7 @@
 #review-workspace .prototype-state strong{color:#40516c;font-weight:800}
 #review-workspace .content{display:grid;grid-template-columns:minmax(0,1fr) 284px;gap:18px;align-items:start}
 #review-workspace .maincol{min-width:0}
-#review-workspace .sidecol{position:sticky;top:82px;display:grid;gap:14px}
+#review-workspace .sidecol{position:sticky;top:140px;display:grid;gap:14px}
 #review-workspace .panel{background:#fff !important;border:1px solid var(--line) !important;border-radius:var(--radius) !important;box-shadow:var(--shadow) !important;margin-bottom:16px;overflow:hidden}
 #review-workspace .panel-head{padding:19px 21px 15px;border-bottom:1px solid #edf0f5;display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
 #review-workspace .panel-head h2{font-size:16px !important;letter-spacing:-.2px;margin:0 0 3px !important;font-weight:800 !important}
@@ -125,7 +121,7 @@
 #review-workspace .score-select{border:1px solid #cfd8e8 !important;border-radius:9px !important;background:#fff !important;padding:9px 10px !important;min-width:112px !important;width:auto !important;height:auto !important;font-weight:800 !important;color:#1c2a43 !important}
 #review-workspace .score-buttons{display:flex;gap:3px;flex-wrap:wrap}
 #review-workspace .score-btn-pill{width:28px;height:28px;border-radius:7px;border:1px solid var(--line);background:#fff;font-weight:800;font-size:11px;display:inline-grid;place-items:center;color:#475569;cursor:pointer;padding:0 !important}
-#review-workspace .score-btn-pill.active{background:#335eea;color:#fff;border-color:#335eea}
+#review-workspace .score-btn-pill.active{background:var(--ui-brand);color:#fff;border-color:var(--ui-brand)}
 #review-workspace .question-review-status{font-size:10px;font-weight:800;padding:4px 7px;border-radius:7px;background:#f1f3f7;color:#647087;white-space:nowrap}
 #review-workspace .question-review-status.scored{background:var(--green-soft);color:var(--green)}
 #review-workspace .rubric{font-size:11px;color:#536078;background:#f6f8fc;border:1px solid #e5eaf3;border-radius:9px;padding:10px 12px;margin:0 16px 12px}
@@ -134,7 +130,7 @@
 #review-workspace .recommendations{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
 #review-workspace .choice{border:1px solid var(--line);border-radius:12px;padding:12px;background:#fff;display:flex;gap:9px;align-items:flex-start;cursor:pointer;transition:all .15s ease}
 #review-workspace .choice:hover{border-color:#b9c9ff;background:#f9faff}
-#review-workspace .choice:has(input:checked), #review-workspace .choice.selected, #review-workspace .choice.active{border-color:#335eea !important;background:#edf2ff !important;box-shadow:0 0 0 1px #335eea}
+#review-workspace .choice:has(input:checked), #review-workspace .choice.selected, #review-workspace .choice.active{border-color:var(--ui-brand) !important;background:#edf2ff !important;box-shadow:0 0 0 1px var(--ui-brand)}
 #review-workspace .choice input{margin:3px 0 0;accent-color:var(--blue);width:auto !important;height:auto !important}
 #review-workspace .choice strong{display:block;font-size:12px;color:var(--text)}
 #review-workspace .choice small{display:block;color:var(--muted);font-size:11px;margin-top:3px}
@@ -179,7 +175,6 @@
 }
 @media(max-width:620px){
   #review-workspace .topbar{padding:0 16px}
-  #review-workspace .page{padding:0 12px;margin-top:14px}
   #review-workspace .candidate{padding:17px}
   #review-workspace .name{font-size:17px}
   #review-workspace .avatar{width:45px;height:45px}
@@ -207,21 +202,7 @@
 </style>
 
 <div id="review-workspace">
-  <!-- Topbar matching user prototype -->
-  <header class="topbar">
-    <div class="brand">
-      <a href="{% url 'staff_exam_list' %}" style="display:flex;align-items:center;gap:11px;color:inherit;text-decoration:none">
-        <div class="logo">A</div> Assessments <span style="font-size:11px;color:#9aa3b4;font-weight:600">/ Candidate review</span>
-      </a>
-    </div>
-    <div class="user">
-      {{ request.user.email|default:request.user.username }} &nbsp; · &nbsp; {{ oa_role }}
-      &nbsp; · &nbsp; <a href="{% url 'logout' %}" style="color:var(--muted);text-decoration:underline" onclick="event.preventDefault(); document.getElementById('topbar-logout-form').submit();">Sign out</a>
-      <form id="topbar-logout-form" method="post" action="{% url 'logout' %}" style="display:none">{% csrf_token %}</form>
-    </div>
-  </header>
-
-  <main class="page">
+  <div class="page">
     <!-- Breadcrumb -->
     <div class="crumb">
       <a href="{% url 'staff_exam_candidates' attempt.exam_id %}" style="color:inherit;text-decoration:none">Candidates</a> 
@@ -302,8 +283,8 @@
 
     <!-- Workspace State Notice -->
     <div class="prototype-state">
-      <span><strong>Reviewer workspace</strong> · Scores and round decisions save directly to the application database.</span>
-      <span id="local-save-status" aria-live="polite">Connected to live database · Auto-calculating</span>
+      <span>Scores and round decisions save as you make them.</span>
+      <span id="local-save-status" aria-live="polite">All changes saved</span>
     </div>
 
     <!-- Content 2-Column Grid -->
@@ -772,7 +753,7 @@
                         <summary>What to look for · optional guide (Expected Answer)</summary>
                         <p><strong>Expected Answer:</strong> {{ q.expected_answer|default:"No reference answer was generated for this question." }}</p>
                         {% if q.follow_up_hint %}
-                          <p style="margin-top:5px"><em>💡 Follow-Up Hint: {{ q.follow_up_hint }}</em></p>
+                          <p style="margin-top:5px"><em>Follow-Up Hint: {{ q.follow_up_hint }}</em></p>
                         {% endif %}
                       </details>
 
@@ -1099,11 +1080,9 @@
       </aside>
     </div>
 
-    <div style="text-align:center;color:#98a1b1;font-size:11px;padding:12px 0 0">Candidate review workspace · Connected to assessment database</div>
-  </main>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite">Saved</div>
 </div>
-
-<div class="toast" id="toast" role="status" aria-live="polite">Updated</div>
 
 <script>
   // Immediate global helper functions to guarantee accessibility across all inline and dynamic callers
@@ -1423,7 +1402,7 @@
         var card = unscored.closest('.interview-q');
         if (card) {
           card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          card.style.outline = '2px solid #335eea';
+          card.style.outline = '2px solid var(--ui-brand)';
           setTimeout(function() { card.style.outline = ''; }, 1800);
         }
       } else {

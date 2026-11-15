@@ -1,0 +1,46 @@
+{% load tz %}
+{# Shared header for a test's Overview, Questions and Candidates pages. Pass active="overview"|"questions"|"candidates" and count (candidates on the list). #}
+<a href="{% url 'staff_exam_list' %}" class="ui-back">
+  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+  All tests
+</a>
+
+<div class="ui-page-head !mb-5">
+  <div>
+    <div class="ui-eyebrow flex-wrap">
+      {% if exam.is_published %}<span class="ui-badge ui-badge-success ui-badge-dot">Published</span>{% else %}<span class="ui-badge ui-badge-dot">Draft</span>{% endif %}
+      <span class="num">{{ exam.opens_at|localtime|date:"j M Y, H:i" }} – {{ exam.closes_at|localtime|date:"j M Y, H:i" }}</span>
+      <span aria-hidden="true">·</span>
+      <span>{{ exam.duration_minutes }} min</span>
+    </div>
+    <h1 class="ui-title">{{ exam.title }}</h1>
+  </div>
+  <div class="ui-page-actions">
+    {% if active == "overview" or active == "candidates" %}
+      {% if "results.export" in oa_perms %}
+      <a href="{% url 'staff_export_csv' exam.pk %}" class="ui-btn" data-no-busy>
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        Export CSV
+      </a>
+      {% endif %}
+    {% endif %}
+    {% if "tests.manage" in oa_perms %}
+    <a href="{% url 'staff_exam_edit' exam.pk %}" class="ui-btn">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+      Edit settings
+    </a>
+    {% endif %}
+    {% if active == "candidates" and "candidates.manage" in oa_perms %}
+    <a href="{% url 'staff_candidates_import' exam.pk %}" class="ui-btn ui-btn-primary">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+      Add candidates
+    </a>
+    {% endif %}
+  </div>
+</div>
+
+<nav class="ui-tabs" aria-label="Test sections">
+  <a href="{% url 'staff_exam_overview' exam.pk %}" class="ui-tab" {% if active == "overview" %}aria-current="page"{% endif %}>Overview</a>
+  <a href="{% url 'staff_exam_detail' exam.pk %}" class="ui-tab" {% if active == "questions" %}aria-current="page"{% endif %}>Setup and questions</a>
+  <a href="{% url 'staff_exam_candidates' exam.pk %}" class="ui-tab" {% if active == "candidates" %}aria-current="page"{% endif %}>Candidates <span class="ui-count">{{ count }}</span></a>
+</nav>

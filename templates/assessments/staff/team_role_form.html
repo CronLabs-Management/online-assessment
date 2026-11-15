@@ -1,44 +1,18 @@
 {% extends "base.html" %}
 {% block title %}{% if role.pk %}Edit Role: {{ role.name }}{% else %}New Role{% endif %} | Staff Console{% endblock %}
-{% block main_class %}mx-auto max-w-7xl w-full px-4 sm:px-8 py-8 sm:py-10 flex-grow flex flex-col{% endblock %}
 
 {% block content %}
-<div class="w-full space-y-8 pb-16">
+<div class="w-full space-y-6 pb-8">
   
-  <!-- Breadcrumb & Top Bar -->
-  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
+  <a href="{% url 'team_overview' %}" class="ui-back">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+    Team
+  </a>
+  <div class="ui-page-head">
     <div>
-      <a href="{% url 'team_overview' %}" class="inline-flex items-center gap-2 text-xs sm:text-sm font-bold text-slate-600 hover:text-slate-900 transition-colors">
-        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M15 19l-7-7 7-7"/>
-        </svg>
-        <span>Back to Team &amp; Roles</span>
-      </a>
-    </div>
-
-    <!-- Header Status Pill -->
-    <div class="flex items-center gap-2">
-      <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-[#EEF1FE] text-[#2447F5] border border-blue-200">
-        <span class="w-1.5 h-1.5 rounded-full bg-[#2447F5]"></span>
-        {% if role.pk %}Role Modification{% else %}Role Provisioning{% endif %}
-      </span>
-      {% if role.pk %}
-        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
-          ID: #{{ role.pk }}
-        </span>
-      {% endif %}
-    </div>
-  </div>
-
-  <!-- Main Heading Banner -->
-  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-    <div>
-      <h1 class="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#0F172A] tracking-tight">
-        {% if role.pk %}Edit Role: {{ role.name }}{% else %}Create New Role{% endif %}
-      </h1>
-      <p class="mt-1.5 text-sm sm:text-base text-slate-600 font-medium max-w-3xl">
-        Configure role identity and granular staff access privileges. Privileges take effect on each assigned member's next page load.
-      </p>
+      <div class="ui-eyebrow flex-wrap">{% if role.pk %}<span class="ui-badge">Editing role</span>{% else %}<span class="ui-badge ui-badge-info">New role</span>{% endif %}</div>
+      <h1 class="ui-title">{% if role.pk %}Edit Role: {{ role.name }}{% else %}New role{% endif %}</h1>
+      <p class="ui-subtitle">Name the role and choose what its members can do. Changes apply on each member's next page load.</p>
     </div>
   </div>
 
@@ -48,7 +22,7 @@
 
     {% if form.non_field_errors %}
       <div class="rounded-2xl border border-rose-300 bg-rose-50 p-4 sm:p-5 text-rose-900 text-sm font-semibold shadow-xs flex items-start gap-3">
-        <span class="text-lg">⚠️</span>
+        <span class="text-lg"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg></span>
         <div>
           <div class="font-extrabold mb-1">Please correct the following errors:</div>
           {{ form.non_field_errors }}
@@ -178,7 +152,7 @@
                       
                       {% if code == "team.manage" or code == "settings.manage" %}
                         <div class="mt-2.5 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-extrabold text-amber-800 bg-amber-50 border border-amber-200">
-                          <span>⚠️</span>
+                          <span><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg></span>
                           <span>Admin Control Privilege</span>
                         </div>
                       {% endif %}
@@ -196,7 +170,7 @@
       <!-- ===================================================================
            RIGHT COLUMN: Sticky Summary, Live Counter & Action Buttons (4 Columns)
            =================================================================== -->
-      <div class="lg:col-span-4 flex flex-col gap-6 lg:sticky lg:top-8">
+      <div class="lg:col-span-4 flex flex-col gap-6 lg:sticky lg:top-[84px]">
 
         <!-- Role Overview Card -->
         <section class="bg-white border-[1.5px] border-slate-200 rounded-3xl p-6 shadow-card flex flex-col gap-5">
@@ -241,7 +215,7 @@
 
         <!-- Security Notice Box -->
         <section class="rounded-3xl border-[1.5px] border-amber-200 bg-amber-50/70 p-5 shadow-card flex items-start gap-3.5">
-          <span class="text-xl shrink-0 mt-0.5">🛡️</span>
+          <span class="text-xl shrink-0 mt-0.5"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg></span>
           <div class="text-xs text-amber-900 leading-relaxed font-medium">
             <strong class="font-extrabold block text-amber-950 mb-0.5">Admin Security Principle</strong>
             Grant <span class="font-mono font-bold text-amber-950">Manage team and roles</span> and <span class="font-mono font-bold text-amber-950">Manage site settings</span> only to administrators. They permit altering permissions, deleting roles, and inviting staff.
