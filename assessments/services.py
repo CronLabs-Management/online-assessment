@@ -18,7 +18,7 @@ import io
 import logging
 import os
 import random
-import sys
+import threading
 import time
 import uuid
 from datetime import timedelta
@@ -466,11 +466,11 @@ def touch(attempt, now):
     # Section timeouts, in order. Each expired section starts the next one at its own deadline.
     # Check if the candidate is on the very first initial pre-flight readiness check
     # (i.e. has never passed readiness check, has no section submitted or expired, and has no answers/drafts).
-    has_prior_readiness = attempt.proctoring_events.filter(kind=ProctoringEvent.Kind.CAMERA_READY).exists()
+    # The cheap checks come first, so once the camera is confirmed this costs no queries on each heartbeat.
     is_initial_preflight = (
         attempt.exam.camera_required
         and attempt.readiness_confirmed_at is None
-        and not has_prior_readiness
+        and not attempt.proctoring_events.filter(kind=ProctoringEvent.Kind.CAMERA_READY).exists()
         and not attempt.sections.filter(status__in=[AttemptSection.Status.SUBMITTED, AttemptSection.Status.EXPIRED]).exists()
         and not attempt.answers.exists()
         and not attempt.coding_drafts.exists()
@@ -880,7 +880,13 @@ def _create_event(attempt, kind, client_at, duration_ms, context, now):
         over_threshold = True
     if kind == ProctoringEvent.Kind.CLIPBOARD:
         pasted = (context or {}).get("chars", 0)
-        over_threshold = action_is_paste(context) and isinstance(pasted, (int, float)) and pasted >= CLIPBOARD_FLAG_CHARS
+        over_threshold = (
+            action_is_paste(context)
+            and isinstance(pasted, (int, float))
+            and pasted >= CLIPBOARD_FLAG_CHARS
+            # The problem's own public sample, copied with the page's Copy buttons; still recorded.
+            and not (context or {}).get("matches_sample")
+        )
     if kind == ProctoringEvent.Kind.FACE_MISSING:
         over_threshold = duration_ms >= policy["missing_face_seconds"] * 1000
     if kind in (ProctoringEvent.Kind.MULTIPLE_SCREENS, ProctoringEvent.Kind.VIRTUAL_CAMERA):
@@ -944,9 +950,9 @@ def store_snapshot(attempt, now, uploaded, event_id=None, client_at=None):
         data = clean_buf.getvalue()
     except AttemptError:
         raise
-    except Exception:
-        # Fallback to raw verified bytes if synthetic or unidentifiable by Pillow in test harness
-        pass
+    except Exception as exc:
+        # Anything Pillow cannot decode (malformed, polyglot, decompression bomb) is refused, never stored raw.
+        raise AttemptError("Corrupted or malformed snapshot image.", "bad_image") from exc
 
     relative = f"{attempt.pk}/{uuid.uuid4().hex}.{extension}"
     full = _snapshot_root() / relative
@@ -1214,17 +1220,23 @@ def grade_queued(limit=100, worker_id="cron"):
     return graded
 
 
+_grading_slots = threading.BoundedSemaphore(max(1, int(os.environ.get("GRADING_THREADS", "4"))))
+
+
 def dispatch_grading(submission_id):
     """
-    Asynchronously trigger grading for a queued submission.
-    Runs in a background thread or queue so the candidate's web request returns immediately.
-    """
-    import sys
-    if "test" in sys.argv:
-        # Avoid thread lock collisions on SQLite in unit test runner
-        return
+    Grade a queued submission in a background thread so the candidate's request returns at once.
 
-    import threading
+    Each worker process runs at most GRADING_THREADS (default 4) of these at a time. When all slots are
+    busy, the submission stays queued and the every-minute ``grade_queued`` cron grades it, so a burst
+    of 1,000 final submissions never starts 1,000 threads on the web server.
+    """
+    if getattr(settings, "TESTING", False):
+        # Tests grade explicitly; a thread would collide with SQLite's single writer.
+        return
+    if not _grading_slots.acquire(blocking=False):
+        logger.info("All grading slots busy; submission %s left for the grade_queued job.", submission_id)
+        return
 
     def _worker():
         from django.db import connection
@@ -1236,10 +1248,14 @@ def dispatch_grading(submission_id):
         except Exception:
             logger.exception("Async background grading failed for submission %s", submission_id)
         finally:
+            _grading_slots.release()
             connection.close()
 
-    thread = threading.Thread(target=_worker, daemon=True)
-    thread.start()
+    try:
+        threading.Thread(target=_worker, daemon=True).start()
+    except RuntimeError:
+        _grading_slots.release()
+        logger.warning("Could not start a grading thread; submission %s left for the grade_queued job.", submission_id)
 
 
 def grade_pending_queued_submissions():
@@ -1277,10 +1293,29 @@ def coding_score(attempt):
     return total
 
 
-def section_scores(attempt):
-    """Marks per section, in exam order: [{"section_id", "title", "kind", "score", "max"}, ...]."""
+def _related(attempt, name, fallback):
+    """``attempt.<name>.all()`` when it was prefetched (bulk exports), otherwise the given query."""
+    if name in getattr(attempt, "_prefetched_objects_cache", {}):
+        return getattr(attempt, name).all()
+    return fallback()
+
+
+SECTION_SCORE_PREFETCH = (
+    "answers__option", "mcq_items__question", "mcq_items__section",
+    "coding_items__problem", "coding_items__section", "coding_submissions",
+)
+
+
+def section_scores(attempt, sections=None):
+    """Marks per section, in exam order: [{"section_id", "title", "kind", "score", "max"}, ...].
+
+    For many attempts at once, prefetch SECTION_SCORE_PREFETCH and pass the exam's ``sections`` so
+    this runs without queries per attempt.
+    """
     rows = {}
-    for sec in attempt.exam.sections.order_by("order", "id"):
+    if sections is None:
+        sections = attempt.exam.sections.order_by("order", "id")
+    for sec in sections:
         rows[sec.pk] = {"section_id": sec.pk, "title": sec.title, "kind": sec.kind, "score": 0.0, "max": 0.0}
 
     def row_for(item):
@@ -1289,19 +1324,26 @@ def section_scores(attempt):
             "score": 0.0, "max": 0.0,
         })
 
-    answers = {a.question_id: a.option for a in attempt.answers.select_related("option")}
-    for item in attempt.mcq_items.select_related("question", "section"):
+    answers = {
+        a.question_id: a.option
+        for a in _related(attempt, "answers", lambda: attempt.answers.select_related("option"))
+    }
+    for item in _related(attempt, "mcq_items", lambda: attempt.mcq_items.select_related("question", "section")):
         row = row_for(item)
         row["max"] += float(item.question.marks)
         option = answers.get(item.question_id)
         if option is not None and option.is_correct:
             row["score"] += float(item.question.marks)
     finals = {}
-    for sub in attempt.coding_submissions.filter(
+    submissions = _related(attempt, "coding_submissions", lambda: attempt.coding_submissions.filter(
         status=CodingSubmission.Status.COMPLETED, is_final=True
-    ).order_by("version"):
+    ))
+    for sub in sorted(
+        (s for s in submissions if s.status == CodingSubmission.Status.COMPLETED and s.is_final),
+        key=lambda s: s.version,
+    ):
         finals[sub.problem_id] = sub  # Latest version wins.
-    for item in attempt.coding_items.select_related("problem", "section"):
+    for item in _related(attempt, "coding_items", lambda: attempt.coding_items.select_related("problem", "section")):
         row = row_for(item)
         row["max"] += float(item.problem.marks)
         if item.problem_id in finals:
@@ -1476,9 +1518,10 @@ def expire_due_attempts(now=None, force=False):
     Run from cron or view hooks. Returns the number of attempts processed.
     Throttled via cache lock in web requests to protect against concurrent dashboard stampedes.
     """
-    if not force and "test" not in sys.argv:
-        # 30-second distributed cache throttle across web requests
-        if not cache.add("expire_due_attempts_lock", "1", timeout=30):
+    throttle = getattr(settings, "EXPIRE_SWEEP_THROTTLE_SECONDS", 30)
+    if not force and throttle:
+        # Many staff pages call this; one sweep per throttle window across all workers is enough.
+        if not cache.add("expire_due_attempts_lock", "1", timeout=throttle):
             return 0
 
     now = now or timezone.now()

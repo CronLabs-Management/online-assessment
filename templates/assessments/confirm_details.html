@@ -198,7 +198,7 @@
             <span class="text-[#2447F5] hover:underline">Click to browse</span> or drag and drop your resume here
           </div>
           <p class="text-xs text-slate-500 mt-1 font-medium">
-            Accepted file formats: <strong>PDF (.pdf)</strong>, <strong>Word (.docx, .doc)</strong> up to 10 MB
+            Accepted file formats: <strong>PDF (.pdf)</strong>, <strong>Word (.docx)</strong> up to 10 MB
           </p>
 
           <!-- Selected File Preview Badge -->
@@ -213,9 +213,9 @@
         {% endif %}
       </div>
 
-      <!-- Assessment guidelines & conduct agreement -->
+      <!-- Monitoring notice: candidates agree before any camera, location or network check -->
       <section class="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-5 space-y-3" aria-labelledby="monitoring-notice-title">
-        <h2 id="monitoring-notice-title" class="text-sm font-bold text-slate-900">{{ notice.monitoring_notice_title|default:"Assessment Guidelines &amp; Conduct" }}</h2>
+        <h2 id="monitoring-notice-title" class="text-sm font-bold text-slate-900">{{ notice.monitoring_notice_title|default:"Before you begin: how this test is monitored" }}</h2>
         <ul class="list-disc pl-6 ml-1 space-y-1.5 text-sm text-slate-700">
           {% for line in notice.monitoring_notice_lines %}<li>{{ line }}</li>{% endfor %}
         </ul>
@@ -236,7 +236,7 @@
           </svg>
         </button>
         <p class="text-center text-xs text-slate-500 font-medium">
-          Next step: Hardware and system readiness check.
+          Next step: Live webcam, geolocation, and network latency check.
         </p>
       </div>
 

@@ -7,6 +7,7 @@ Python app environment variables panel or in a local .env loader of your choice.
 """
 
 import os
+import sys
 from pathlib import Path
 
 try:
@@ -236,6 +237,15 @@ else:
     }
 
 CSP_REPORT_ONLY = env_bool("DJANGO_CSP_REPORT_ONLY", default=False)
+
+# Test runs share one process-wide cache across tests while the database is rolled back after each,
+# so caching and throttles are off there. Tests that cover them turn them on with override_settings.
+TESTING = len(sys.argv) > 1 and sys.argv[1] == "test"
+# Site settings: shared-cache lifetime, and how long each worker keeps its own copy.
+SITE_SETTINGS_CACHE_SECONDS = 0 if TESTING else 600
+SITE_SETTINGS_LOCAL_SECONDS = 0 if TESTING else 10
+# The overdue-attempt sweep called from busy staff pages runs at most this often (cron is never throttled).
+EXPIRE_SWEEP_THROTTLE_SECONDS = 0 if TESTING else 30
 
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 2000
 

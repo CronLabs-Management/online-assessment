@@ -79,7 +79,7 @@ class ExamForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        for name, field in self.fields.items():
+        for field in self.fields.values():
             if isinstance(field.widget, forms.CheckboxInput):
                 field.widget.attrs["class"] = "h-4 w-4 accent-[#2447F5] rounded cursor-pointer shrink-0 mt-0.5"
             elif isinstance(field.widget, forms.Textarea):
@@ -503,29 +503,8 @@ class EmailLoginForm(AuthenticationForm):
                     self.request, username=username, password=stripped_pw
                 )
 
-            # 3. If standard check failed, check if the password matches any Application.plain_password
-            # assigned to this candidate across their enrolled exams.
-            if self.user_cache is None:
-                candidate_user = (
-                    User.objects.filter(username__iexact=username).first()
-                    or User.objects.filter(email__iexact=username).first()
-                )
-                if candidate_user and candidate_user.is_active:
-                    for test_pw in (stripped_pw, password):
-                        if not test_pw:
-                            continue
-                        matching_app = candidate_user.applications.filter(
-                            plain_password=test_pw
-                        ).first()
-                        if matching_app:
-                            candidate_user.set_password(test_pw)
-                            candidate_user.save(update_fields=["password"])
-                            Application.objects.filter(candidate=candidate_user).update(plain_password=test_pw)
-                            self.user_cache = authenticate(
-                                self.request, username=username, password=test_pw
-                            ) or candidate_user
-                            break
-
+            # Only Django's password hashes sign people in. The plain-text copy on Application is for
+            # admins to read; staff actions that change a password update both, so they never drift.
             if self.user_cache is None:
                 raise self.get_invalid_login_error()
             else:
@@ -691,7 +670,10 @@ def validate_resume_file(uploaded):
     if not uploaded:
         return
     ext = os.path.splitext(uploaded.name)[1].lower()
-    allowed = [".pdf", ".doc", ".docx"]
+    if ext == ".doc":
+        # The resume reader (python-docx) only understands .docx, so a .doc would never produce interview questions.
+        raise ValidationError("Old Word files (.doc) can't be read. Save the resume as PDF or .docx and upload it again.")
+    allowed = [".pdf", ".docx"]
     if ext not in allowed:
         raise ValidationError(f"Resume must be a PDF or Word document ({', '.join(allowed)}).")
     if uploaded.size > 10 * 1024 * 1024:
@@ -708,9 +690,30 @@ def validate_resume_file(uploaded):
     elif ext == ".docx":
         if not header.startswith(b"PK\x03\x04"):
             raise ValidationError("Invalid Word document: file signature does not match DOCX format.")
-    elif ext == ".doc":
-        if not header.startswith(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"):
-            raise ValidationError("Invalid Word document: file signature does not match legacy DOC format.")
+        _check_docx_size(uploaded)
+
+
+MAX_DOCX_UNCOMPRESSED = 60 * 1024 * 1024
+
+
+def _check_docx_size(uploaded):
+    """Refuse .docx files that expand to far more than a resume ever needs (zip bombs)."""
+    import zipfile
+
+    pos = uploaded.tell() if hasattr(uploaded, "tell") else 0
+    try:
+        with zipfile.ZipFile(uploaded) as archive:
+            total = sum(info.file_size for info in archive.infolist())
+            names = set(archive.namelist())
+    except zipfile.BadZipFile as exc:
+        raise ValidationError("Invalid Word document: the file is damaged.") from exc
+    finally:
+        if hasattr(uploaded, "seek"):
+            uploaded.seek(pos)
+    if total > MAX_DOCX_UNCOMPRESSED:
+        raise ValidationError("This Word document is too large to process. Save it as PDF and upload that instead.")
+    if "word/document.xml" not in names:
+        raise ValidationError("Invalid Word document: file signature does not match DOCX format.")
 
 
 class CandidateEditForm(forms.ModelForm):
@@ -723,7 +726,7 @@ class CandidateEditForm(forms.ModelForm):
         label="Candidate Resume (PDF/Word)",
         required=False,
         validators=[validate_resume_file],
-        widget=forms.FileInput(attrs={"accept": ".pdf,.doc,.docx", "class": "w-full text-xs"}),
+        widget=forms.FileInput(attrs={"accept": ".pdf,.docx", "class": "w-full text-xs"}),
     )
 
     class Meta:
@@ -786,16 +789,16 @@ class ConfirmDetailsForm(forms.ModelForm):
         required=False,
         validators=[validate_resume_file],
         widget=forms.FileInput(attrs={
-            "accept": ".pdf,.doc,.docx",
+            "accept": ".pdf,.docx",
             "id": "id_resume",
             "class": "hidden",
         }),
         help_text="Upload your resume in PDF or Word format (up to 10 MB).",
     )
     monitoring_consent = forms.BooleanField(
-        label="I have reviewed the assessment guidelines and I agree to proceed.",
+        label="I have read how this test is monitored and I agree.",
         required=True,
-        error_messages={"required": "You must agree to the assessment guidelines to take this test."},
+        error_messages={"required": "You need to agree to the monitoring notice to take this test."},
         widget=forms.CheckboxInput(attrs={"class": "mt-0.5 h-4 w-4 accent-[#2447F5] cursor-pointer"}),
     )
 

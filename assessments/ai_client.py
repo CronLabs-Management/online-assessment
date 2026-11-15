@@ -18,6 +18,7 @@ Keys from the GEMINI_API_KEY / GOOGLE_API_KEY environment variables are used onl
 import logging
 import os
 import re
+import time
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
@@ -37,6 +38,9 @@ QUOTA_REST = timedelta(hours=1)
 BAD_KEY_REST = timedelta(days=1)
 SERVER_ERROR_REST = timedelta(seconds=20)
 MAX_KEYS_PER_REQUEST = 10
+# Total time one generate_text call may spend across all keys, so a page never waits for 10 x 45 s.
+DEFAULT_BUDGET_SECONDS = 60
+MIN_ATTEMPT_SECONDS = 3
 
 
 class AIUnavailable(Exception):
@@ -128,14 +132,23 @@ def classify(response):
     return None, message
 
 
-def generate_text(prompt, *, json_output=True, temperature=0.4, session=None, keys=None):
-    """Send ``prompt`` and return (text, key label). Tries each key in turn; raises AIUnavailable."""
+def generate_text(prompt, *, json_output=True, temperature=0.4, session=None, keys=None, budget_seconds=None):
+    """Send ``prompt`` and return (text, key label). Tries each key in turn; raises AIUnavailable.
+
+    ``budget_seconds`` caps the total time across all keys (default DEFAULT_BUDGET_SECONDS).
+    """
     http = session or requests
     keys = keys if keys is not None else keys_in_order()
     if not keys:
         raise AIUnavailable("No AI API key is configured. Add one under Settings → AI keys.")
+    budget = DEFAULT_BUDGET_SECONDS if budget_seconds is None else budget_seconds
+    give_up_at = time.monotonic() + budget
     failures = []
     for key in keys:
+        remaining = give_up_at - time.monotonic()
+        if remaining < MIN_ATTEMPT_SECONDS:
+            failures.append("time budget used up")
+            break
         model = re.sub(r"[^a-zA-Z0-9._-]", "", (key.model or default_model())) or DEFAULT_MODEL
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
         payload = {
@@ -150,7 +163,7 @@ def generate_text(prompt, *, json_output=True, temperature=0.4, session=None, ke
         try:
             response = http.post(
                 url, headers={"Content-Type": "application/json", "x-goog-api-key": key.api_key},
-                json=payload, timeout=REQUEST_TIMEOUT,
+                json=payload, timeout=min(REQUEST_TIMEOUT, remaining),
             )
         except requests.RequestException as exc:
             _mark(key, ok=False, rest=SERVER_ERROR_REST, error=f"Network error: {exc.__class__.__name__}")

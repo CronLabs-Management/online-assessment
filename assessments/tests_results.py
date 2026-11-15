@@ -85,10 +85,23 @@ class SectionScoreTests(ResultsFixture):
 
 
 class BulkActionTests(ResultsFixture):
-    def _bulk(self, action, round_number=1, attempts=None):
+    def _bulk(self, action, round_number=1, attempts=None, overwrite=False):
         ids = [a.application_id for a in (attempts or self.attempts)]
-        return self.client.post(reverse("staff_candidates_bulk", args=[self.exam.pk]),
-                                {"action": action, "round": round_number, "selected_ids": ids})
+        data = {"action": action, "round": round_number, "selected_ids": ids}
+        if overwrite:
+            data["overwrite"] = "1"
+        return self.client.post(reverse("staff_candidates_bulk", args=[self.exam.pk]), data)
+
+    def test_existing_decision_is_kept_unless_replace_is_ticked(self):
+        InterviewReview.objects.create(attempt=self.attempts[0], round_number=1, interview_score=9,
+                                       decision=InterviewReview.Decision.RECOMMENDED, notes="Strong")
+        self._bulk("reject", 1)
+        kept = InterviewReview.objects.get(attempt=self.attempts[0], round_number=1)
+        self.assertEqual(kept.decision, InterviewReview.Decision.RECOMMENDED)
+        self.assertEqual(kept.notes, "Strong")
+        # The candidate without a review still got the bulk decision.
+        other = InterviewReview.objects.get(attempt=self.attempts[1], round_number=1)
+        self.assertEqual(other.decision, InterviewReview.Decision.NOT_RECOMMENDED)
 
     def test_advance_selected_candidates_to_next_round(self):
         response = self._bulk("advance", 1)
@@ -101,7 +114,7 @@ class BulkActionTests(ResultsFixture):
     def test_reject_keeps_existing_scores(self):
         InterviewReview.objects.create(attempt=self.attempts[0], round_number=1, interview_score=6,
                                        questions_data=[{"question": "Q", "marks_awarded": 6}])
-        self._bulk("reject", 1, [self.attempts[0]])
+        self._bulk("reject", 1, [self.attempts[0]], overwrite=True)
         review = InterviewReview.objects.get(attempt=self.attempts[0], round_number=1)
         self.assertEqual(review.decision, InterviewReview.Decision.NOT_RECOMMENDED)
         self.assertEqual(float(review.interview_score), 6)

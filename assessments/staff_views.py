@@ -4,10 +4,9 @@ import logging
 import mimetypes
 import os
 
-logger = logging.getLogger(__name__)
-
 from django.conf import settings
 from django.contrib import messages
+from django.core.cache import cache
 from django.core.mail import get_connection
 from django.core.paginator import Paginator
 from django.db import transaction
@@ -28,6 +27,10 @@ from .permissions import any_permission_required, has_perm, is_team_member, perm
 from .review import attempt_csv_rows, build_attempt_review, csv_safe, export_columns
 from .services import AttemptError, allow_resume, expire_due_attempts, snapshot_file_path
 from .views import User, audit
+
+logger = logging.getLogger(__name__)
+# Questions generated while the review page loads must not hold the page for long.
+AUTO_GENERATE_BUDGET_SECONDS = 20
 
 
 @permission_required("tests.view")
@@ -373,6 +376,12 @@ def _send_to(application, actor, connection=None):
     password = application.plain_password
     if not password:
         password = application.ensure_password()
+    user = application.candidate
+    if not user.check_password(password):
+        # Sign-in only checks the password hash, so the password we are about to email must be the one
+        # that works. This covers accounts whose hash predates the visible copy.
+        user.set_password(password)
+        user.save(update_fields=["password"])
     if not notifications.send_login_details(application, password, actor=actor, connection=connection):
         return False
     application.credentials_sent_at = timezone.now()
@@ -487,29 +496,51 @@ def staff_candidates_bulk(request, pk):
         round_number = 1
     round_number = max(1, min(round_number, total_rounds))
     decision = BULK_DECISIONS[action]
+    overwrite = request.POST.get("overwrite") == "1"
     signer = request.user.get_full_name() or request.user.username
-    done = 0
+    changed_ids = []
+    kept = 0
     with transaction.atomic():
+        existing = {
+            r.attempt_id: r
+            for r in InterviewReview.objects.select_for_update().filter(
+                attempt__in=attempts, round_number=round_number
+            )
+        }
         for attempt in attempts:
             if attempt.candidate_id == request.user.pk or attempt.status not in (
                 Attempt.Status.SUBMITTED, Attempt.Status.EXPIRED
             ):
                 skipped += 1
                 continue
-            review, created = InterviewReview.objects.get_or_create(
-                attempt=attempt, round_number=round_number,
-                defaults={"reviewer": request.user, "interviewer_name": signer, "candidate_summary": "Bulk decision"},
-            )
+            review = existing.get(attempt.pk)
+            if review is not None and not overwrite:
+                # An interviewer already recorded this round; a bulk click must not silently replace it.
+                kept += 1
+                continue
+            if review is None:
+                review, _ = InterviewReview.objects.get_or_create(
+                    attempt=attempt, round_number=round_number,
+                    defaults={"reviewer": request.user, "interviewer_name": signer, "candidate_summary": "Bulk decision"},
+                )
             review.decision = decision
             review.selected_for_next_round = decision == InterviewReview.Decision.RECOMMENDED
             if not review.interviewer_name:
                 review.interviewer_name = signer
             review.save()
-            done += 1
+            changed_ids.append(attempt.pk)
     label = dict(InterviewReview.Decision.choices)[decision]
-    audit(request.user, "bulk.decision", f"exam:{exam.pk}", f"round={round_number}, decision={decision}, count={done}")
-    note = f" {skipped} skipped (test not finished or no attempt)." if skipped else ""
-    messages.success(request, f"Round {round_number}: {label} for {done} candidate(s).{note}")
+    audit(
+        request.user, "bulk.decision", f"exam:{exam.pk}",
+        f"round={round_number}, decision={decision}, count={len(changed_ids)}, overwrite={overwrite}, "
+        f"attempts={','.join(map(str, changed_ids))}"[:2000],
+    )
+    notes = []
+    if kept:
+        notes.append(f"{kept} already had a decision for this round and were left as they are (tick Replace existing to change them).")
+    if skipped:
+        notes.append(f"{skipped} skipped (test not finished or no attempt).")
+    messages.success(request, " ".join([f"Round {round_number}: {label} for {len(changed_ids)} candidate(s)."] + notes))
     return back
 
 
@@ -521,7 +552,8 @@ def staff_send_credentials(request, pk):
     mode = request.POST.get("mode", "unsent")
     selected_ids = request.POST.getlist("selected_ids")
     if not selected_ids and request.POST.get("ids"):
-        selected_ids = [i.strip() for i in request.POST.get("ids").split(",") if i.strip()]
+        selected_ids = request.POST.get("ids").split(",")
+    selected_ids = [i.strip() for i in selected_ids if i.strip().isdigit()]
 
     queryset = exam.applications.select_related("candidate").filter(status=Application.Status.APPROVED)
     if selected_ids:
@@ -694,7 +726,8 @@ def staff_attempt_review(request, pk):
         lock_key = f"ai_gen_lock:{application.pk}:{current_round}"
         if cache.add(lock_key, "1", timeout=60):
             try:
-                generate_round_questions(application, current_round, total_rounds)
+                # Generated while the page loads, so keep it short; the Generate button allows longer.
+                generate_round_questions(application, current_round, total_rounds, budget_seconds=AUTO_GENERATE_BUDGET_SECONDS)
                 application.refresh_from_db()
             except Exception as exc:
                 logger.warning("Auto generation of questions failed: %s", exc)
@@ -868,8 +901,8 @@ def staff_attempt_decision(request, pk):
     if form.is_valid():
         round_number = form.cleaned_data.get("round_number") or 1
         max_configured_rounds = max(attempt.exam.interview_rounds_count, 1)
-        if round_number < 1 or round_number > max_configured_rounds + 2:
-            err_msg = f"Round number {round_number} is out of allowed range (1 to {max_configured_rounds + 2})."
+        if round_number < 1 or round_number > max_configured_rounds:
+            err_msg = f"Round number {round_number} is out of allowed range (1 to {max_configured_rounds})."
             if is_ajax:
                 return JsonResponse({"success": False, "error": err_msg}, status=400)
             messages.error(request, err_msg)
@@ -1013,11 +1046,16 @@ def staff_snapshot_review(request, pk):
 
 @permission_required("results.export")
 def staff_export_csv(request, pk):
-    expire_due_attempts()
+    # An export must reflect attempts that ended moments ago, so the sweep is never skipped here.
+    expire_due_attempts(force=True)
     exam = get_object_or_404(Exam, pk=pk)
-    selected_ids = request.GET.getlist("selected_ids") or request.POST.getlist("selected_ids")
-    if not selected_ids and request.GET.get("ids"):
-        selected_ids = [i.strip() for i in request.GET.get("ids").split(",") if i.strip()]
+    raw_ids = request.GET.getlist("selected_ids") or request.POST.getlist("selected_ids")
+    if not raw_ids and request.GET.get("ids"):
+        raw_ids = request.GET.get("ids").split(",")
+    selected_ids = [i.strip() for i in raw_ids if i.strip().isdigit()][:5000]
+    if raw_ids and not selected_ids:
+        messages.error(request, "None of the selected candidates could be found.")
+        return redirect("staff_exam_candidates", pk=exam.pk)
 
     response = HttpResponse(content_type="text/csv")
     exam_slug = slugify(exam.title) or f"exam-{exam.pk}"

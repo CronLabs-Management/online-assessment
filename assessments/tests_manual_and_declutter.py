@@ -1,10 +1,11 @@
 from datetime import timedelta
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import Application, Exam, ExamSection, SiteSettings, StaffRole
+from .models import Application, Exam, ExamSection, StaffRole
 
 User = get_user_model()
 
@@ -221,7 +222,7 @@ class PlatformManualAndUIDeclutterTests(TestCase):
         self.assertIn('window.oaAlert', content)
         
         # Verify team delete role uses data-confirm without native confirm()
-        role = StaffRole.objects.create(name="Temporary Role", description="Temporary")
+        StaffRole.objects.create(name="Temporary Role", description="Temporary")
         response = self.client.get(reverse("team_overview"), HTTP_HOST="127.0.0.1")
         self.assertEqual(response.status_code, 200)
         role_content = response.content.decode("utf-8")

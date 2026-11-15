@@ -3,11 +3,19 @@
 import re
 from collections import defaultdict
 
-from django.db.models import Count, Sum
+from django.db.models import Count, Prefetch, Sum
 from django.utils import timezone
 
 from .models import Application, Attempt, CodingSubmission, ProctoringEvent
-from .services import coding_score, max_score, mcq_score, question_image_url, section_scores, touch
+from .services import (
+    SECTION_SCORE_PREFETCH,
+    coding_score,
+    max_score,
+    mcq_score,
+    question_image_url,
+    section_scores,
+    touch,
+)
 
 
 def _event_label(event):
@@ -727,13 +735,22 @@ def csv_safe(value):
 
 def attempt_csv_rows(exam, application_ids=None):
     """One row per applicant, including those who never started."""
-    attempts = {
-        a.candidate_id: a
-        for a in Attempt.objects.filter(exam=exam).select_related("exam").prefetch_related("reviews")
-    }
     apps_qs = Application.objects.filter(exam=exam).select_related("candidate")
+    attempts_qs = Attempt.objects.filter(exam=exam)
     if application_ids:
         apps_qs = apps_qs.filter(pk__in=application_ids)
+        attempts_qs = attempts_qs.filter(application_id__in=application_ids)
+    # Everything the rows need in a fixed number of queries, however many candidates there are.
+    prefetch = [p for p in SECTION_SCORE_PREFETCH if p != "coding_submissions"]
+    attempts_qs = attempts_qs.select_related("exam").prefetch_related(
+        "reviews", *prefetch,
+        Prefetch(
+            "coding_submissions",
+            queryset=CodingSubmission.objects.filter(status=CodingSubmission.Status.COMPLETED, is_final=True),
+        ),
+    )
+    attempts = {a.candidate_id: a for a in attempts_qs}
+    sections = list(exam.sections.order_by("order", "id"))
     for application in apps_qs.order_by("full_name"):
         attempt = attempts.get(application.candidate_id)
         mcq_val = float(attempt.mcq_score) if attempt and attempt.mcq_score is not None else ""
@@ -756,7 +773,7 @@ def attempt_csv_rows(exam, application_ids=None):
             "flagged_for_review": "yes" if attempt and attempt.flagged_for_review else "no",
         }
         if attempt:
-            for sec in section_scores(attempt):
+            for sec in section_scores(attempt, sections=sections):
                 row[f"section:{sec['section_id']}"] = sec["score"]
             for review in attempt.reviews.all():
                 row.setdefault(f"round:{review.round_number}", float(review.interview_score) if review.interview_score is not None else "")

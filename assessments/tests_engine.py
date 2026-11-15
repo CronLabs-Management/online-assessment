@@ -34,6 +34,17 @@ import tempfile
 TMP_MEDIA = tempfile.mkdtemp(prefix="assessment-test-media-")
 
 
+
+def real_jpeg(width=64, height=48):
+    """A small, valid JPEG. Snapshots are decoded and re-encoded, so test images must be real."""
+    import io
+
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.new("RGB", (width, height), color=(90, 120, 160)).save(buf, format="JPEG")
+    return buf.getvalue()
+
 class FakeRunner:
     """Stands in for the sandbox. `behaviour` maps source text to the stdout it returns."""
 
@@ -362,7 +373,7 @@ class ProctoringTests(EngineFixture):
 
     def test_snapshot_accepts_jpeg_and_stores_private_hash(self):
         self.grant_consent()
-        data = b"\xff\xd8\xff" + b"0" * 200
+        data = real_jpeg()
         upload = SimpleUploadedFile("x.jpg", data, content_type="image/jpeg")
         snapshot = perform(self.candidate, self.attempt.pk, lambda a, now: services.store_snapshot(a, now, upload))
         self.assertEqual(snapshot.content_type, "image/jpeg")

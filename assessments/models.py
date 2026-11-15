@@ -444,7 +444,8 @@ class Attempt(models.Model):
     )
     exam = models.ForeignKey(Exam, on_delete=models.PROTECT, related_name="attempts")
     application = models.ForeignKey(Application, on_delete=models.PROTECT, related_name="attempts")
-    status = models.CharField(max_length=12, choices=Status.choices, default=Status.IN_PROGRESS, db_index=True)
+    # No single-column index: the (status, deadline_at) and (exam, status) indexes cover status lookups.
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.IN_PROGRESS)
     policy_snapshot = models.JSONField(default=dict)
     # SHA-256 of the browser session the test is bound to. Empty until the first action.
     session_fingerprint = models.CharField(max_length=64, blank=True, default="")
@@ -917,6 +918,9 @@ class InterviewReview(models.Model):
 
     class Meta:
         ordering = ["round_number", "-created_at"]
+        constraints = [
+            models.UniqueConstraint(fields=["attempt", "round_number"], name="one_review_per_round"),
+        ]
 
     def __str__(self):
         name = self.interviewer_name or (self.reviewer.username if self.reviewer else "Staff")
@@ -956,11 +960,15 @@ DEFAULT_LOGIN_EMAIL_INSTRUCTIONS = (
     "If you lose this email, ask the test administrator to resend your login details."
 )
 DEFAULT_MONITORING_NOTICE = (
-    "Browser and screen checks verify that your system is ready for the assessment.\n"
-    "Network connection check ensures uninterrupted saving of your answers and code.\n"
-    "Fullscreen view is maintained throughout the assessment to ensure focus.\n"
-    "Your answers, code submissions, and time spent are securely submitted upon completion.\n"
-    "All assessment data is confidential and evaluated solely by the hiring team."
+    "Your webcam video is analysed during the test, and still images are saved when something unusual happens.\n"
+    "Your approximate location is recorded when you start.\n"
+    "Your network details are recorded: IP address, connection type and speed.\n"
+    "Your browser and device details are recorded, such as screen size and operating system.\n"
+    "If the test uses your microphone, only sound levels are checked for talking; audio is never recorded.\n"
+    "Leaving full screen, switching tabs or windows, extra screens, and copy and paste are recorded.\n"
+    "Your answers, code, and the time you spend on each question are recorded.\n"
+    "This information is used only to review this assessment, is visible only to the hiring team, "
+    "and evidence images are deleted after the retention period."
 )
 
 
@@ -1011,7 +1019,7 @@ class SiteSettings(models.Model):
     )
     monitoring_notice_title = models.CharField(
         max_length=200,
-        default="Assessment Guidelines & Conduct",
+        default="Before you begin: how this test is monitored",
         blank=True,
     )
     monitoring_notice = models.TextField(
@@ -1040,24 +1048,43 @@ class SiteSettings(models.Model):
         return "Site settings"
 
     CACHE_KEY = "site_settings_singleton"
+    # Process-local copy: (expires_at monotonic, instance). Several calls per request then cost nothing,
+    # and other workers see a change within SITE_SETTINGS_LOCAL_SECONDS.
+    _local = None
 
     @classmethod
     def load(cls):
-        import sys
-        if "test" in sys.argv:
-            obj, _ = cls.objects.get_or_create(pk=1)
-            return obj
+        """The single settings row. Cached per process and in the shared cache; always a fresh copy."""
+        import copy
+        import time
+
+        from django.conf import settings as dj_settings
         from django.core.cache import cache
-        obj = cache.get(cls.CACHE_KEY)
+
+        local_ttl = getattr(dj_settings, "SITE_SETTINGS_LOCAL_SECONDS", 10)
+        shared_ttl = getattr(dj_settings, "SITE_SETTINGS_CACHE_SECONDS", 600)
+        now = time.monotonic()
+        if local_ttl and cls._local is not None and cls._local[0] > now:
+            return copy.copy(cls._local[1])
+        obj = cache.get(cls.CACHE_KEY) if shared_ttl else None
         if obj is None:
             obj, _ = cls.objects.get_or_create(pk=1)
-            cache.set(cls.CACHE_KEY, obj, 600)
+            if shared_ttl:
+                cache.set(cls.CACHE_KEY, obj, shared_ttl)
+        if local_ttl:
+            cls._local = (now + local_ttl, copy.copy(obj))
         return obj
 
-    def save(self, *args, **kwargs):
+    @classmethod
+    def clear_cache(cls):
         from django.core.cache import cache
+
+        cls._local = None
+        cache.delete(cls.CACHE_KEY)
+
+    def save(self, *args, **kwargs):
         res = super().save(*args, **kwargs)
-        cache.delete(self.CACHE_KEY)
+        type(self).clear_cache()
         return res
 
     def monitoring_notice_lines(self):

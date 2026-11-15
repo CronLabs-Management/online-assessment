@@ -78,7 +78,7 @@ def extract_resume_text(application: Application) -> str:
         if text:
             return text
         try:
-            import pymupdf
+            import pymupdf  # Optional: only used for PDFs pypdf cannot read. Not installed by default.
             doc = pymupdf.open(stream=raw_bytes, filetype="pdf")
             pages = []
             for page in doc:
@@ -86,9 +86,13 @@ def extract_resume_text(application: Application) -> str:
                 if page_text:
                     pages.append(page_text)
             text = "\n".join(pages).strip()
+        except ImportError:
+            pass
         except Exception as exc:
             logger.warning("PyMuPDF text extraction failed for app %s: %s", application.pk, exc)
-    elif ext in (".docx", ".doc"):
+    elif ext == ".doc":
+        logger.info("Resume for application %s is a legacy .doc file, which cannot be read.", application.pk)
+    elif ext == ".docx":
         try:
             import docx
             doc = docx.Document(io.BytesIO(raw_bytes))
@@ -409,7 +413,7 @@ Return JSON only:
 
 
 def generate_round_questions(application, round_number=1, total_rounds=None, *, api_key_override=None,
-                             model_override=None, candidate_text_override=None):
+                             model_override=None, candidate_text_override=None, budget_seconds=None):
     """Create the AI questions for one interview round and save them on the application.
 
     Uses the key pool (see ai_client); falls back to resume keyword questions when no key works.
@@ -435,7 +439,11 @@ def generate_round_questions(application, round_number=1, total_rounds=None, *, 
         application.save(update_fields=fields)
 
     if not resume_text:
-        save([], "No verified candidate resume found, so there is nothing to base questions on. Ask the candidate to upload one.")
+        if (application.resume.name or "").lower().endswith(".doc"):
+            message = "The resume is an old Word file (.doc), which can't be read. Ask the candidate to upload a PDF or .docx."
+        else:
+            message = "No verified candidate resume found, so there is nothing to base questions on. Ask the candidate to upload one."
+        save([], message)
         return {"success": False, "count": 0, "engine": "none", "error": application.ai_questions_error}
 
     keys = None
@@ -443,7 +451,7 @@ def generate_round_questions(application, round_number=1, total_rounds=None, *, 
         keys = [ai_client._EnvKey(api_key=api_key_override, model=model_override or "")]
     prompt = build_round_prompt(application, resume_text, round_number, total_rounds)
     try:
-        text, used = ai_client.generate_text(prompt, keys=keys)
+        text, used = ai_client.generate_text(prompt, keys=keys, budget_seconds=budget_seconds)
         summary, questions = _parse_ai_json(text)
     except (ai_client.AIUnavailable, ValueError, json.JSONDecodeError) as exc:
         logger.warning("AI questions failed for application %s round %s: %s", application.pk, round_number, exc)

@@ -64,7 +64,9 @@ def main():
             headless=True,
             args=["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"],
         )
-        context = browser.new_context(permissions=["camera"])
+        context = browser.new_context(
+            permissions=["camera", "geolocation"], geolocation={"latitude": 12.97, "longitude": 77.59},
+        )
 
         def stub_external(route):
             url = route.request.url
@@ -83,28 +85,36 @@ def main():
         page.goto(f"{base}/accounts/login/")
         page.fill("input[name=username]", args.candidate)
         page.fill("input[name=password]", PASSWORD)
-        page.locator("main form button[type=submit], main form button.btn-primary, main form button").first.click()
+        # The form also has a show-password button, so target the submit button itself.
+        page.locator("form button[type=submit]").first.click()
         page.wait_for_load_state()
         check("/accounts/login" not in page.url, "candidate can log in")
 
         page.goto(f"{base}/exams/{args.exam_id}/")
-        page.locator(f"form[action*='/exams/{args.exam_id}/start/'] button").click()
+        # The start button stays disabled until the candidate ticks the agreement box.
+        if page.locator("#agree").count():
+            page.check("#agree")
+        page.locator(f"form[action*='/exams/{args.exam_id}/start/'] button[type=submit]").click()
         page.wait_for_url(re.compile(r".*/attempts/\d+/$"), timeout=20000)
         attempt_id = re.search(r"/attempts/(\d+)/", page.url).group(1)
         check(True, f"attempt {attempt_id} started")
 
         page.wait_for_selector("#readiness:not(.hidden)", timeout=20000)
         check(page.locator("#snapshot-consent").is_visible(), "snapshot consent box is shown before camera check")
-        page.wait_for_function(
-            "() => document.getElementById('camera-status').textContent.includes('Tick the consent')",
-            timeout=20000,
-        )
-        check(True, "camera check waits for consent")
+        check(page.locator("#btn-confirm-readiness").is_disabled(), "start stays locked until the checks pass")
         page.check("#snapshot-consent")
+        # Camera, location, network and (if required) full screen must all pass before the test opens.
+        page.evaluate("() => document.documentElement.requestFullscreen().catch(() => {})")
+        page.wait_for_function(
+            "() => { const b = document.getElementById('btn-confirm-readiness'); return b && !b.disabled; }",
+            timeout=60000,
+        )
+        check(True, "device checks pass after consent")
+        page.click("#btn-confirm-readiness")
         page.wait_for_function(
             "() => document.getElementById('readiness').classList.contains('hidden')", timeout=60000
         )
-        check(True, "camera check passes after consent")
+        check(True, "test opens after the device checks")
 
         page.wait_for_selector("#content input[type=radio]", timeout=20000)
         check(page.locator("#section-title").inner_text().startswith("Multiple choice"), "MCQ section is active")
@@ -155,7 +165,8 @@ def main():
         check(run_resp.status == 200, "Run is accepted")
         run = run_resp.json()
         check(run.get("public") and all(r["passed"] for r in run["public"]), f"Run passes every example for '{problem['title']}'")
-        check(set(run.get("hidden", {})) == {"passed", "total"}, "Run reports hidden results as counts only")
+        # Runs only execute the public examples; hidden cases are never run or reported before submission.
+        check("hidden" not in run, "Run does not reveal anything about hidden cases")
 
         code_resp = page.request.post(
             f"{base}/api/attempts/{attempt_id}/code-submissions/",

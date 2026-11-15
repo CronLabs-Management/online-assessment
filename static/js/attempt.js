@@ -377,7 +377,7 @@ async function handleAutoSubmit(reason) {
     }
   } catch (err) {
     if (err.network) {
-      showStatus("Assessment time has expired. Your answers are saved locally on your device and will be submitted as soon as your internet reconnects.", "warn");
+      showStatus("Time is up, and the connection to the server was lost. Answers saved before the deadline are kept; anything entered while offline may not count. Reconnect to see your result.", "warn");
     } else {
       // If backend already advanced or expired via time check, this is expected
       console.warn("Auto-submit section call:", err);
@@ -1536,11 +1536,30 @@ window.addEventListener("focus", () => {
 
 // Copy, cut and paste are recorded. A very large paste is flagged, since it is unlikely to be typed.
 // Only the length is sent, never the text itself.
+// Pasting a problem's own public sample (from the Copy buttons) is recorded but not flagged.
+function normalizeSample(text) {
+  return String(text || "").replace(/\r\n?/g, "\n").trim();
+}
+
+function isPublicSample(problem, text) {
+  const pasted = normalizeSample(text);
+  if (!pasted || !problem || !Array.isArray(problem.public_cases)) return false;
+  return problem.public_cases.some((c) => normalizeSample(c.input) === pasted || normalizeSample(c.expected) === pasted);
+}
+
+function clipboardContext(type, event, problem) {
+  const text = type === "paste" && event.clipboardData ? event.clipboardData.getData("text") : "";
+  const context = { action: type, chars: text.length };
+  if (type === "paste" && problem && isPublicSample(problem, text)) context.matches_sample = true;
+  return context;
+}
+
 ["copy", "cut", "paste"].forEach((type) => {
   document.addEventListener(type, (event) => {
     if (!state || isFinal(state)) return;
-    const text = type === "paste" && event.clipboardData ? event.clipboardData.getData("text") : "";
-    sendEvent("clipboard", 0, { action: type, chars: text.length });
+    // The code editor records its own clipboard events; don't count the same paste twice.
+    if (event.oaRecorded) return;
+    sendEvent("clipboard", 0, clipboardContext(type, event, null));
   });
 });
 
@@ -1941,8 +1960,8 @@ async function makeEditor(problem, host) {
     ["copy", "cut", "paste"].forEach((type) => {
       host.addEventListener(type, (event) => {
         if (!state || isFinal(state)) return;
-        const text = type === "paste" && event.clipboardData ? event.clipboardData.getData("text") : "";
-        sendEvent("clipboard", 0, { action: type, chars: text.length });
+        event.oaRecorded = true;
+        sendEvent("clipboard", 0, clipboardContext(type, event, problem));
       }, true);
     });
 

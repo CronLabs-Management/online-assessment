@@ -231,7 +231,9 @@ class StaffViewTests(TestCase):
         from .models import AuditLog
 
         attempt = self._attempt_with_data()
-        data = b"\xff\xd8\xff" + b"0" * 64
+        from .tests_engine import real_jpeg
+
+        data = real_jpeg()
         from django.core.files.uploadedfile import SimpleUploadedFile
 
         upload = SimpleUploadedFile("s.jpg", data, content_type="image/jpeg")

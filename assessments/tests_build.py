@@ -15,10 +15,10 @@ from . import services
 from .models import Attempt, AttemptCoding, CodingSubmission, ProctoringSnapshot
 from .runners import Judge0Runner, LocalRunner, RunnerError, UnconfiguredRunner, get_runner
 from .services import AttemptError, perform
-from .tests_engine import TMP_MEDIA, EngineFixture
+from .tests_engine import TMP_MEDIA, EngineFixture, real_jpeg
 
 User = get_user_model()
-JPEG = b"\xff\xd8\xff" + b"0" * 200
+JPEG = real_jpeg()
 
 def unittest_skip_unless(condition):
     return skipUnless(condition, "interpreter not installed on this machine")

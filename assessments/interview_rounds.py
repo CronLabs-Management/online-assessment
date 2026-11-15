@@ -33,10 +33,14 @@ def base_questions(application, round_number, total_rounds):
 
 
 def _number(value, default=None):
+    """A finite float, or ``default`` for anything else (including NaN and infinity)."""
+    import math
+
     try:
-        return float(value)
-    except (TypeError, ValueError):
+        number = float(value)
+    except (TypeError, ValueError, OverflowError):
         return default
+    return number if math.isfinite(number) else default
 
 
 def _scored(item):

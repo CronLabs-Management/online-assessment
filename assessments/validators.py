@@ -1,4 +1,5 @@
 import re
+import unicodedata
 
 from django.core.exceptions import ValidationError
 
@@ -65,16 +66,19 @@ def validate_full_name(value):
     if len(name) > 150:
         raise ValidationError("Full legal name cannot exceed 150 characters.")
 
-    # Must contain at least one letter (Unicode aware)
-    if not re.search(r"[a-zA-Z\u00C0-\u024F\u0400-\u04FF\u0900-\u097F]", name):
+    # Must contain at least one letter, in any script (Tamil, Telugu, Arabic, CJK, ...).
+    if not any(ch.isalpha() for ch in name):
         raise ValidationError("Full legal name must contain letters.")
 
     # Reject HTML or dangerous control characters
     if re.search(r"[<>{}\[\]\\;/=]", name):
         raise ValidationError("Full legal name cannot contain special symbols or HTML tags.")
 
-    # Must contain only letters, spaces, dots, hyphens, and apostrophes
-    if not re.match(r"^[\w\s\.\'\-\u00C0-\u024F\u0400-\u04FF\u0900-\u097F]+$", name, re.UNICODE):
+    # Letters and combining marks of any script (Indic vowel signs are marks), spaces, dots, hyphens, apostrophes.
+    for ch in name:
+        # Digits stay allowed (as before) for names like "Candidate 2"; a letter is still required above.
+        if ch in " .'-’" or unicodedata.category(ch)[0] in ("L", "M") or ch.isdigit():
+            continue
         raise ValidationError(
             "Full legal name contains invalid characters. Use letters, spaces, hyphens, apostrophes, or periods only."
         )

@@ -177,6 +177,11 @@ def deliver_email(subject, body, recipient, html_body=None, connection=None):
             return True
         except Exception as exc:
             logger.warning("Shared connection delivery to %s failed: %s", recipient, exc)
+            # Drop the broken socket; the backend opens a fresh one on the next message of the batch.
+            try:
+                connection.close()
+            except Exception:
+                pass
 
     # Primary attempt: configured settings
     try:

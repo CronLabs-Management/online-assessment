@@ -938,6 +938,9 @@
       <button type="button" onclick="submitBulkAction('advance')" class="btn text-xs font-bold py-1.5 px-2.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white" title="Mark the selected candidates as passed for this round">Advance</button>
       <button type="button" onclick="submitBulkAction('hold')" class="btn text-xs font-bold py-1.5 px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">Hold</button>
       <button type="button" onclick="submitBulkAction('reject')" class="btn text-xs font-bold py-1.5 px-2.5 rounded-lg bg-rose-800 hover:bg-rose-700 text-white">Reject</button>
+      <label class="inline-flex items-center gap-1 text-[11px] text-slate-400 font-semibold cursor-pointer" title="By default, candidates who already have a decision for this round are left as they are">
+        <input type="checkbox" id="bulk-overwrite" class="h-3.5 w-3.5"> Replace existing
+      </label>
     </div>
     {% endif %}
     {% if "candidates.manage" in oa_perms %}
@@ -956,6 +959,7 @@
   {% csrf_token %}
   <input type="hidden" name="action" id="bulk-action-input" value="">
   <input type="hidden" name="round" id="bulk-round-input" value="">
+  <input type="hidden" name="overwrite" id="bulk-overwrite-input" value="">
   <div id="bulk-action-ids"></div>
 </form>
 
@@ -1340,6 +1344,8 @@ function submitBulkAction(action) {
   const proceed = function() {
     document.getElementById('bulk-action-input').value = action;
     document.getElementById('bulk-round-input').value = round;
+    const overwriteBox = document.getElementById('bulk-overwrite');
+    document.getElementById('bulk-overwrite-input').value = overwriteBox && overwriteBox.checked ? '1' : '';
     const box = document.getElementById('bulk-action-ids');
     box.innerHTML = '';
     selected.forEach(function(cb) {

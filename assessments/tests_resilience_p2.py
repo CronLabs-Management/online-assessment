@@ -1,11 +1,7 @@
-import shutil
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from django.contrib.auth import get_user_model
-from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
-from django.db import IntegrityError
 from django.test import RequestFactory, TestCase
 from django.utils import timezone
 
@@ -21,7 +17,6 @@ from assessments.models import (
     ExamSection,
     ProctoringEvent,
     ProctoringSnapshot,
-    SiteSettings,
     StaffProfile,
     StaffRole,
 )
@@ -239,6 +234,7 @@ class ResiliencePhase2Tests(TestCase):
         )
         req_deactivate.user = admin_user
         resp1 = team_member_edit(req_deactivate, admin_profile.pk)
+        self.assertEqual(resp1.status_code, 200)  # Form shown again with the error.
         admin_profile.refresh_from_db()
         self.assertTrue(admin_profile.is_active)  # Must remain active!
 
@@ -249,6 +245,7 @@ class ResiliencePhase2Tests(TestCase):
         )
         req_demote.user = admin_user
         resp2 = team_member_edit(req_demote, admin_profile.pk)
+        self.assertEqual(resp2.status_code, 200)
         admin_profile.refresh_from_db()
         self.assertEqual(admin_profile.role, role_admin)  # Must remain admin!
 
