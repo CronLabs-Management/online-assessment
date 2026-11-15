@@ -111,7 +111,8 @@ jobs:
           Acquire::https::Timeout "30";
           EOF
 
-          sudo python -m playwright install-deps chromium
+          # sudo runs the system Python, which does not have Playwright; call the setup-python one explicitly.
+          sudo "$(command -v python)" -m playwright install-deps chromium
           python -m playwright install chromium
       - name: Run candidate flow
         run: bash e2e/run_flow.sh
