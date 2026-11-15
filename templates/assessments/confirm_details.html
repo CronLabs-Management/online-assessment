@@ -50,20 +50,20 @@
       </p>
 
       <!-- Trust & Security Banner -->
-      <div class="mt-4 flex items-center gap-3 rounded-2xl bg-[#EEF1FE]/80 border border-blue-200/90 px-4 py-3 text-xs text-slate-700">
-        <div class="w-8 h-8 rounded-xl bg-blue-100 text-[#2447F5] flex items-center justify-center shrink-0">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-          </svg>
+      <div class="mt-4 flex items-center justify-between gap-3 rounded-2xl bg-slate-50 border border-slate-200 px-4 py-2.5 text-xs text-slate-600">
+        <div class="flex items-center gap-2">
+          <span class="text-base">🔒</span>
+          <span class="font-semibold">Candidate data is encrypted and strictly confidential.</span>
         </div>
-        <span class="leading-relaxed font-medium">
-          Your details are encrypted and securely authenticated. If your legal name, phone number, or resume has changed, update them below.
-        </span>
+        <a href="{% url 'platform_manual' %}#chapter-1" target="_blank" class="font-bold text-[#2447F5] hover:underline flex items-center gap-1 shrink-0">
+          <span>Read FAQ</span>
+          <span>&rarr;</span>
+        </a>
       </div>
     </div>
 
     <!-- Form -->
-    <form method="post" enctype="multipart/form-data" class="space-y-7">
+    <form method="post" enctype="multipart/form-data" class="space-y-6">
       {% csrf_token %}
 
       <!-- Section: Personal Details -->
@@ -86,14 +86,13 @@
             {% if form.full_name.errors %}
               <div class="text-xs font-semibold text-rose-600 mt-1">{{ form.full_name.errors }}</div>
             {% endif %}
-            <p class="text-[11px] text-slate-500 font-medium">Must match the legal name on your government-issued ID card.</p>
           </div>
 
           <!-- Phone Number -->
           <div class="space-y-1.5">
             <label for="{{ form.phone.id_for_label }}" class="text-sm font-bold text-[#0F172A] flex items-center justify-between">
               <span>Mobile Phone Number <span class="text-rose-600" aria-hidden="true">*</span></span>
-              <span id="phone-feedback" class="text-[11px] font-semibold text-slate-400">Digits only</span>
+              <span id="phone-feedback" class="text-[11px] font-semibold text-slate-400">Include country code</span>
             </label>
             <div class="relative rounded-xl">
               {{ form.phone }}
@@ -102,7 +101,6 @@
             {% if form.phone.errors %}
               <div class="text-xs font-semibold text-rose-600 mt-1">{{ form.phone.errors }}</div>
             {% endif %}
-            <p class="text-[11px] text-slate-500 font-medium">Include country calling code (e.g. +91, +1). Letters and text are not allowed.</p>
           </div>
 
           <!-- Registered Email (Locked) -->
@@ -111,14 +109,13 @@
               <label for="{{ form.email.id_for_label }}" class="text-sm font-bold text-[#0F172A] flex items-center gap-1.5">
                 <span>Account Email</span>
               </label>
-              <span class="inline-flex items-center gap-1 text-[10px] font-extrabold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
-                🔒 Locked
+              <span class="inline-flex items-center gap-1 text-[10px] font-extrabold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                🔒 Bound to Account
               </span>
             </div>
             <div class="relative rounded-xl opacity-90">
               {{ form.email }}
             </div>
-            <p class="text-[11px] text-slate-500 font-medium">Permanently bound to your candidate credentials.</p>
           </div>
         </div>
       </div>
@@ -216,9 +213,9 @@
         {% endif %}
       </div>
 
-      <!-- Monitoring notice: candidates agree before any camera, location or network check -->
+      <!-- Assessment guidelines & conduct agreement -->
       <section class="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-5 space-y-3" aria-labelledby="monitoring-notice-title">
-        <h2 id="monitoring-notice-title" class="text-sm font-bold text-slate-900">{{ notice.monitoring_notice_title|default:"How this test is monitored" }}</h2>
+        <h2 id="monitoring-notice-title" class="text-sm font-bold text-slate-900">{{ notice.monitoring_notice_title|default:"Assessment Guidelines &amp; Conduct" }}</h2>
         <ul class="list-disc pl-6 ml-1 space-y-1.5 text-sm text-slate-700">
           {% for line in notice.monitoring_notice_lines %}<li>{{ line }}</li>{% endfor %}
         </ul>
@@ -239,7 +236,7 @@
           </svg>
         </button>
         <p class="text-center text-xs text-slate-500 font-medium">
-          Next step: Live webcam, geolocation, and network latency check.
+          Next step: Hardware and system readiness check.
         </p>
       </div>
 

@@ -1146,7 +1146,7 @@
           <!-- Danger Zone: Only when editing existing problem -->
           {% if problem %}
             <div class="pt-3 border-t border-slate-200/80">
-              <button type="button" onclick="document.getElementById('delete-problem-form').submit();" class="text-xs text-rose-600 hover:text-rose-800 font-semibold flex items-center justify-center gap-1.5 w-full py-1.5">
+              <button type="button" onclick="document.getElementById('delete-problem-form').requestSubmit();" class="text-xs text-rose-600 hover:text-rose-800 font-semibold flex items-center justify-center gap-1.5 w-full py-1.5">
                 <svg style="width: 14px; height: 14px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                 Delete this Coding Problem
               </button>
@@ -1161,7 +1161,12 @@
 
   <!-- Separate Hidden Form for Problem Deletion -->
   {% if problem %}
-    <form id="delete-problem-form" method="post" action="{% url 'staff_coding_delete' problem.pk %}" onsubmit="return confirm('Are you sure you want to permanently delete this coding challenge and all candidate submissions for it?');" class="hidden">
+    <form id="delete-problem-form" method="post" action="{% url 'staff_coding_delete' problem.pk %}"
+          data-confirm="Are you sure you want to permanently delete this coding challenge and all candidate submissions for it?"
+          data-confirm-title="Delete Coding Challenge"
+          data-confirm-tone="danger"
+          data-confirm-btn="Delete Challenge"
+          class="hidden">
       {% csrf_token %}
     </form>
   {% endif %}
@@ -1294,20 +1299,52 @@
   function loadStarterTemplate(lang) {
     const textarea = document.querySelector('[name="{{ problem_form.starter_code.name }}"]');
     if (!textarea) return;
-    if (textarea.value.trim().length > 0 && !confirm('Replace current starter code with the ' + lang.toUpperCase() + ' template?')) {
+    const apply = function() {
+      textarea.value = STARTER_TEMPLATES[lang] || '';
+      document.getElementById('ide-filename').textContent = 'solution.' + (lang === 'python' ? 'py' : (lang === 'java' ? 'java' : 'cpp'));
+      textarea.focus();
+    };
+    if (textarea.value.trim().length > 0) {
+      if (window.oaConfirm) {
+        window.oaConfirm({
+          title: 'Replace Starter Template',
+          message: 'Replace existing starter code with the ' + lang.toUpperCase() + ' template? Unsaved edits will be overwritten.',
+          tone: 'warning',
+          confirmText: 'Replace Code'
+        }).then(function(confirmed) {
+          if (confirmed) apply();
+        });
+      } else {
+        apply();
+      }
       return;
     }
-    textarea.value = STARTER_TEMPLATES[lang] || '';
-    document.getElementById('ide-filename').textContent = 'solution.' + (lang === 'python' ? 'py' : (lang === 'java' ? 'java' : 'cpp'));
-    textarea.focus();
+    apply();
   }
 
   function clearStarterCode() {
     const textarea = document.querySelector('[name="{{ problem_form.starter_code.name }}"]');
-    if (textarea && confirm('Clear starter code?')) {
+    if (!textarea) return;
+    const apply = function() {
       textarea.value = '';
       document.getElementById('ide-filename').textContent = 'solution_template';
+    };
+    if (textarea.value.trim().length > 0) {
+      if (window.oaConfirm) {
+        window.oaConfirm({
+          title: 'Clear Starter Code',
+          message: 'Clear all starter code in the editor? Candidates will start with an empty file.',
+          tone: 'warning',
+          confirmText: 'Clear Code'
+        }).then(function(confirmed) {
+          if (confirmed) apply();
+        });
+      } else {
+        apply();
+      }
+      return;
     }
+    apply();
   }
 
   // Support Tab key in starter code textarea
@@ -1360,7 +1397,14 @@
     let current = getSelectedLanguages();
     if (current.includes(lang)) {
       if (current.length === 1) {
-        alert('You must enable at least one programming language.');
+        if (window.oaAlert) {
+          window.oaAlert({
+            title: 'Language Required',
+            message: 'You must enable at least one programming language for this coding challenge.',
+            tone: 'warning',
+            btnText: 'Understood'
+          });
+        }
         return;
       }
       current = current.filter(l => l !== lang);
@@ -1465,7 +1509,14 @@
 
     const visibleCards = Array.from(document.querySelectorAll('.testcase-item-card')).filter(c => c.style.display !== 'none');
     if (visibleCards.length <= 1) {
-      alert('You must have at least one testcase.');
+      if (window.oaAlert) {
+        window.oaAlert({
+          title: 'Test Case Required',
+          message: 'You must have at least one testcase to evaluate candidate submissions.',
+          tone: 'warning',
+          btnText: 'Understood'
+        });
+      }
       return;
     }
 

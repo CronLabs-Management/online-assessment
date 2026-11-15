@@ -2,51 +2,139 @@
 {% load tz %}
 {% block title %}Assessment Submitted | {{ exam.title }}{% endblock %}
 {% block content %}
-<div class="mx-auto max-w-lg py-10 sm:py-16">
-  <div class="bg-white border-[1.5px] border-slate-200 rounded-3xl p-8 sm:p-12 shadow-card text-center space-y-7">
-    
-    <div class="mx-auto flex h-18 w-18 items-center justify-center rounded-2xl bg-[#E3F5EC] border border-emerald-200 text-[#0B6B43] shadow-xs">
-      <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-    </div>
+<div class="oa-success-container">
+  <div class="oa-success-card space-y-6">
 
-    <div class="space-y-2">
-      <span class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-extrabold bg-[#E3F5EC] text-[#0B6B43] border border-emerald-200">
-        <span class="w-2 h-2 rounded-full bg-[#0B6B43]"></span>
-        Submission Recorded
-      </span>
-      <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#0F172A]">Assessment Submitted</h1>
-      <p class="text-base font-bold text-[#2447F5]">{{ exam.title }}</p>
-    </div>
-
-    <div class="rounded-2xl bg-[#F4F6FB] border-[1.5px] border-slate-200 p-5 text-left space-y-3.5 text-xs sm:text-sm">
-      <div class="flex items-center justify-between text-slate-600">
-        <span class="font-bold">Candidate:</span>
-        <span class="font-extrabold text-[#0F172A]">{% if request.user.get_full_name %}{{ request.user.get_full_name }} &bull; {% endif %}{{ request.user.email|default:request.user.username }}</span>
+    <!-- Hero Success Icon with Morph Aura & Bounce -->
+    <div class="oa-success-halo-wrap">
+      <div class="oa-success-halo"></div>
+      <div class="oa-success-badge" title="Submission Confirmed">
+        <svg class="w-9 h-9" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"
+          stroke-linejoin="round" viewBox="0 0 24 24">
+          <path d="M5 13l4 4L19 7" />
+        </svg>
       </div>
-      {% if summary.ended_at_dt or attempt.ended_at %}
-        <div class="flex items-center justify-between text-slate-600">
-          <span class="font-bold">Completion Time:</span>
-          <span class="font-mono font-bold text-[#0F172A]">{{ summary.ended_at_dt|default:attempt.ended_at|localtime|date:"D, d M Y at H:i" }}</span>
-        </div>
-      {% endif %}
-      <div class="flex items-center justify-between text-slate-600">
-        <span class="font-bold">Telemetry Status:</span>
-        <span class="text-[#0B6B43] font-extrabold flex items-center gap-1.5">
-          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-          Encrypted & Transferred
+    </div>
+
+    <!-- Status & Titles -->
+    <div class="space-y-2.5">
+      <div>
+        <span class="oa-pill-status">
+          <span class="relative flex h-2 w-2">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
+          </span>
+          Submission Recorded
+        </span>
+      </div>
+      <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">Assessment Submitted</h1>
+      <div class="pt-0.5">
+        <span
+          class="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-xl bg-blue-50/80 border border-blue-200/60 text-[#2447F5] font-bold text-xs sm:text-sm max-w-full">
+          <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <span class="truncate">{{ exam.title }}</span>
         </span>
       </div>
     </div>
 
-    <p class="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed max-w-sm mx-auto">
-      Your answers and code submissions have been securely locked. Flagged moments are routed to a human reviewer, not straight to a verdict.
-    </p>
+    <!-- Submission Receipt Spec Box -->
+    <div class="oa-spec-receipt">
+      <div class="oa-spec-row">
+        <span class="oa-spec-label">
+          <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2"
+            viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          </svg>
+          Candidate
+        </span>
+        <div class="oa-spec-value">
+          <div>{{ request.user.get_full_name|default:request.user.username }}</div>
+          {% if request.user.email and request.user.get_full_name %}
+          <span class="text-[11px] font-medium text-slate-500 block truncate">{{ request.user.email }}</span>
+          {% endif %}
+        </div>
+      </div>
 
-    <div class="pt-2">
-      <a href="{% url 'home' %}" class="btn btn-primary h-[54px] w-full text-sm sm:text-base font-extrabold shadow-cta">
-        &larr; Return to Dashboard
+      {% if summary.ended_at_dt %}
+      <div class="oa-spec-row">
+        <span class="oa-spec-label">
+          <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2"
+            viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Completion Time
+        </span>
+        <div class="oa-spec-value font-mono text-xs sm:text-sm">
+          {{ summary.ended_at_dt|localtime|date:"D, d M Y · H:i" }}
+        </div>
+      </div>
+      {% elif attempt.ended_at %}
+      <div class="oa-spec-row">
+        <span class="oa-spec-label">
+          <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2"
+            viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Completion Time
+        </span>
+        <div class="oa-spec-value font-mono text-xs sm:text-sm">
+          {{ attempt.ended_at|localtime|date:"D, d M Y · H:i" }}
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="oa-spec-row">
+        <span class="oa-spec-label">
+          <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2"
+            viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+          </svg>
+          Submission Status
+        </span>
+        <div class="oa-spec-value">
+          <span class="oa-pill-verified">
+            <svg class="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd"
+                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                clip-rule="evenodd" />
+            </svg>
+            Verified &amp; Sealed
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Integrity & Human Review Assurance Notice -->
+    <div class="flex items-start gap-3 p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 text-left">
+      <div
+        class="w-8 h-8 rounded-lg bg-blue-50 text-[#2447F5] flex items-center justify-center shrink-0 mt-0.5 border border-blue-100">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+        </svg>
+      </div>
+      <p class="text-xs text-slate-600 leading-relaxed font-medium">
+        Your answers and code submissions have been securely locked. Flagged moments are routed to a human reviewer, not
+        straight to an automated verdict.
+      </p>
+    </div>
+
+    <!-- Action Button -->
+    <div class="pt-1">
+      <a href="{% url 'home' %}" class="oa-btn-dashboard group">
+        <svg class="w-4 h-4 transition-transform duration-200 group-hover:-translate-x-1" fill="none"
+          stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+        <span>Return to Dashboard</span>
       </a>
     </div>
+
   </div>
 </div>
 {% endblock %}

@@ -32,6 +32,9 @@
 
     <!-- Quick Action Bar -->
     <div class="flex items-center gap-2 sm:gap-2.5 flex-wrap">
+      <a href="{% url 'platform_manual' %}#chapter-3" target="_blank" class="btn btn-secondary text-xs font-bold shadow-2xs inline-flex items-center gap-1.5 py-2 px-3 rounded-lg border-slate-200 hover:bg-slate-50 text-slate-600" title="Candidate Management Guide &amp; CSV format">
+        <span>📖</span> Manual
+      </a>
       {% if "candidates.manage" in oa_perms %}<a href="{% url 'staff_candidates_sample_csv' exam.pk %}" class="btn btn-secondary text-xs font-bold shadow-2xs inline-flex items-center gap-1.5 py-2 px-3 rounded-lg border-slate-200 hover:bg-slate-50" title="Download CSV template for bulk importing candidates">
         <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"/></svg>
         Sample CSV
@@ -402,7 +405,7 @@
         <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
         </span>
-        <input id="q" type="search" name="q" value="{{ q }}" placeholder="Search name, email, or phone..." class="w-full text-xs font-medium pl-9 pr-8 py-2 rounded-lg border border-slate-200 focus:border-[#335eea] focus:ring-1 focus:ring-[#335eea] bg-slate-50/50" autocomplete="off">
+        <input id="q" type="search" name="q" value="{{ q }}" placeholder="Search name, email, or phone..." class="input-icon-left w-full text-xs font-medium pr-8 py-2 rounded-lg border border-slate-200 focus:border-[#335eea] focus:ring-1 focus:ring-[#335eea] bg-slate-50/50" autocomplete="off">
         {% if q %}
           <button type="button" onclick="document.getElementById('q').value=''; applyFiltersAsync();" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs">✕</button>
         {% endif %}
@@ -833,7 +836,12 @@
                             <span>Resend Credentials</span>
                           </button>
                         </form>
-                        <form method="post" action="{% url 'staff_regenerate_credentials' app.pk %}" onsubmit="return confirm('Regenerate password for {{ app.full_name }}? Any previous password will stop working immediately.');" class="block m-0">
+                        <form method="post" action="{% url 'staff_regenerate_credentials' app.pk %}"
+                              data-confirm="Regenerate password for {{ app.full_name }}? Any previous password will stop working immediately, and fresh credentials will be sent to their email."
+                              data-confirm-title="Regenerate Credentials"
+                              data-confirm-tone="warning"
+                              data-confirm-btn="Regenerate &amp; Send"
+                              class="block m-0">
                           {% csrf_token %}
                           <input type="hidden" name="send_email" value="1">
                           <button type="submit" class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-amber-700 hover:bg-amber-50 font-medium transition-colors text-left" title="Generate a fresh random password and email it">
@@ -843,7 +851,12 @@
                         </form>
                         <div class="border-t border-slate-100 my-1"></div>
                         {% if app.status == "approved" %}
-                          <form method="post" action="{% url 'staff_access' app.pk %}" onsubmit="return confirm('Remove access for {{ app.full_name }}?');" class="block m-0">
+                          <form method="post" action="{% url 'staff_access' app.pk %}"
+                                data-confirm="Remove and revoke access for {{ app.full_name }}? The candidate will no longer be able to log in or take the assessment."
+                                data-confirm-title="Revoke Candidate Access"
+                                data-confirm-tone="danger"
+                                data-confirm-btn="Revoke Access"
+                                class="block m-0">
                             {% csrf_token %}
                             <input type="hidden" name="action" value="revoke">
                             <button type="submit" class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-rose-600 hover:bg-rose-50 font-medium transition-colors text-left">
@@ -1244,7 +1257,14 @@ function deselectAllCandidates() {
 function submitBulkSendCredentials(btn) {
   const selected = getSelectedCheckboxes();
   if (selected.length === 0) {
-    alert('Please select at least one candidate using the checkboxes first.');
+    if (window.oaAlert) {
+      window.oaAlert({
+        title: 'Selection Required',
+        message: 'Please select at least one candidate using the checkboxes first.',
+        tone: 'warning',
+        btnText: 'Understood'
+      });
+    }
     return;
   }
   const form = document.getElementById('bulk-send-credentials-form');
@@ -1313,19 +1333,37 @@ function submitBulkAction(action) {
   const round = roundSel ? roundSel.value : '';
   const words = {advance: 'Advance', hold: 'Put on hold', reject: 'Reject', flag: 'Flag', unflag: 'Clear the flag on'};
   const where = (action === 'advance' || action === 'hold' || action === 'reject') ? ' in round ' + round : '';
-  if (!confirm(words[action] + ' ' + selected.length + ' candidate(s)' + where + '?')) return;
-  document.getElementById('bulk-action-input').value = action;
-  document.getElementById('bulk-round-input').value = round;
-  const box = document.getElementById('bulk-action-ids');
-  box.innerHTML = '';
-  selected.forEach(function(cb) {
-    const inp = document.createElement('input');
-    inp.type = 'hidden';
-    inp.name = 'selected_ids';
-    inp.value = cb.value;
-    box.appendChild(inp);
-  });
-  document.getElementById('bulk-action-form').submit();
+  const actionTitle = words[action] || 'Update';
+  const tone = (action === 'reject') ? 'danger' : 'warning';
+  const confirmMsg = 'Are you sure you want to ' + words[action].toLowerCase() + ' ' + selected.length + ' candidate(s)' + where + '?';
+
+  const proceed = function() {
+    document.getElementById('bulk-action-input').value = action;
+    document.getElementById('bulk-round-input').value = round;
+    const box = document.getElementById('bulk-action-ids');
+    box.innerHTML = '';
+    selected.forEach(function(cb) {
+      const inp = document.createElement('input');
+      inp.type = 'hidden';
+      inp.name = 'selected_ids';
+      inp.value = cb.value;
+      box.appendChild(inp);
+    });
+    document.getElementById('bulk-action-form').submit();
+  };
+
+  if (window.oaConfirm) {
+    window.oaConfirm({
+      title: 'Confirm Bulk ' + actionTitle,
+      message: confirmMsg,
+      tone: tone,
+      confirmText: words[action] + ' Candidates'
+    }).then(function(confirmed) {
+      if (confirmed) proceed();
+    });
+  } else {
+    proceed();
+  }
 }
 
 function bulkExportSelected() {

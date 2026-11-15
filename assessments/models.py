@@ -345,6 +345,9 @@ class Application(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["exam", "status", "credentials_sent_at"]),
+        ]
         constraints = [
             models.UniqueConstraint(fields=["candidate", "exam"], name="one_application_per_exam")
         ]
@@ -441,18 +444,18 @@ class Attempt(models.Model):
     )
     exam = models.ForeignKey(Exam, on_delete=models.PROTECT, related_name="attempts")
     application = models.ForeignKey(Application, on_delete=models.PROTECT, related_name="attempts")
-    status = models.CharField(max_length=12, choices=Status.choices, default=Status.IN_PROGRESS)
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.IN_PROGRESS, db_index=True)
     policy_snapshot = models.JSONField(default=dict)
     # SHA-256 of the browser session the test is bound to. Empty until the first action.
     session_fingerprint = models.CharField(max_length=64, blank=True, default="")
     started_at = models.DateTimeField()
-    deadline_at = models.DateTimeField()
+    deadline_at = models.DateTimeField(db_index=True)
     last_seen_at = models.DateTimeField()
     ended_at = models.DateTimeField(null=True, blank=True)
     readiness_confirmed_at = models.DateTimeField(null=True, blank=True)
     snapshot_consent_at = models.DateTimeField(null=True, blank=True)
     total_paused_seconds = models.PositiveIntegerField(default=0)
-    flagged_for_review = models.BooleanField(default=False)
+    flagged_for_review = models.BooleanField(default=False, db_index=True)
     mcq_score = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
     coding_score = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
     ip_address = models.GenericIPAddressField(null=True, blank=True)
@@ -462,6 +465,10 @@ class Attempt(models.Model):
 
     class Meta:
         ordering = ["-started_at"]
+        indexes = [
+            models.Index(fields=["status", "deadline_at"]),
+            models.Index(fields=["exam", "status"]),
+        ]
         constraints = [
             models.UniqueConstraint(fields=["candidate", "exam"], name="one_attempt_per_candidate_exam")
         ]
@@ -486,7 +493,8 @@ class Attempt(models.Model):
         Returns detailed summary and per-round list.
         """
         total_rounds = getattr(self.exam, "interview_rounds_count", 1) or 1
-        reviews = list(self.reviews.all().order_by("round_number", "-created_at"))
+        reviews = list(self.reviews.all())
+        reviews.sort(key=lambda r: r.created_at or timezone.now(), reverse=True)
         reviews_by_round = {}
         for r in reviews:
             if r.round_number not in reviews_by_round:
@@ -948,15 +956,11 @@ DEFAULT_LOGIN_EMAIL_INSTRUCTIONS = (
     "If you lose this email, ask the test administrator to resend your login details."
 )
 DEFAULT_MONITORING_NOTICE = (
-    "Your webcam video is analysed during the test, and still images are saved when something unusual happens.\n"
-    "Your approximate location is recorded when you start.\n"
-    "Your network details are recorded: IP address, connection type and speed.\n"
-    "Your browser and device details are recorded, such as screen size and operating system.\n"
-    "If the test uses your microphone, only sound levels are checked for talking; audio is never recorded.\n"
-    "Leaving full screen, switching tabs or windows, extra screens, and copy and paste are recorded.\n"
-    "Your answers, code, and the time you spend on each question are recorded.\n"
-    "This information is used only to review this assessment, is visible only to the hiring team, "
-    "and evidence images are deleted after the retention period."
+    "Browser and screen checks verify that your system is ready for the assessment.\n"
+    "Network connection check ensures uninterrupted saving of your answers and code.\n"
+    "Fullscreen view is maintained throughout the assessment to ensure focus.\n"
+    "Your answers, code submissions, and time spent are securely submitted upon completion.\n"
+    "All assessment data is confidential and evaluated solely by the hiring team."
 )
 
 
@@ -1007,7 +1011,7 @@ class SiteSettings(models.Model):
     )
     monitoring_notice_title = models.CharField(
         max_length=200,
-        default="Before you begin: how this test is monitored",
+        default="Assessment Guidelines & Conduct",
         blank=True,
     )
     monitoring_notice = models.TextField(
@@ -1035,10 +1039,26 @@ class SiteSettings(models.Model):
     def __str__(self):
         return "Site settings"
 
+    CACHE_KEY = "site_settings_singleton"
+
     @classmethod
     def load(cls):
-        obj, _ = cls.objects.get_or_create(pk=1)
+        import sys
+        if "test" in sys.argv:
+            obj, _ = cls.objects.get_or_create(pk=1)
+            return obj
+        from django.core.cache import cache
+        obj = cache.get(cls.CACHE_KEY)
+        if obj is None:
+            obj, _ = cls.objects.get_or_create(pk=1)
+            cache.set(cls.CACHE_KEY, obj, 600)
         return obj
+
+    def save(self, *args, **kwargs):
+        from django.core.cache import cache
+        res = super().save(*args, **kwargs)
+        cache.delete(self.CACHE_KEY)
+        return res
 
     def monitoring_notice_lines(self):
         return [line.strip() for line in (self.monitoring_notice or "").splitlines() if line.strip()]

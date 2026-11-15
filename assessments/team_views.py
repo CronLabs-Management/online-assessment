@@ -86,6 +86,16 @@ def team_member_edit(request, pk):
     form = StaffMemberForm(request.POST or None, profile=profile)
     if request.method == "POST" and form.is_valid():
         data = form.cleaned_data
+        # Prevent administrative self-lockout
+        if profile.user == request.user:
+            if not data.get("is_active"):
+                form.add_error("is_active", "You cannot deactivate your own active account.")
+                return render(request, "assessments/staff/team_member_form.html", {"form": form, "profile": profile})
+            assigned_perms = data.get("role").permissions if data.get("role") else []
+            if "team.manage" not in assigned_perms:
+                form.add_error("role", "You cannot remove team management permissions from your own account.")
+                return render(request, "assessments/staff/team_member_form.html", {"form": form, "profile": profile})
+
         user = profile.user
         user.first_name, user.last_name = (part[:150] for part in _split_name(data["full_name"]))
         user.save(update_fields=["first_name", "last_name"])

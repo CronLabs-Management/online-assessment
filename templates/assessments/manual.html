@@ -1,0 +1,730 @@
+{% extends "base.html" %}
+{% load tz %}
+{% block title %}{% if is_staff %}Platform User Manual &amp; Documentation{% else %}Candidate User Manual &amp; Assessment Guide{% endif %} | {{ site_settings.site_name|default:"Assessments" }}{% endblock %}
+
+{% block content %}
+<div class="space-y-8 max-w-7xl mx-auto pb-16 text-left" id="manual-root">
+
+  <!-- Manual Header Banner -->
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-200">
+    <div>
+      <div class="flex items-center gap-2 mb-1.5 flex-wrap">
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase tracking-wider bg-[#EEF1FE] text-[#1E3AC8] border border-blue-200">
+          {% if is_staff %}Staff &amp; Admin Documentation{% else %}Candidate Guide &amp; Code of Conduct{% endif %}
+        </span>
+        <span class="text-xs text-slate-300">•</span>
+        <span class="text-xs text-slate-500 font-semibold">{% if is_staff %}Platform Reference &amp; Guidelines{% else %}Candidate Instructions{% endif %}</span>
+      </div>
+      <h1 class="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#0F172A] tracking-tight">
+        {% if is_staff %}Platform User Manual{% else %}Candidate Assessment Manual{% endif %}
+      </h1>
+      <p class="mt-1 text-sm sm:text-base text-slate-600 max-w-2xl font-medium">
+        {% if is_staff %}
+          Comprehensive operational reference for test authors, candidate administrators, proctor reviewers, and platform staff.
+        {% else %}
+          Everything you need to know about workstation setup, device diagnostics, live test navigation, and assessment conduct.
+        {% endif %}
+      </p>
+    </div>
+
+    <!-- Quick Role Filter Controls (Staff Only) / Mode Indicator (Candidate) -->
+    {% if is_staff %}
+    <div class="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200 shrink-0 select-none">
+      <button type="button" class="role-filter-btn px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all bg-white text-[#2447F5] shadow-xs" data-target="all">
+        All Topics
+      </button>
+      <button type="button" class="role-filter-btn px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all text-slate-600 hover:text-slate-900" data-target="candidate">
+        For Candidates
+      </button>
+      <button type="button" class="role-filter-btn px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all text-slate-600 hover:text-slate-900" data-target="staff">
+        For Staff / Admin
+      </button>
+    </div>
+    {% else %}
+    <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-2xl bg-[#EEF1FE] border border-blue-200 text-xs font-bold text-[#1E3AC8] shrink-0 select-none">
+      <span class="w-2 h-2 rounded-full bg-[#2447F5] animate-pulse"></span>
+      Candidate Edition
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- 2-Column Responsive Layout (Sticky TOC + Content) -->
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+
+    <!-- Left Sticky Sidebar (4 cols on lg) -->
+    <aside class="lg:col-span-4 space-y-4 lg:sticky lg:top-24 lg:self-start">
+      
+      <!-- Quick Search Filter Box -->
+      <div class="bg-white border-[1.5px] border-slate-200 rounded-2xl p-4 shadow-card space-y-3">
+        <div class="flex items-center justify-between">
+          <label for="manual-search-input" class="text-xs font-extrabold uppercase tracking-wider text-slate-700">Quick Search</label>
+          <span id="search-match-count" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-[#2447F5] border border-blue-200 hidden">0 matches</span>
+        </div>
+        <div class="manual-search-wrap">
+          <span class="manual-search-icon">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+          </span>
+          <input type="text" id="manual-search-input" placeholder="{% if is_staff %}Search rules, CSV format, grading...{% else %}Search rules, shortcuts, WiFi, auto-save...{% endif %}" class="manual-search-input" autocomplete="off">
+          <button type="button" id="manual-search-clear" class="manual-search-clear hidden" title="Clear search" aria-label="Clear search">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Navigation Table of Contents -->
+      <nav class="bg-white border-[1.5px] border-slate-200 rounded-2xl p-4 shadow-card space-y-1.5 text-xs select-none" id="manual-toc">
+        <div class="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 px-2 pb-2 border-b border-slate-100">
+          Table of Contents
+        </div>
+
+        {% if is_staff %}
+          <!-- Full Table of Contents for Staff -->
+          <a href="#chapter-1" class="toc-link block px-3 py-2.5 rounded-xl font-bold text-slate-700 hover:text-[#2447F5] hover:bg-slate-50 transition-colors" data-role="candidate">
+            <div class="flex items-center gap-2">
+              <span class="w-5 h-5 rounded-md bg-blue-100 text-[#2447F5] font-extrabold text-[10px] flex items-center justify-center shrink-0">1</span>
+              <span class="truncate">Candidate Testing &amp; Preparation</span>
+            </div>
+          </a>
+
+          <a href="#chapter-2" class="toc-link block px-3 py-2.5 rounded-xl font-bold text-slate-700 hover:text-[#2447F5] hover:bg-slate-50 transition-colors" data-role="staff">
+            <div class="flex items-center gap-2">
+              <span class="w-5 h-5 rounded-md bg-indigo-100 text-indigo-700 font-extrabold text-[10px] flex items-center justify-center shrink-0">2</span>
+              <span class="truncate">Test Authoring &amp; Question Pool</span>
+            </div>
+          </a>
+
+          <a href="#chapter-3" class="toc-link block px-3 py-2.5 rounded-xl font-bold text-slate-700 hover:text-[#2447F5] hover:bg-slate-50 transition-colors" data-role="staff">
+            <div class="flex items-center gap-2">
+              <span class="w-5 h-5 rounded-md bg-emerald-100 text-emerald-700 font-extrabold text-[10px] flex items-center justify-center shrink-0">3</span>
+              <span class="truncate">Candidate Enrollment &amp; Invites</span>
+            </div>
+          </a>
+
+          <a href="#chapter-4" class="toc-link block px-3 py-2.5 rounded-xl font-bold text-slate-700 hover:text-[#2447F5] hover:bg-slate-50 transition-colors" data-role="staff">
+            <div class="flex items-center gap-2">
+              <span class="w-5 h-5 rounded-md bg-purple-100 text-purple-700 font-extrabold text-[10px] flex items-center justify-center shrink-0">4</span>
+              <span class="truncate">Live Proctoring &amp; Telemetry</span>
+            </div>
+          </a>
+
+          <a href="#chapter-5" class="toc-link block px-3 py-2.5 rounded-xl font-bold text-slate-700 hover:text-[#2447F5] hover:bg-slate-50 transition-colors" data-role="staff">
+            <div class="flex items-center gap-2">
+              <span class="w-5 h-5 rounded-md bg-amber-100 text-amber-700 font-extrabold text-[10px] flex items-center justify-center shrink-0">5</span>
+              <span class="truncate">Interview Rounds &amp; AI Copilot</span>
+            </div>
+          </a>
+
+          <a href="#chapter-6" class="toc-link block px-3 py-2.5 rounded-xl font-bold text-slate-700 hover:text-[#2447F5] hover:bg-slate-50 transition-colors" data-role="staff">
+            <div class="flex items-center gap-2">
+              <span class="w-5 h-5 rounded-md bg-slate-200 text-slate-800 font-extrabold text-[10px] flex items-center justify-center shrink-0">6</span>
+              <span class="truncate">Staff Administration &amp; Settings</span>
+            </div>
+          </a>
+        {% else %}
+          <!-- Candidate-Specific Section Navigation -->
+          <a href="#chapter-1-requirements" class="toc-link block px-3 py-2 rounded-xl font-bold text-slate-700 hover:text-[#2447F5] hover:bg-slate-50 transition-colors">
+            <div class="flex items-center gap-2">
+              <span class="w-4 h-4 rounded bg-blue-100 text-[#2447F5] font-extrabold text-[9px] flex items-center justify-center shrink-0">1.1</span>
+              <span class="truncate">Hardware &amp; System Setup</span>
+            </div>
+          </a>
+
+          <a href="#chapter-1-experience" class="toc-link block px-3 py-2 rounded-xl font-bold text-slate-700 hover:text-[#2447F5] hover:bg-slate-50 transition-colors">
+            <div class="flex items-center gap-2">
+              <span class="w-4 h-4 rounded bg-blue-100 text-[#2447F5] font-extrabold text-[9px] flex items-center justify-center shrink-0">1.2</span>
+              <span class="truncate">Pre-Flight Onboarding Steps</span>
+            </div>
+          </a>
+
+          <a href="#chapter-1-workspace" class="toc-link block px-3 py-2 rounded-xl font-bold text-slate-700 hover:text-[#2447F5] hover:bg-slate-50 transition-colors">
+            <div class="flex items-center gap-2">
+              <span class="w-4 h-4 rounded bg-blue-100 text-[#2447F5] font-extrabold text-[9px] flex items-center justify-center shrink-0">1.3</span>
+              <span class="truncate">Workspace &amp; Section Timers</span>
+            </div>
+          </a>
+
+          <a href="#chapter-1-coding" class="toc-link block px-3 py-2 rounded-xl font-bold text-slate-700 hover:text-[#2447F5] hover:bg-slate-50 transition-colors">
+            <div class="flex items-center gap-2">
+              <span class="w-4 h-4 rounded bg-blue-100 text-[#2447F5] font-extrabold text-[9px] flex items-center justify-center shrink-0">1.4</span>
+              <span class="truncate">Live Coding &amp; Test Cases</span>
+            </div>
+          </a>
+
+          <a href="#chapter-1-rules" class="toc-link block px-3 py-2 rounded-xl font-bold text-slate-700 hover:text-[#2447F5] hover:bg-slate-50 transition-colors">
+            <div class="flex items-center gap-2">
+              <span class="w-4 h-4 rounded bg-blue-100 text-[#2447F5] font-extrabold text-[9px] flex items-center justify-center shrink-0">1.5</span>
+              <span class="truncate">Conduct &amp; Proctoring Rules</span>
+            </div>
+          </a>
+
+          <a href="#chapter-1-troubleshooting" class="toc-link block px-3 py-2 rounded-xl font-bold text-slate-700 hover:text-[#2447F5] hover:bg-slate-50 transition-colors">
+            <div class="flex items-center gap-2">
+              <span class="w-4 h-4 rounded bg-blue-100 text-[#2447F5] font-extrabold text-[9px] flex items-center justify-center shrink-0">1.6</span>
+              <span class="truncate">Network Drops &amp; Auto-Save</span>
+            </div>
+          </a>
+        {% endif %}
+      </nav>
+
+      <!-- Need Help Card -->
+      <div class="rounded-2xl border-[1.5px] border-blue-200 bg-[#EEF1FE] p-4 text-xs space-y-2">
+        <div class="font-extrabold text-[#1E3AC8] flex items-center gap-1.5">
+          <span>💡</span> Quick Tip
+        </div>
+        <p class="text-slate-600 leading-relaxed font-medium">
+          {% if is_staff %}
+            Hover over dotted underline <span class="tooltip-wrap font-bold text-slate-800" data-tip="Tooltips provide instant contextual guidance without cluttering the screen.">help tips</span> across the admin interface for immediate inline definitions.
+          {% else %}
+            Answers and code drafts save continuously to your browser cache. If your internet blinks, your work remains safe.
+          {% endif %}
+        </p>
+      </div>
+
+    </aside>
+
+    <!-- Right Content Area (8 cols on lg) -->
+    <main class="lg:col-span-8 space-y-10" id="manual-content">
+
+      <!-- ========================================== -->
+      <!-- CHAPTER 1: CANDIDATE TESTING GUIDE -->
+      <!-- ========================================== -->
+      <article id="chapter-1" class="manual-chapter bg-white border-[1.5px] border-slate-200 rounded-3xl p-6 sm:p-9 shadow-card space-y-7" data-role="candidate">
+        <div class="border-b border-slate-100 pb-4">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="px-2.5 py-0.5 rounded-md text-[11px] font-extrabold uppercase tracking-wider bg-blue-100 text-[#2447F5]">
+              {% if is_staff %}Chapter 1{% else %}Candidate Guide{% endif %}
+            </span>
+            <span class="text-xs text-slate-400 font-bold">Preparation &amp; Testing Workspace</span>
+          </div>
+          <h2 class="text-2xl font-extrabold text-[#0F172A] tracking-tight">
+            Candidate Testing &amp; Preparation Guide
+          </h2>
+          <p class="text-sm text-slate-500 font-medium mt-1">
+            Everything you need to know about preparing your workstation, passing device diagnostics, and navigating the live test workspace.
+          </p>
+        </div>
+
+        <!-- Section 1.1: System Requirements -->
+        <section id="chapter-1-requirements" class="manual-section space-y-3">
+          <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+            <span class="text-[#2447F5]">1.1</span> Hardware &amp; Environment Requirements
+          </h3>
+          <p class="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium">
+            To ensure a seamless assessment session without technical interruptions, verify the following prerequisites on your computer:
+          </p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-1">
+              <div class="text-xs font-bold text-slate-900">Supported Browsers</div>
+              <p class="text-xs text-slate-500">Google Chrome (v90+), Microsoft Edge (v90+), or Firefox. Mobile browsers are not supported.</p>
+            </div>
+            <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-1">
+              <div class="text-xs font-bold text-slate-900">Webcam &amp; Lighting</div>
+              <p class="text-xs text-slate-500">Functional front-facing webcam with adequate room lighting. Avoid bright backlights.</p>
+            </div>
+            <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-1">
+              <div class="text-xs font-bold text-slate-900">Internet Connectivity</div>
+              <p class="text-xs text-slate-500">Reliable broadband connection (&ge; 1.0 Mbps download &amp; upload) to ensure uninterrupted real-time code auto-save.</p>
+            </div>
+            <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-1">
+              <div class="text-xs font-bold text-slate-900">Quiet Testing Space</div>
+              <p class="text-xs text-slate-500">A private room without secondary monitors, mobile devices, notes, or third-party individuals.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Section 1.2: The 3-Step Candidate Experience -->
+        <section id="chapter-1-experience" class="manual-section space-y-3 pt-4 border-t border-slate-100">
+          <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+            <span class="text-[#2447F5]">1.2</span> The 3-Step Candidate Pre-Flight Flow
+          </h3>
+          <p class="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium">
+            The platform guides candidates through a structured, transparent pre-flight flow prior to starting:
+          </p>
+          <div class="space-y-3 pt-1">
+            <div class="flex items-start gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+              <span class="w-6 h-6 rounded-lg bg-[#2447F5] text-white font-extrabold text-xs flex items-center justify-center shrink-0">1</span>
+              <div>
+                <strong class="text-xs font-bold text-slate-900">Step 1: Identity &amp; Profile Verification</strong>
+                <p class="text-xs text-slate-500 mt-0.5">Confirm your full legal name, phone number, and upload your latest PDF resume. This profile is used by recruiters during interview stages.</p>
+              </div>
+            </div>
+            <div class="flex items-start gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+              <span class="w-6 h-6 rounded-lg bg-[#2447F5] text-white font-extrabold text-xs flex items-center justify-center shrink-0">2</span>
+              <div>
+                <strong class="text-xs font-bold text-slate-900">Step 2: Assessment Briefing &amp; Rules</strong>
+                <p class="text-xs text-slate-500 mt-0.5">Inspect section allocations, time limits, special instructor notes, and accept the Code of Conduct honor code.</p>
+              </div>
+            </div>
+            <div class="flex items-start gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+              <span class="w-6 h-6 rounded-lg bg-[#2447F5] text-white font-extrabold text-xs flex items-center justify-center shrink-0">3</span>
+              <div>
+                <strong class="text-xs font-bold text-slate-900">Step 3: Live Device Diagnostics Gate</strong>
+                <p class="text-xs text-slate-500 mt-0.5">Perform a live hardware test verifying webcam centering, network latency, geolocation sync, and lock into full-screen mode before the test timer begins.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Section 1.3: Assessment Navigation & Timers -->
+        <section id="chapter-1-workspace" class="manual-section space-y-3 pt-4 border-t border-slate-100">
+          <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+            <span class="text-[#2447F5]">1.3</span> Workspace Navigation &amp; Section Timers
+          </h3>
+          <p class="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium">
+            During your assessment, keep the following workflow rules in mind:
+          </p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-1">
+              <div class="text-xs font-bold text-slate-900">Section Timers vs. Total Timer</div>
+              <p class="text-xs text-slate-500">Each section has its own countdown timer. When a section timer expires, answers in that section are saved and you transition to the next section automatically.</p>
+            </div>
+            <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-1">
+              <div class="text-xs font-bold text-slate-900">Question Palette Navigation</div>
+              <p class="text-xs text-slate-500">Use the palette chips at the top to jump between questions. Green dots signify answered items; gray items are unattempted.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Section 1.4: Coding Playground -->
+        <section id="chapter-1-coding" class="manual-section space-y-3 pt-4 border-t border-slate-100">
+          <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+            <span class="text-[#2447F5]">1.4</span> Live Coding Workspace &amp; Test Execution
+          </h3>
+          <p class="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium">
+            For coding challenges, the workspace provides an integrated Monaco code editor:
+          </p>
+          <div class="space-y-2.5 pt-1 text-xs text-slate-600">
+            <div class="flex items-start gap-2.5 p-3 rounded-xl bg-slate-50 border border-slate-200">
+              <span class="font-extrabold text-[#2447F5]">Run Code:</span>
+              <span>Executes your solution against sample public test cases to inspect stdout/stderr without consuming your final submission.</span>
+            </div>
+            <div class="flex items-start gap-2.5 p-3 rounded-xl bg-slate-50 border border-slate-200">
+              <span class="font-extrabold text-[#2447F5]">Submit Solution:</span>
+              <span>Submits your code to run against both public and hidden grading test cases to calculate your final algorithm score.</span>
+            </div>
+            <div class="flex items-start gap-2.5 p-3 rounded-xl bg-slate-50 border border-slate-200">
+              <span class="font-extrabold text-[#2447F5]">Auto-Save:</span>
+              <span>Code drafts are synced automatically every few seconds. If you accidentally reload, your latest code is restored.</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Section 1.5: Honor Code & Proctoring Rules -->
+        <section id="chapter-1-rules" class="manual-section space-y-3 pt-4 border-t border-slate-100">
+          <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+            <span class="text-[#2447F5]">1.5</span> Conduct &amp; Proctoring Rules
+          </h3>
+          <div class="space-y-2.5">
+            <div class="p-3.5 rounded-2xl bg-amber-50/60 border border-amber-200 space-y-1">
+              <div class="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                Fullscreen Mode Required
+              </div>
+              <p class="text-xs text-amber-800 leading-relaxed font-medium">
+                Departing full-screen or switching windows logs a tab-switch event in your review audit. Always stay focused on the assessment tab.
+              </p>
+            </div>
+            <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-1">
+              <div class="text-xs font-bold text-slate-900">Webcam Centering</div>
+              <p class="text-xs text-slate-500">Keep your face clearly illuminated and visible inside the preview frame throughout the entire session.</p>
+            </div>
+            <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-1">
+              <div class="text-xs font-bold text-slate-900">Independent Work</div>
+              <p class="text-xs text-slate-500">External notes, unauthorized aids, secondary monitors, and third-party collaboration are strictly prohibited.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Section 1.6: Network Drops & FAQs -->
+        <section id="chapter-1-troubleshooting" class="manual-section space-y-3 pt-4 border-t border-slate-100">
+          <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+            <span class="text-[#2447F5]">1.6</span> Technical Support, Network Drops &amp; FAQs
+          </h3>
+          <div class="space-y-2.5">
+            <details class="group rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+              <summary class="cursor-pointer font-bold text-xs sm:text-sm text-slate-800 group-hover:text-[#2447F5] flex items-center justify-between select-none">
+                <span>What happens if I accidentally switch tabs or minimize my browser?</span>
+                <span class="text-slate-400 group-open:rotate-180 transition-transform">▾</span>
+              </summary>
+              <p class="text-xs text-slate-600 mt-2.5 leading-relaxed font-medium">
+                Departing full-screen or switching to another window logs a tab-switch event in your reviewer telemetry report. The system allows a configurable tolerance (e.g. 3 switches for unintentional notifications). Exceeding this limit flags your attempt for manual administrator review.
+              </p>
+            </details>
+
+            <details class="group rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+              <summary class="cursor-pointer font-bold text-xs sm:text-sm text-slate-800 group-hover:text-[#2447F5] flex items-center justify-between select-none">
+                <span>What happens if my internet connection drops during the assessment?</span>
+                <span class="text-slate-400 group-open:rotate-180 transition-transform">▾</span>
+              </summary>
+              <p class="text-xs text-slate-600 mt-2.5 leading-relaxed font-medium">
+                The platform includes an automated local storage fallback. Keystrokes, MCQ selections, and code drafts are continuously cached in your browser. When connectivity is restored, all responses synchronize with the server automatically.
+              </p>
+            </details>
+          </div>
+        </section>
+      </article>
+
+      {% if is_staff %}
+      <!-- ========================================== -->
+      <!-- CHAPTER 2: TEST AUTHORING & QUESTION POOL -->
+      <!-- ========================================== -->
+      <article id="chapter-2" class="manual-chapter bg-white border-[1.5px] border-slate-200 rounded-3xl p-6 sm:p-9 shadow-card space-y-6" data-role="staff">
+        <div class="border-b border-slate-100 pb-4">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="px-2.5 py-0.5 rounded-md text-[11px] font-extrabold uppercase tracking-wider bg-indigo-100 text-indigo-700">
+              Chapter 2
+            </span>
+            <span class="text-xs text-slate-400 font-bold">Authoring &amp; Configuration</span>
+          </div>
+          <h2 class="text-2xl font-extrabold text-[#0F172A] tracking-tight">
+            Test Authoring &amp; Question Pool
+          </h2>
+          <p class="text-sm text-slate-500 font-medium mt-1">
+            How to configure test parameters, organize sequenced sections, author MCQ questions, and set up automated coding challenge test cases.
+          </p>
+        </div>
+
+        <section class="space-y-3">
+          <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+            <span class="text-indigo-600">2.1</span> Creating an Assessment
+          </h3>
+          <p class="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium">
+            From the staff dashboard, navigate to <strong>Create Assessment</strong> (<code class="bg-slate-100 px-1.5 py-0.5 rounded text-slate-800">/staff/exams/new/</code>). Specify:
+          </p>
+          <ul class="list-disc list-inside text-xs sm:text-sm text-slate-600 space-y-1.5 font-medium pl-1">
+            <li><strong>Assessment Title &amp; Slug:</strong> Clear title and URL identifier.</li>
+            <li><strong>Scheduled Availability Window:</strong> Specific open and close dates/times when candidates can access the exam.</li>
+            <li><strong>Duration &amp; Buffer Time:</strong> Total active minutes allowed once the candidate enters the diagnostic room.</li>
+            <li><strong>Integrity Thresholds:</strong> Enforce full screen, webcam monitoring, face absence limits, and tab-switch maximums.</li>
+          </ul>
+        </section>
+
+        <section class="space-y-3 pt-3 border-t border-slate-100">
+          <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+            <span class="text-indigo-600">2.2</span> Sections &amp; Multi-Format Assessments
+          </h3>
+          <p class="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium">
+            Assessments can be divided into distinct, timed sections (e.g. <em>Section 1: Core Aptitude [20m]</em> &rarr; <em>Section 2: Python Algorithms [45m]</em>). Each section can have its own independent timer that submits upon expiration before moving to the next.
+          </p>
+        </section>
+
+        <section class="space-y-3 pt-3 border-t border-slate-100">
+          <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+            <span class="text-indigo-600">2.3</span> Coding Challenge Execution &amp; Test Cases
+          </h3>
+          <p class="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium">
+            Coding problems support Python, Java, JavaScript, C++, C#, Go, and Rust. For each problem, instructors can supply:
+          </p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+              <strong class="text-xs font-bold text-slate-900">Public Sample Test Cases</strong>
+              <p class="text-xs text-slate-500 mt-1">Visible to candidates in the code playground to test their algorithms and view stdin/stdout outputs.</p>
+            </div>
+            <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+              <strong class="text-xs font-bold text-slate-900">Hidden Grading Test Cases</strong>
+              <p class="text-xs text-slate-500 mt-1">Evaluated securely upon submission to verify edge cases, time limits, and memory complexity.</p>
+            </div>
+          </div>
+        </section>
+      </article>
+
+      <!-- ========================================== -->
+      <!-- CHAPTER 3: CANDIDATE ENROLLMENT & INVITES -->
+      <!-- ========================================== -->
+      <article id="chapter-3" class="manual-chapter bg-white border-[1.5px] border-slate-200 rounded-3xl p-6 sm:p-9 shadow-card space-y-6" data-role="staff">
+        <div class="border-b border-slate-100 pb-4">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="px-2.5 py-0.5 rounded-md text-[11px] font-extrabold uppercase tracking-wider bg-emerald-100 text-emerald-700">
+              Chapter 3
+            </span>
+            <span class="text-xs text-slate-400 font-bold">Candidate Operations</span>
+          </div>
+          <h2 class="text-2xl font-extrabold text-[#0F172A] tracking-tight">
+            Candidate Enrollment &amp; Credential Delivery
+          </h2>
+          <p class="text-sm text-slate-500 font-medium mt-1">
+            Register candidates individually, import bulk CSV files from recruitment spreadsheets, and dispatch secure access credentials.
+          </p>
+        </div>
+
+        <section class="space-y-3">
+          <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+            <span class="text-emerald-600">3.1</span> Standard CSV Import Format
+          </h3>
+          <p class="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium">
+            When uploading cohorts via the <strong>Bulk Import</strong> tool, format your file as a standard UTF-8 encoded CSV:
+          </p>
+          <div class="rounded-2xl border border-slate-200 bg-slate-900 text-slate-100 p-4 font-mono text-xs overflow-x-auto space-y-2">
+            <div class="flex items-center justify-between text-slate-400 text-[11px] border-b border-slate-800 pb-2">
+              <span>sample_candidates.csv</span>
+              <button type="button" class="text-blue-400 hover:text-blue-300 font-sans" onclick="copySnippet(this, 'csv-sample-code')">Copy</button>
+            </div>
+            <pre id="csv-sample-code">email,full_name,phone
+priya.sharma@example.com,Priya Sharma,+919876543210
+alex.chen@example.org,Alex Chen,+14155552671
+david.smith@example.co.uk,David Smith,</pre>
+          </div>
+        </section>
+
+        <section class="space-y-3 pt-3 border-t border-slate-100">
+          <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+            <span class="text-emerald-600">3.2</span> Automatic Password Generation &amp; Dispatch
+          </h3>
+          <p class="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium">
+            Upon enrollment, high-entropy random passwords are created. Click <strong>Send Credentials</strong> on the candidate roster to dispatch invitation emails containing unique login credentials and direct testing links.
+          </p>
+        </section>
+      </article>
+
+      <!-- ========================================== -->
+      <!-- CHAPTER 4: LIVE PROCTORING & TELEMETRY -->
+      <!-- ========================================== -->
+      <article id="chapter-4" class="manual-chapter bg-white border-[1.5px] border-slate-200 rounded-3xl p-6 sm:p-9 shadow-card space-y-6" data-role="staff">
+        <div class="border-b border-slate-100 pb-4">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="px-2.5 py-0.5 rounded-md text-[11px] font-extrabold uppercase tracking-wider bg-purple-100 text-purple-700">
+              Chapter 4
+            </span>
+            <span class="text-xs text-slate-400 font-bold">Proctoring &amp; Review</span>
+          </div>
+          <h2 class="text-2xl font-extrabold text-[#0F172A] tracking-tight">
+            Live Proctoring, Telemetry &amp; Audit Logs
+          </h2>
+          <p class="text-sm text-slate-500 font-medium mt-1">
+            Monitor active exam attempts, review automated integrity flags, and inspect post-assessment audit trails.
+          </p>
+        </div>
+
+        <section class="space-y-3">
+          <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+            <span class="text-purple-600">4.1</span> The Reviewer Audit Interface
+          </h3>
+          <p class="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium">
+            Opening a candidate attempt (<code class="bg-slate-100 px-1.5 py-0.5 rounded text-slate-800">/staff/attempts/&lt;id&gt;/review/</code>) displays the full evaluation timeline:
+          </p>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+            <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-1">
+              <strong class="text-xs font-bold text-slate-900">Timeline of Events</strong>
+              <p class="text-xs text-slate-500">Chronological feed of tab-switches, window blurs, full-screen exits, and device disconnects.</p>
+            </div>
+            <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-1">
+              <strong class="text-xs font-bold text-slate-900">Proctoring Snapshots</strong>
+              <p class="text-xs text-slate-500">Camera frames captured strictly during anomaly events to confirm whether candidate remained at desk.</p>
+            </div>
+            <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-1">
+              <strong class="text-xs font-bold text-slate-900">Code Replay &amp; Diff</strong>
+              <p class="text-xs text-slate-500">Playback candidate keystrokes and code diff evolutions to spot large sudden paste actions.</p>
+            </div>
+          </div>
+        </section>
+      </article>
+
+      <!-- ========================================== -->
+      <!-- CHAPTER 5: INTERVIEW ROUNDS & AI COPILOT -->
+      <!-- ========================================== -->
+      <article id="chapter-5" class="manual-chapter bg-white border-[1.5px] border-slate-200 rounded-3xl p-6 sm:p-9 shadow-card space-y-6" data-role="staff">
+        <div class="border-b border-slate-100 pb-4">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="px-2.5 py-0.5 rounded-md text-[11px] font-extrabold uppercase tracking-wider bg-amber-100 text-amber-700">
+              Chapter 5
+            </span>
+            <span class="text-xs text-slate-400 font-bold">Interviews &amp; AI Assistance</span>
+          </div>
+          <h2 class="text-2xl font-extrabold text-[#0F172A] tracking-tight">
+            Multi-Round Interviewing &amp; AI Copilot
+          </h2>
+          <p class="text-sm text-slate-500 font-medium mt-1">
+            Conduct live coding interviews, evaluate candidate competencies, and utilize AI assistance for question generation.
+          </p>
+        </div>
+
+        <section class="space-y-3">
+          <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+            <span class="text-amber-600">5.1</span> AI API Keys &amp; Model Routing
+          </h3>
+          <p class="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium">
+            Under <strong>AI Keys</strong> (<code class="bg-slate-100 px-1.5 py-0.5 rounded text-slate-800">/staff/ai-keys/</code>), configure provider keys (Gemini 2.5 Flash, OpenAI GPT-4o, Anthropic Claude 3.5). The system automatically tracks usage counters, handles rate-limit backoffs, and balances load across multiple active keys.
+          </p>
+        </section>
+      </article>
+
+      <!-- ========================================== -->
+      <!-- CHAPTER 6: STAFF ADMINISTRATION -->
+      <!-- ========================================== -->
+      <article id="chapter-6" class="manual-chapter bg-white border-[1.5px] border-slate-200 rounded-3xl p-6 sm:p-9 shadow-card space-y-6" data-role="staff">
+        <div class="border-b border-slate-100 pb-4">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="px-2.5 py-0.5 rounded-md text-[11px] font-extrabold uppercase tracking-wider bg-slate-200 text-slate-800">
+              Chapter 6
+            </span>
+            <span class="text-xs text-slate-400 font-bold">Administration &amp; RBAC</span>
+          </div>
+          <h2 class="text-2xl font-extrabold text-[#0F172A] tracking-tight">
+            Staff Administration &amp; System Settings
+          </h2>
+          <p class="text-sm text-slate-500 font-medium mt-1">
+            Manage organization branding, SMTP mailer credentials, and granular staff role permissions.
+          </p>
+        </div>
+
+        <section class="space-y-3">
+          <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+            <span class="text-slate-700">6.1</span> White-Label Branding &amp; Contact URLs
+          </h3>
+          <p class="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium">
+            In <strong>Settings</strong> (<code class="bg-slate-100 px-1.5 py-0.5 rounded text-slate-800">/staff/settings/</code>), configure your organization's display name, logo mark, candidate support email, and emergency contact phone.
+          </p>
+        </section>
+
+        <section class="space-y-3 pt-3 border-t border-slate-100">
+          <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+            <span class="text-slate-700">6.2</span> Email Notification Transport (SMTP)
+          </h3>
+          <p class="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium">
+            Configure your company SMTP server (e.g. Amazon SES, SendGrid, Mailgun, or corporate Exchange) to deliver candidate invitations. Supported protocols include STARTTLS (port 587) and SSL/TLS (port 465). Use the built-in <em>Send Diagnostic Email</em> tool on the settings screen to verify connectivity.
+          </p>
+        </section>
+
+        <section class="space-y-3 pt-3 border-t border-slate-100">
+          <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+            <span class="text-slate-700">6.3</span> Role-Based Access Control (RBAC)
+          </h3>
+          <p class="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium">
+            Manage your recruitment team in <strong>Team Roles</strong> (<code class="bg-slate-100 px-1.5 py-0.5 rounded text-slate-800">/staff/team/</code>). Granular capabilities include:
+          </p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-medium text-slate-700 pt-1">
+            <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200"><code>exams.manage</code>: Create and edit assessments</div>
+            <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200"><code>exams.publish</code>: Publish or unpublish tests</div>
+            <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200"><code>candidates.manage</code>: Enroll and invite candidates</div>
+            <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200"><code>results.review</code>: Evaluate code and proctoring telemetry</div>
+            <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200"><code>team.manage</code>: Provision staff accounts and roles</div>
+            <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200"><code>settings.manage</code>: Configure platform settings and SMTP</div>
+          </div>
+        </section>
+      </article>
+      {% endif %}
+
+    </main>
+
+  </div>
+
+</div>
+
+<!-- Client-Side Interactive Filter & Clipboard Script -->
+<script>
+  // Copy to clipboard helper
+  function copySnippet(btn, elementId) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    navigator.clipboard.writeText(el.innerText).then(() => {
+      const orig = btn.innerText;
+      btn.innerText = "✓ Copied!";
+      btn.classList.add("text-emerald-400");
+      setTimeout(() => {
+        btn.innerText = orig;
+        btn.classList.remove("text-emerald-400");
+      }, 2000);
+    });
+  }
+
+  // Interactive Live Filter & Search
+  (function() {
+    const searchInput = document.getElementById("manual-search-input");
+    const clearBtn = document.getElementById("manual-search-clear");
+    const matchCountEl = document.getElementById("search-match-count");
+    const chapters = document.querySelectorAll(".manual-chapter");
+    const sections = document.querySelectorAll(".manual-section");
+
+    let currentRole = "all";
+
+    function applyFilters() {
+      const query = (searchInput ? searchInput.value : "").trim().toLowerCase();
+      let matchCount = 0;
+
+      if (clearBtn) {
+        if (query) {
+          clearBtn.classList.remove("hidden");
+        } else {
+          clearBtn.classList.add("hidden");
+        }
+      }
+
+      // When only 1 chapter is visible (Candidate mode), filter sections directly
+      if (chapters.length === 1 && sections.length > 0) {
+        sections.forEach(sec => {
+          const secText = sec.innerText.toLowerCase();
+          const matches = !query || secText.includes(query);
+          if (matches) {
+            sec.style.display = "block";
+            matchCount++;
+          } else {
+            sec.style.display = "none";
+          }
+        });
+      } else {
+        // Staff multi-chapter mode
+        chapters.forEach(chap => {
+          const chapRole = chap.getAttribute("data-role") || "all";
+          const chapText = chap.innerText.toLowerCase();
+
+          const roleMatch = (currentRole === "all") || (chapRole === currentRole);
+          const textMatch = !query || chapText.includes(query);
+
+          if (roleMatch && textMatch) {
+            chap.style.display = "block";
+            matchCount++;
+          } else {
+            chap.style.display = "none";
+          }
+        });
+      }
+
+      if (matchCountEl) {
+        if (query) {
+          matchCountEl.textContent = `${matchCount} match${matchCount === 1 ? '' : 'es'}`;
+          matchCountEl.classList.remove("hidden");
+        } else {
+          matchCountEl.classList.add("hidden");
+        }
+      }
+    }
+
+    if (searchInput) {
+      searchInput.addEventListener("input", applyFilters);
+      searchInput.addEventListener("keydown", function(e) {
+        if (e.key === "Escape") {
+          searchInput.value = "";
+          applyFilters();
+        }
+      });
+    }
+
+    if (clearBtn) {
+      clearBtn.addEventListener("click", function() {
+        if (searchInput) {
+          searchInput.value = "";
+          searchInput.focus();
+          applyFilters();
+        }
+      });
+    }
+
+    {% if is_staff %}
+    const roleButtons = document.querySelectorAll(".role-filter-btn");
+    roleButtons.forEach(btn => {
+      btn.addEventListener("click", function() {
+        roleButtons.forEach(b => {
+          b.classList.remove("bg-white", "text-[#2447F5]", "shadow-xs");
+          b.classList.add("text-slate-600");
+        });
+        btn.classList.add("bg-white", "text-[#2447F5]", "shadow-xs");
+        btn.classList.remove("text-slate-600");
+
+        currentRole = btn.getAttribute("data-target") || "all";
+        applyFilters();
+      });
+    });
+    {% endif %}
+  })();
+</script>
+{% endblock %}

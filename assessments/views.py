@@ -21,6 +21,7 @@ from django.utils import timezone
 from django.utils.text import slugify
 from django.views.decorators.http import require_POST
 
+from . import notifications
 from .forms import (
     CodingProblemForm,
     CodingTestCaseFormSet,
@@ -158,12 +159,7 @@ def home(request):
         for application in applications
         if application.exam.is_published
     ]
-    completed_attempts = (
-        Attempt.objects.filter(candidate=request.user, status__in=Attempt.FINAL_STATUSES)
-        .select_related("exam")
-        .order_by("-ended_at")
-    )
-    return render(request, "assessments/home.html", {"rows": rows, "completed_attempts": completed_attempts})
+    return render(request, "assessments/home.html", {"rows": rows})
 
 
 def candidate_state_for(application, attempt):
@@ -357,13 +353,9 @@ def confirm_details(request, pk):
                 application.email_verification_sent_at = timezone.now()
                 verify_url = request.build_absolute_uri(reverse("verify_email", args=[raw_token]))
                 try:
-                    send_mail(
-                        subject=f"Verify your email address for {exam.title}",
-                        message=f"Please confirm your new email address by visiting:\n{verify_url}\n\nThis verification link expires in 24 hours.",
-                        from_email=dj_settings.DEFAULT_FROM_EMAIL,
-                        recipient_list=[new_email],
-                        fail_silently=True,
-                    )
+                    subject = f"Verify your email address for {exam.title}"
+                    body = f"Please confirm your new email address by visiting:\n{verify_url}\n\nThis verification link expires in 24 hours."
+                    notifications.deliver_email(subject, body, new_email)
                 except Exception:
                     pass
                 messages.info(request, f"A verification email was sent to {new_email}. Your login email will update once verified.")
@@ -1059,9 +1051,9 @@ def verify_email(request, token):
                 messages.error(request, "This email address is already in use by another account.")
                 return redirect("home")
             application.candidate.email = new_email
-            # Sync username if candidate username was old email
+            # Sync username if candidate username was old email (clamp to 150 chars max for User.username)
             if application.candidate.username == old_email or not application.candidate.username:
-                application.candidate.username = new_email
+                application.candidate.username = new_email[:150]
             application.candidate.save(update_fields=["email", "username"])
             audit(request.user if request.user.is_authenticated else None, "candidate.email_verified", f"candidate:{application.candidate_id}", f"from={old_email} to={new_email}")
         application.pending_email = ""
@@ -1167,4 +1159,19 @@ def readiness_check(request):
     cache.set("readiness_probe_result", res_body, 5)
     http_status = 200 if is_ready else 503
     return JsonResponse(res_body, status=http_status)
+
+
+def platform_manual(request):
+    """Interactive user manual and comprehensive platform documentation hub."""
+    site_settings = SiteSettings.load()
+    is_staff = is_team_member(request.user) if request.user.is_authenticated else False
+    return render(
+        request,
+        "assessments/manual.html",
+        {
+            "site_settings": site_settings,
+            "is_staff": is_staff,
+        },
+    )
+
 

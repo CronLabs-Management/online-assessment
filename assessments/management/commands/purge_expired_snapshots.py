@@ -27,4 +27,9 @@ class Command(BaseCommand):
                 continue
             snapshot.delete()
             removed += 1
+            try:
+                # Clean up attempt subdirectory if it is now empty to avoid inode clutter
+                path.parent.rmdir()
+            except OSError:
+                pass
         self.stdout.write(f"Removed {removed} image(s) older than {days} days; {failed} failed.")

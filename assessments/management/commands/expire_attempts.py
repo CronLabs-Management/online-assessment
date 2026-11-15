@@ -10,5 +10,5 @@ class Command(BaseCommand):
     )
 
     def handle(self, *args, **options):
-        processed = expire_due_attempts()
+        processed = expire_due_attempts(force=True)
         self.stdout.write(f"Processed {processed} overdue attempt(s).")

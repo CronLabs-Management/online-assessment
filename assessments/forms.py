@@ -79,11 +79,25 @@ class ExamForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        for field in self.fields.values():
+        for name, field in self.fields.items():
             if isinstance(field.widget, forms.CheckboxInput):
-                field.widget.attrs.setdefault("class", "h-4 w-4")
+                field.widget.attrs["class"] = "h-4 w-4 accent-[#2447F5] rounded cursor-pointer shrink-0 mt-0.5"
+            elif isinstance(field.widget, forms.Textarea):
+                field.widget.attrs["class"] = (
+                    "w-full rounded-xl border border-slate-300 px-4 py-3 text-sm font-medium text-slate-900 "
+                    "focus:border-[#2447F5] focus:ring-2 focus:ring-blue-100 focus:outline-none transition-all placeholder:text-slate-400"
+                )
             else:
-                field.widget.attrs.setdefault("class", "w-full rounded border px-3 py-2")
+                field.widget.attrs["class"] = (
+                    "w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm font-semibold text-slate-900 "
+                    "focus:border-[#2447F5] focus:ring-2 focus:ring-blue-100 focus:outline-none transition-all placeholder:text-slate-400"
+                )
+        if "title" in self.fields:
+            self.fields["title"].widget.attrs.setdefault("placeholder", "e.g. Senior Backend Engineer Assessment")
+        if "instructions" in self.fields:
+            self.fields["instructions"].widget.attrs.setdefault("placeholder", "Candidate instructions, guidelines, allowed libraries, and scoring criteria...")
+        if "email_instructions" in self.fields:
+            self.fields["email_instructions"].widget.attrs.setdefault("placeholder", "Special instructions included in candidate invitation email...")
         self.fields["opens_at"].input_formats = ["%Y-%m-%dT%H:%M"]
         self.fields["closes_at"].input_formats = ["%Y-%m-%dT%H:%M"]
 
@@ -779,9 +793,9 @@ class ConfirmDetailsForm(forms.ModelForm):
         help_text="Upload your resume in PDF or Word format (up to 10 MB).",
     )
     monitoring_consent = forms.BooleanField(
-        label="I have read how this test is monitored and I agree.",
+        label="I have reviewed the assessment guidelines and I agree to proceed.",
         required=True,
-        error_messages={"required": "You need to agree to the monitoring notice to take this test."},
+        error_messages={"required": "You must agree to the assessment guidelines to take this test."},
         widget=forms.CheckboxInput(attrs={"class": "mt-0.5 h-4 w-4 accent-[#2447F5] cursor-pointer"}),
     )
 
@@ -1065,7 +1079,10 @@ class StaffRoleForm(forms.ModelForm):
         if self.instance and self.instance.pk:
             self.initial["permissions"] = list(self.instance.permissions or [])
         for name in ("name", "description"):
-            self.fields[name].widget.attrs.setdefault("class", "w-full rounded border px-3 py-2")
+            self.fields[name].widget.attrs["class"] = (
+                "w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-900 "
+                "focus:border-[#2447F5] focus:ring-2 focus:ring-blue-100 focus:outline-none transition-all placeholder:text-slate-400"
+            )
 
     def clean_name(self):
         name = (self.cleaned_data.get("name") or "").strip()

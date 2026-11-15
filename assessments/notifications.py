@@ -14,6 +14,7 @@ Architecture notes (replicated from other working cPanel projects):
 
 import logging
 import os
+import re
 import secrets
 import ssl
 import threading
@@ -218,8 +219,32 @@ def send_login_details(application, password, actor=None, connection=None):
     site_name = site.site_name or "Assessments"
     exam = application.exam
 
+    cand_name = (application.full_name or user.get_full_name() or user.email or "").strip()
+    login_url = _absolute(reverse("login"))
+    exam_url = _absolute(reverse("exam_detail", args=[application.exam_id]))
+    replacements = {
+        "{test}": exam.title,
+        "{exam}": exam.title,
+        "{site}": site_name,
+        "{candidate}": cand_name,
+        "{name}": cand_name,
+        "{candidate_name}": cand_name,
+        "{email}": user.email,
+        "{user_email}": user.email,
+        "{username}": user.username,
+        "{password}": password,
+        "{login_link}": login_url,
+        "{exam_link}": exam_url,
+        "{duration}": f"{exam.duration_minutes} minutes",
+    }
+
     def fill(text):
-        return (text or "").replace("{test}", exam.title).replace("{site}", site_name)
+        res = text or ""
+        for placeholder, val in replacements.items():
+            res = res.replace(placeholder, str(val))
+        # Safely remove any unmapped bracket tokens like {some_other_key} to avoid leaking raw flower brackets
+        res = re.sub(r"\{[a-zA-Z0-9_]+\}", "", res).strip()
+        return res
 
     instructions = [
         fill(line).strip()
@@ -290,18 +315,31 @@ def send_login_details_async(application_id, password, actor_id=None):
 
 def send_batch_async(items, actor_id=None):
     """
-    Dispatch a batch of [(application_id, password), ...] in a background daemon thread.
+    Dispatch a batch of [(application_id, password), ...] in a background thread using a persistent connection.
     """
     def _worker():
         actor = None
         if actor_id:
             actor = get_user_model().objects.filter(pk=actor_id).first()
+        connection = None
+        try:
+            connection = get_connection(timeout=settings.EMAIL_TIMEOUT)
+            connection.open()
+        except Exception:
+            connection = None
+
         for app_id, password in items:
             try:
                 application = Application.objects.select_related("candidate", "exam").get(pk=app_id)
-                send_login_details(application, password, actor=actor)
+                send_login_details(application, password, actor=actor, connection=connection)
             except Exception as exc:
                 logger.error("Background batch email failed for application %s: %s", app_id, exc)
+
+        if connection:
+            try:
+                connection.close()
+            except Exception:
+                pass
 
     thread = threading.Thread(target=_worker, daemon=True)
     thread.start()

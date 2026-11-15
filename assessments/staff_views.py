@@ -77,6 +77,9 @@ def _candidate_rows(exam, q="", status="", flagged=False, sort="newest", score_v
             "reviews", "mcq_items__question", "coding_items__problem"
         )
     }
+    default_exam_mcq_max = sum(q.marks for q in exam.mcq_questions.all())
+    default_exam_coding_max = sum(p.marks for p in exam.coding_problems.all())
+    default_exam_max = float(default_exam_mcq_max + default_exam_coding_max)
     rows = []
     for application in applications:
         attempt = attempts.get(application.candidate_id)
@@ -157,9 +160,7 @@ def _candidate_rows(exam, q="", status="", flagged=False, sort="newest", score_v
                 coding_max = sum(item.problem.marks for item in attempt.coding_items.all())
                 exam_max = float(mcq_max + coding_max)
             else:
-                exam_mcq_max = sum(q.marks for q in exam.mcq_questions.all())
-                exam_coding_max = sum(p.marks for p in exam.coding_problems.all())
-                exam_max = float(exam_mcq_max + exam_coding_max)
+                exam_max = default_exam_max
             final_max = round(exam_max + interview_max_sum, 2) if (exam_max or interview_max_sum) else None
         else:
             final_val = None
@@ -302,12 +303,14 @@ def staff_candidates_import(request, pk):
             duplicates = []
             with transaction.atomic():
                 for row in rows:
-                    user = User.objects.filter(Q(username__iexact=row["email"]) | Q(email__iexact=row["email"])).first()
+                    email_clean = row["email"].strip().lower()
+                    username_clean = email_clean[:150]
+                    user = User.objects.filter(Q(username__iexact=username_clean) | Q(email__iexact=email_clean)).first()
                     if user is not None and is_team_member(user):
                         problems.append(f"{row['email']} belongs to a staff or admin account and was skipped.")
                         continue
                     if user is None:
-                        user = User(username=row["email"], email=row["email"], is_active=True)
+                        user = User(username=username_clean, email=email_clean, is_active=True)
                         user.set_unusable_password()
                         user.save()
                     application, was_created = Application.objects.get_or_create(
@@ -688,11 +691,15 @@ def staff_attempt_review(request, pk):
         and str(current_round) not in (application.ai_round_questions or {})
         and current_round <= total_rounds
     ):
-        try:
-            generate_round_questions(application, current_round, total_rounds)
-            application.refresh_from_db()
-        except Exception as exc:
-            logger.warning("Auto generation of questions failed: %s", exc)
+        lock_key = f"ai_gen_lock:{application.pk}:{current_round}"
+        if cache.add(lock_key, "1", timeout=60):
+            try:
+                generate_round_questions(application, current_round, total_rounds)
+                application.refresh_from_db()
+            except Exception as exc:
+                logger.warning("Auto generation of questions failed: %s", exc)
+            finally:
+                cache.delete(lock_key)
 
     round_reviews = list(attempt.reviews.all().order_by("round_number", "-created_at"))
     reviews_by_round = {}

@@ -108,9 +108,9 @@ def _clean_context(raw):
         return {}
     cleaned = {}
     for key, value in list(raw.items())[:MAX_CONTEXT_KEYS]:
-        key = str(key)[:50]
+        key = str(key).replace("\x00", "")[:50]
         if isinstance(value, str):
-            cleaned[key] = value[:MAX_CONTEXT_STRING]
+            cleaned[key] = value.replace("\x00", "")[:MAX_CONTEXT_STRING]
         elif value is None or isinstance(value, bool):
             cleaned[key] = value
         elif isinstance(value, (int, float)):
@@ -200,7 +200,7 @@ def attempt_page(request, pk):
             services.touch(attempt, now)
     if attempt.is_final:
         return redirect("attempt_result", pk=attempt.pk)
-    return render(request, "assessments/attempt.html", {"attempt": attempt, "exam": attempt.exam})
+    return render(request, "assessments/attempt.html", {"attempt": attempt, "exam": attempt.exam, "server_now": timezone.now()})
 
 
 @login_required
@@ -245,19 +245,22 @@ def api_readiness(request, pk):
     clean_dev = {}
     if isinstance(device, dict):
         clean_dev.update({
-            k: device[k]
+            str(k).replace("\x00", ""): str(device[k]).replace("\x00", "")[:200]
+            if isinstance(device[k], str) else device[k]
             for k in ("screen", "viewport", "platform", "language", "pixelRatio", "colorDepth")
             if k in device
         })
     if isinstance(location, dict):
         clean_dev["location"] = {
-            k: location[k]
+            str(k).replace("\x00", ""): str(location[k]).replace("\x00", "")[:200]
+            if isinstance(location[k], str) else location[k]
             for k in ("latitude", "longitude", "accuracy", "altitude", "timestamp", "timezone", "source", "reason")
             if k in location and isinstance(location[k], (int, float, str))
         }
     if isinstance(network, dict):
         clean_dev["network"] = {
-            k: network[k]
+            str(k).replace("\x00", ""): str(network[k]).replace("\x00", "")[:200]
+            if isinstance(network[k], str) else network[k]
             for k in ("type", "effectiveType", "downlink", "rtt", "saveData", "connectionType")
             if k in network and isinstance(network[k], (int, float, str, bool))
         }
@@ -303,8 +306,8 @@ def api_answer(request, pk):
 def api_draft(request, pk):
     data = _body(request)
     problem_id = _int(data, "problem_id")
-    language = str(data.get("language", ""))[:20]
-    code = str(data.get("code", ""))
+    language = str(data.get("language", "")).replace("\x00", "")[:20]
+    code = str(data.get("code", "")).replace("\x00", "")
     _perform(request, pk, lambda a, now: services.save_draft(a, now, problem_id, language, code))
     return JsonResponse({"ok": True})
 
@@ -314,8 +317,8 @@ def api_draft(request, pk):
 def api_code_submit(request, pk):
     data = _body(request)
     problem_id = _int(data, "problem_id")
-    language = str(data.get("language", ""))[:20]
-    code = str(data.get("code", ""))
+    language = str(data.get("language", "")).replace("\x00", "")[:20]
+    code = str(data.get("code", "")).replace("\x00", "")
     try:
         submission = _perform(request, pk, lambda a, now: services.submit_code(a, now, problem_id, language, code))
         services.dispatch_grading(submission.pk)
@@ -368,8 +371,8 @@ def api_code_run(request, pk):
     """Runs code against the public cases. The code and result are kept for reviewers; no score changes."""
     data = _body(request)
     problem_id = _int(data, "problem_id")
-    language = str(data.get("language", ""))[:20]
-    code = str(data.get("code", ""))
+    language = str(data.get("language", "")).replace("\x00", "")[:20]
+    code = str(data.get("code", "")).replace("\x00", "")
     # Same checks as every candidate action (time rules, approval, session). The sandbox call itself
     # runs after the lock is released, so a slow run never holds up the attempt.
     problem = _perform(request, pk, lambda a, now: services.run_preflight(a, now, problem_id, language, code))

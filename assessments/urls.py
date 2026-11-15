@@ -76,4 +76,5 @@ urlpatterns = [
     path("staff/team/roles/new/", team_views.team_role_add, name="team_role_add"),
     path("staff/team/roles/<int:pk>/", team_views.team_role_edit, name="team_role_edit"),
     path("staff/team/roles/<int:pk>/delete/", team_views.team_role_delete, name="team_role_delete"),
+    path("manual/", views.platform_manual, name="platform_manual"),
 ]

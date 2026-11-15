@@ -89,13 +89,17 @@ def is_team_member(user):
     """Admins and staff. Team members never take tests and see the staff area after signing in."""
     if not (user and user.is_authenticated):
         return False
+    cached = getattr(user, "_oa_is_team", None)
+    if cached is not None:
+        return cached
     if is_admin(user):
+        user._oa_is_team = True
         return True
     from .models import StaffProfile
 
-    if StaffProfile.objects.filter(user=user).exists():
-        return True
-    return _legacy_reviewer(user)
+    is_team = StaffProfile.objects.filter(user=user).exists() or _legacy_reviewer(user)
+    user._oa_is_team = is_team
+    return is_team
 
 
 def role_label(user):

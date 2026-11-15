@@ -188,7 +188,7 @@ class MonitoringConsentTests(TestCase):
                          {"full_name": "Cand", "phone": "9876543210", "monitoring_consent": "on"})
         self.application.refresh_from_db()
         self.assertIsNotNone(self.application.monitoring_consent_at)
-        self.assertIn("webcam", self.application.monitoring_consent_text)
+        self.assertIn("Browser and screen checks", self.application.monitoring_consent_text)
 
     def test_start_requires_consent(self):
         Application.objects.filter(pk=self.application.pk).update(details_confirmed_at=timezone.now())

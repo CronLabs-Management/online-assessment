@@ -16,7 +16,7 @@ const $ = (id) => document.getElementById(id);
 const content = $("content");
 
 let state = null;
-let serverOffsetMs = 0;
+let serverOffsetMs = root.dataset.serverNow ? (new Date(root.dataset.serverNow).getTime() - Date.now()) : 0;
 let refreshing = false;
 let flushPromise = null;
 let mcqIndex = 0;
@@ -123,6 +123,19 @@ function setOffline(isOffline) {
   $("offline").classList.toggle("hidden", !isOffline);
 }
 
+window.addEventListener("online", () => {
+  setOffline(false);
+  showStatus("Internet connection restored. Syncing answers…", "info");
+  flushOutbox();
+  flushDrafts();
+  refresh();
+});
+
+window.addEventListener("offline", () => {
+  setOffline(true);
+  showStatus("Internet connection dropped. Answers and code are safely saved locally on your machine.", "warn");
+});
+
 async function api(method, path, body) {
   let response;
   try {
@@ -162,6 +175,89 @@ async function api(method, path, body) {
 // explains what to do. Polling stops so the refusal is not repeated every few seconds.
 let sessionBlocked = false;
 let refreshTimer = null;
+
+// Multi-Tab Coordination via BroadcastChannel to prevent draft collision and timer corruption
+const TAB_ID = "tab_" + Math.random().toString(36).slice(2) + "_" + Date.now();
+const TAB_CHANNEL_NAME = `oa_attempt_tab_${attemptId}`;
+let tabChannel = null;
+let isPrimaryTab = true;
+let tabOverlay = null;
+
+function blockForLocalTabConflict(isTakenOver = false) {
+  if (!isPrimaryTab && tabOverlay) return;
+  isPrimaryTab = false;
+  if (refreshTimer) clearInterval(refreshTimer);
+
+  if (!tabOverlay) {
+    tabOverlay = document.createElement("div");
+    tabOverlay.id = "oa-multi-tab-overlay";
+    tabOverlay.className = "fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4";
+    document.body.appendChild(tabOverlay);
+  }
+
+  const msg = isTakenOver
+    ? "Another tab in this browser took over active test submission."
+    : "This assessment is already open in another tab of your browser.";
+
+  tabOverlay.innerHTML = `
+    <div class="max-w-md w-full bg-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-200 text-center space-y-4">
+      <div class="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 border border-amber-200 mx-auto flex items-center justify-center">
+        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+      </div>
+      <h3 class="text-lg sm:text-xl font-extrabold text-slate-900">Assessment Active in Another Tab</h3>
+      <p class="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed">
+        ${escapeHtml(msg)} To protect your answers and prevent accidental draft loss, only one tab can be active at a time.
+      </p>
+      <div class="pt-2 flex flex-col sm:flex-row gap-2.5">
+        <button type="button" id="tab-takeover-btn" class="btn btn-primary flex-1 py-2.5 text-xs font-extrabold">Use This Tab Instead</button>
+        <button type="button" id="tab-close-btn" class="btn btn-secondary flex-1 py-2.5 text-xs font-bold">Close This Tab</button>
+      </div>
+    </div>
+  `;
+
+  document.getElementById("tab-takeover-btn")?.addEventListener("click", () => {
+    takeOverAsPrimaryTab();
+  });
+  document.getElementById("tab-close-btn")?.addEventListener("click", () => {
+    window.close();
+  });
+}
+
+function takeOverAsPrimaryTab() {
+  isPrimaryTab = true;
+  if (tabOverlay) {
+    tabOverlay.remove();
+    tabOverlay = null;
+  }
+  if (tabChannel) {
+    try {
+      tabChannel.postMessage({ type: "TAKEOVER", tabId: TAB_ID });
+    } catch (_) {}
+  }
+  refresh();
+  if (!refreshTimer) {
+    refreshTimer = setInterval(refresh, 5000);
+  }
+}
+
+function initTabCoordination() {
+  if (typeof BroadcastChannel === "undefined") return;
+  try {
+    tabChannel = new BroadcastChannel(TAB_CHANNEL_NAME);
+    tabChannel.postMessage({ type: "HELLO", tabId: TAB_ID });
+
+    tabChannel.onmessage = (e) => {
+      const data = e.data || {};
+      if (data.type === "HELLO" && isPrimaryTab) {
+        tabChannel.postMessage({ type: "CLAIM_ACTIVE", tabId: TAB_ID });
+      } else if (data.type === "CLAIM_ACTIVE" && data.tabId !== TAB_ID && isPrimaryTab) {
+        blockForLocalTabConflict(false);
+      } else if (data.type === "TAKEOVER" && data.tabId !== TAB_ID && isPrimaryTab) {
+        blockForLocalTabConflict(true);
+      }
+    };
+  } catch (_) {}
+}
 
 function blockForSessionConflict(message) {
   if (sessionBlocked) return;
@@ -213,6 +309,7 @@ function enqueue(item) {
 // Sends queued saves in order. Every caller that needs the outbox empty (for example before a
 // section submit) awaits the same drain, so nothing queued earlier can reach the server after the submit.
 function flushOutbox() {
+  if (!isPrimaryTab) return Promise.resolve();
   if (flushPromise) return flushPromise;
   const drain = async () => {
     const sent = new Set();
@@ -279,8 +376,12 @@ async function handleAutoSubmit(reason) {
       await api("POST", "submit-section/", { section_id: state.current_section.id });
     }
   } catch (err) {
-    // If backend already advanced or expired via time check, this is expected
-    console.warn("Auto-submit section call:", err);
+    if (err.network) {
+      showStatus("Assessment time has expired. Your answers are saved locally on your device and will be submitted as soon as your internet reconnects.", "warn");
+    } else {
+      // If backend already advanced or expired via time check, this is expected
+      console.warn("Auto-submit section call:", err);
+    }
   }
 
   try {
@@ -320,12 +421,15 @@ function tick() {
 }
 
 async function refresh() {
-  if (refreshing || sessionBlocked) return;
+  if (!isPrimaryTab || refreshing || sessionBlocked) return;
   refreshing = true;
   try {
+    const t0 = (typeof performance !== "undefined" && performance.now) ? performance.now() : 0;
     const next = await api("GET", "state/");
+    const rtt = t0 ? (performance.now() - t0) : 0;
     state = next;
-    serverOffsetMs = new Date(next.server_now).getTime() - Date.now();
+    // Compensate for half round-trip network transit latency
+    serverOffsetMs = (new Date(next.server_now).getTime() + Math.round(rtt / 2)) - Date.now();
     setOffline(false);
     flushOutbox();
     render();
@@ -719,7 +823,7 @@ function initReadinessGeo() {
 
   geoPendingTimer = setTimeout(() => {
     resolveFallback("timeout_fallback");
-  }, 4000);
+  }, 1500);
 
   if (!navigator.geolocation) {
     resolveFallback("unsupported");
@@ -749,7 +853,7 @@ function initReadinessGeo() {
         }
         if (metrics) {
           metrics.textContent = `${pos.coords.latitude.toFixed(2)}°, ${pos.coords.longitude.toFixed(2)}° (±${Math.round(pos.coords.accuracy)}m)`;
-          metrics.className = "text-emerald-700 font-mono font-bold text-[11px]";
+          metrics.className = "text-emerald-700 font-mono font-bold text-[11px] truncate max-w-[170px]";
         }
         if (detail) {
           detail.textContent = `Coordinates locked: ${pos.coords.latitude.toFixed(4)}°, ${pos.coords.longitude.toFixed(4)}°`;
@@ -762,9 +866,9 @@ function initReadinessGeo() {
       },
       (err) => {
         console.warn("Geolocation warning/denied:", err);
-        resolveFallback(err.code === 1 ? "permission_denied" : "unavailable");
+        resolveFallback(err && err.code === 1 ? "permission_denied" : "unavailable");
       },
-      { enableHighAccuracy: true, timeout: 4000, maximumAge: 600000 }
+      { enableHighAccuracy: false, timeout: 1500, maximumAge: 600000 }
     );
   } catch (err) {
     console.warn("Geolocation call error:", err);
@@ -2164,7 +2268,16 @@ function showInAppConfirm({
 }) {
   const modalRoot = $("in-app-modal-root");
   if (!modalRoot) {
-    return Promise.resolve(window.confirm(`${title}\n\n${message}`));
+    if (window.oaConfirm) {
+      return window.oaConfirm({
+        title: title,
+        message: message,
+        tone: (tone === "danger" || tone === "bad") ? "danger" : (tone === "warn" ? "warning" : "info"),
+        confirmText: confirmText,
+        cancelText: cancelText
+      });
+    }
+    return Promise.resolve(true);
   }
 
   // Teleport modalRoot to document.body so it sits at the absolute top of the DOM stacking context,
@@ -3433,6 +3546,7 @@ window.addEventListener("resize", () => {
 
 setupFullscreenGate();
 setOffline(!navigator.onLine);
+initTabCoordination();
 refresh();
 watchScreens();
 refreshTimer = setInterval(refresh, 5000);

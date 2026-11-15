@@ -117,7 +117,7 @@
 
     <h2 class="text-2xl sm:text-3xl font-extrabold text-[#0F172A]">Assessment Opens Soon</h2>
     <p class="mx-auto max-w-lg text-sm sm:text-base text-slate-600 leading-relaxed font-medium">
-      Scheduled to unlock on <strong class="text-slate-900 font-bold">{{ exam.opens_at|localtime|date:"l, d F Y at H:i" }}</strong>.
+      Scheduled to unlock on <strong class="text-slate-900 font-bold">{{ exam.opens_at|localtime|date:"l, d F Y · H:i" }}</strong>.
       This page will refresh automatically when your testing window opens.
     </p>
 
@@ -192,7 +192,7 @@
       </div>
       <h2 class="text-2xl sm:text-3xl font-extrabold text-[#0F172A]">Assessment Submitted</h2>
       <p class="mx-auto max-w-lg text-sm sm:text-base text-slate-600 font-medium leading-relaxed">
-        Your answers, code solutions, and proctoring telemetry have been recorded.
+        Your answers and code solutions have been securely recorded.
       </p>
       {% if attempt %}
         <div class="pt-2">
@@ -207,7 +207,7 @@
       </div>
       <h2 class="text-2xl sm:text-3xl font-extrabold text-[#0F172A]">This Assessment Has Closed</h2>
       <p class="mx-auto max-w-lg text-sm sm:text-base text-slate-600 font-medium leading-relaxed">
-        The assessment window officially closed on <strong class="text-slate-900 font-bold">{{ exam.closes_at|localtime|date:"l, d F Y at H:i" }}</strong>.
+        The assessment window officially closed on <strong class="text-slate-900 font-bold">{{ exam.closes_at|localtime|date:"l, d F Y · H:i" }}</strong>.
       </p>
     {% endif %}
   </div>
@@ -243,102 +243,19 @@
   <!-- Main 2-Column Responsive Layout: Rules (Left) and System Diagnostics (Right) -->
   <div class="exam-layout-grid">
     
-    <!-- Left Column: Rules & Guidelines -->
+    <!-- Left Column: Assessment Breakdown & Code of Conduct -->
     <div class="exam-left-panel flex flex-col gap-6">
 
-      <!-- Test Rules Card -->
-      <section class="bg-white border-[1.5px] border-slate-200 rounded-3xl p-6 sm:p-8 flex flex-col gap-6 shadow-card">
-        <div class="border-b border-slate-100 pb-4">
-          <span class="text-xs font-extrabold uppercase tracking-wider text-slate-400">Code of Conduct</span>
-          <h2 class="text-xl sm:text-2xl font-extrabold text-[#0F172A] tracking-tight mt-0.5">Rules &amp; Guidelines</h2>
-        </div>
-        
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <!-- Rule 1 -->
-          <div class="flex items-start gap-3.5 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 hover:bg-slate-100/70 transition-colors">
-            <span class="w-7 h-7 rounded-lg bg-[#0F172A] text-[#FFB020] font-extrabold text-xs flex items-center justify-center shrink-0 shadow-xs">1</span>
-            <div class="min-w-0 flex-1">
-              <div class="text-sm font-bold text-[#0F172A]">Continuous Full Screen</div>
-              <div class="text-xs text-slate-600 font-medium mt-0.5 leading-relaxed">Leaving full screen is recorded and flagged for human review.</div>
-            </div>
-          </div>
-
-          <!-- Rule 2 -->
-          <div class="flex items-start gap-3.5 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 hover:bg-slate-100/70 transition-colors">
-            <span class="w-7 h-7 rounded-lg bg-[#0F172A] text-[#FFB020] font-extrabold text-xs flex items-center justify-center shrink-0 shadow-xs">2</span>
-            <div class="min-w-0 flex-1">
-              <div class="text-sm font-bold text-[#0F172A]">Keep Face Visible</div>
-              <div class="text-xs text-slate-600 font-medium mt-0.5 leading-relaxed">Sit in good lighting and face the camera throughout the test.</div>
-            </div>
-          </div>
-
-          <!-- Rule 3 -->
-          <div class="flex items-start gap-3.5 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 hover:bg-slate-100/70 transition-colors">
-            <span class="w-7 h-7 rounded-lg bg-[#0F172A] text-[#FFB020] font-extrabold text-xs flex items-center justify-center shrink-0 shadow-xs">3</span>
-            <div class="min-w-0 flex-1">
-              <div class="text-sm font-bold text-[#0F172A]">Work Independently</div>
-              <div class="text-xs text-slate-600 font-medium mt-0.5 leading-relaxed">No secondary monitors, mobile phones, or notes allowed in the room.</div>
-            </div>
-          </div>
-
-          <!-- Rule 4 -->
-          <div class="flex items-start gap-3.5 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 hover:bg-slate-100/70 transition-colors">
-            <span class="w-7 h-7 rounded-lg bg-[#0F172A] text-[#FFB020] font-extrabold text-xs flex items-center justify-center shrink-0 shadow-xs">4</span>
-            <div class="min-w-0 flex-1">
-              <div class="text-sm font-bold text-[#0F172A]">Stay on Assessment Tab</div>
-              <div class="text-xs text-slate-600 font-medium mt-0.5 leading-relaxed">Tab switches and window focus loss trigger integrity penalty events.</div>
-            </div>
-          </div>
-
-          <!-- Rule 5 -->
-          <div class="flex items-start gap-3.5 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 hover:bg-slate-100/70 transition-colors">
-            <span class="w-7 h-7 rounded-lg bg-[#0F172A] text-[#FFB020] font-extrabold text-xs flex items-center justify-center shrink-0 shadow-xs">5</span>
-            <div class="min-w-0 flex-1">
-              <div class="text-sm font-bold text-[#0F172A]">Server-Synced Timers</div>
-              <div class="text-xs text-slate-600 font-medium mt-0.5 leading-relaxed">Time counts continuously on the server; submit before expiration.</div>
-            </div>
-          </div>
-
-          <!-- Rule 6 -->
-          <div class="flex items-start gap-3.5 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 hover:bg-slate-100/70 transition-colors">
-            <span class="w-7 h-7 rounded-lg bg-[#0F172A] text-[#FFB020] font-extrabold text-xs flex items-center justify-center shrink-0 shadow-xs">6</span>
-            <div class="min-w-0 flex-1">
-              <div class="text-sm font-bold text-[#0F172A]">Continuous Auto-Save</div>
-              <div class="text-xs text-slate-600 font-medium mt-0.5 leading-relaxed">Answers and code drafts are backed up locally and automatically synchronized.</div>
-            </div>
-          </div>
-        </div>
-
-        {% if exam.instructions %}
-        <div class="pt-3 border-t border-slate-100">
-          <div class="text-xs font-extrabold uppercase tracking-wider text-slate-500 mb-1.5">Special Instructions from Instructor:</div>
-          <div class="whitespace-pre-line text-xs sm:text-sm leading-relaxed text-slate-700 bg-amber-50/70 p-4 rounded-2xl border border-amber-200/80">
-            {{ exam.instructions }}
-          </div>
-        </div>
-        {% endif %}
-
-        <!-- How Proctoring Works Notice -->
-        <div class="bg-[#F1F5FF] border-[1.5px] border-[#D5DEFB] rounded-2xl p-4 sm:p-5 flex items-start gap-3.5">
-          <div class="w-8 h-8 rounded-xl bg-blue-100 text-[#2447F5] flex items-center justify-center shrink-0 mt-0.5">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
-            </svg>
-          </div>
-          <div class="min-w-0 flex-1">
-            <div class="text-sm font-extrabold text-[#1E3AC8]">Proctoring &amp; Privacy Assurance</div>
-            <p class="text-xs text-slate-600 font-medium leading-relaxed mt-0.5">
-              Snapshots are captured only when an unexpected anomaly is detected. Full video is not permanently stored, and an authorized recruitment reviewer inspects any flagged events before any decision.
-            </p>
-          </div>
-        </div>
-      </section>
-
       <!-- Section Allocation Breakdown Table -->
-      <section class="bg-white border-[1.5px] border-slate-200 rounded-3xl p-6 sm:p-8 shadow-card flex flex-col gap-4">
-        <div class="flex items-center justify-between">
-          <h3 class="text-lg sm:text-xl font-extrabold text-[#0F172A] tracking-tight">Assessment Sections</h3>
-          <span class="text-xs font-bold text-slate-400">Sequenced Delivery</span>
+      <section class="bg-white border-[1.5px] border-slate-200 rounded-3xl p-6 sm:p-7 shadow-card flex flex-col gap-4">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div>
+            <span class="text-xs font-extrabold uppercase tracking-wider text-slate-400">Test Structure</span>
+            <h2 class="text-xl sm:text-2xl font-extrabold text-[#0F172A] tracking-tight mt-0.5">Assessment Sections</h2>
+          </div>
+          <span class="text-xs font-bold text-[#2447F5] bg-blue-50 border border-blue-200 px-3 py-1 rounded-full">
+            {{ exam.sections.count|default:"1" }} Section{{ exam.sections.count|pluralize }}
+          </span>
         </div>
         <div class="overflow-x-auto rounded-2xl border border-slate-200">
           <table class="w-full text-left text-sm border-collapse">
@@ -371,128 +288,154 @@
               {% empty %}
                 <tr>
                   <td colspan="4" class="py-6 px-4 text-center text-slate-500 text-sm font-medium">
-                    Standard continuous assessment without segregated sections.
+                    Standard continuous assessment without segregated sections ({{ exam.duration_minutes }} minutes total).
                   </td>
                 </tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
+
+        {% if exam.instructions %}
+        <div class="pt-3 border-t border-slate-100">
+          <div class="text-xs font-extrabold uppercase tracking-wider text-slate-500 mb-1.5">Special Instructions from Instructor:</div>
+          <div class="whitespace-pre-line text-xs sm:text-sm leading-relaxed text-slate-700 bg-amber-50/70 p-4 rounded-2xl border border-amber-200/80">
+            {{ exam.instructions }}
+          </div>
+        </div>
+        {% endif %}
+      </section>
+
+      <!-- Code of Conduct & Honor Code Summary (Crisp 4-chip grid) -->
+      <section class="bg-white border-[1.5px] border-slate-200 rounded-3xl p-6 sm:p-7 flex flex-col gap-5 shadow-card">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div>
+            <span class="text-xs font-extrabold uppercase tracking-wider text-slate-400">Honor Code</span>
+            <h3 class="text-xl font-extrabold text-[#0F172A] tracking-tight mt-0.5">Rules &amp; Guidelines</h3>
+          </div>
+          <a href="{% url 'platform_manual' %}#chapter-1" target="_blank" class="inline-flex items-center gap-1 text-xs font-bold text-[#2447F5] hover:underline">
+            <span>View Manual Guide</span>
+            <span>&rarr;</span>
+          </a>
+        </div>
+        
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          <!-- Chip 1 -->
+          <div class="flex items-start gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
+            <span class="w-6 h-6 rounded-lg bg-[#0F172A] text-[#FFB020] font-extrabold text-xs flex items-center justify-center shrink-0">1</span>
+            <div>
+              <div class="text-sm font-bold text-[#0F172A]">Continuous Fullscreen</div>
+              <div class="text-xs text-slate-500 font-medium mt-0.5">Departing full-screen or switching tabs is recorded in the reviewer log.</div>
+            </div>
+          </div>
+
+          <!-- Chip 2 -->
+          <div class="flex items-start gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
+            <span class="w-6 h-6 rounded-lg bg-[#0F172A] text-[#FFB020] font-extrabold text-xs flex items-center justify-center shrink-0">2</span>
+            <div>
+              <div class="text-sm font-bold text-[#0F172A]">Keep Face Centered</div>
+              <div class="text-xs text-slate-500 font-medium mt-0.5">Maintain clear lighting and face forward towards the camera throughout.</div>
+            </div>
+          </div>
+
+          <!-- Chip 3 -->
+          <div class="flex items-start gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
+            <span class="w-6 h-6 rounded-lg bg-[#0F172A] text-[#FFB020] font-extrabold text-xs flex items-center justify-center shrink-0">3</span>
+            <div>
+              <div class="text-sm font-bold text-[#0F172A]">Work Independently</div>
+              <div class="text-xs text-slate-500 font-medium mt-0.5">No secondary screens, mobile devices, communication apps, or notes allowed.</div>
+            </div>
+          </div>
+
+          <!-- Chip 4 -->
+          <div class="flex items-start gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
+            <span class="w-6 h-6 rounded-lg bg-[#0F172A] text-[#FFB020] font-extrabold text-xs flex items-center justify-center shrink-0">4</span>
+            <div>
+              <div class="text-sm font-bold text-[#0F172A]">Continuous Auto-Save</div>
+              <div class="text-xs text-slate-500 font-medium mt-0.5">All answers and code are automatically synced with the server in real time.</div>
+            </div>
+          </div>
+        </div>
       </section>
 
     </div>
 
-    <!-- Right Column: Technical Prerequisites & Entry Check -->
+    <!-- Right Column: Pre-Flight Readiness & Launch Action -->
     <div class="exam-right-panel flex flex-col gap-6">
       
       <section class="bg-white border-[1.5px] border-slate-200 rounded-3xl p-6 sm:p-7 flex flex-col gap-5 shadow-card">
         
         <!-- Header -->
-        <div class="flex items-start sm:items-center justify-between border-b border-slate-100 pb-4 gap-3 flex-wrap sm:flex-nowrap">
-          <div>
-            <div class="flex items-center gap-2 mb-1">
-              <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase tracking-wider bg-blue-100 text-[#2447F5]">
-                <span class="w-1.5 h-1.5 rounded-full bg-[#2447F5]"></span>
-                Pre-Flight Checklist
-              </span>
-              <span class="text-xs text-slate-500 font-bold">Step 2 Prerequisites</span>
+        <div class="border-b border-slate-100 pb-3">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase tracking-wider bg-blue-100 text-[#2447F5]">
+              <span class="w-1.5 h-1.5 rounded-full bg-[#2447F5]"></span>
+              Pre-Flight Checklist
+            </span>
+          </div>
+          <h2 class="text-xl font-extrabold text-[#0F172A] tracking-tight">System Readiness</h2>
+          <p class="text-xs text-slate-500 font-medium mt-0.5">Live hardware check will run immediately after entering the assessment room.</p>
+        </div>
+
+        <!-- Sleek Scannable Prerequisites List -->
+        <div class="flex flex-col gap-2.5">
+          <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-xl {% if exam.camera_required %}bg-blue-100 text-[#2447F5]{% else %}bg-slate-200 text-slate-600{% endif %} flex items-center justify-center shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+              </div>
+              <div>
+                <div class="text-sm font-bold text-slate-900">Webcam Feed</div>
+                <div class="text-[11px] text-slate-500 font-medium">Front-facing camera</div>
+              </div>
             </div>
-            <h2 class="text-xl font-extrabold text-[#0F172A] tracking-tight">Technical Prerequisites</h2>
-            <p class="text-xs text-slate-500 font-medium mt-0.5">Review equipment requirements before entering the live assessment room.</p>
+            {% if exam.camera_required %}
+              <span class="text-xs font-bold text-[#2447F5] bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200">Required</span>
+            {% else %}
+              <span class="text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">Optional</span>
+            {% endif %}
+          </div>
+
+          <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>
+              </div>
+              <div>
+                <div class="text-sm font-bold text-slate-900">Fullscreen Window</div>
+                <div class="text-[11px] text-slate-500 font-medium">Locked browser focus</div>
+              </div>
+            </div>
+            <span class="text-xs font-bold text-purple-700 bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-200">Enforced</span>
+          </div>
+
+          <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+              </div>
+              <div>
+                <div class="text-sm font-bold text-slate-900">Connection</div>
+                <div class="text-[11px] text-slate-500 font-medium">Real-time server sync</div>
+              </div>
+            </div>
+            <span class="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">&ge; 1.0 Mbps</span>
           </div>
         </div>
 
-        <!-- 4 Prerequisites Cards (Clean informative checklist) -->
-        <div class="flex flex-col gap-3">
-          
-          <!-- 1. Webcam & Audio -->
-          <div class="border-[1.5px] border-slate-200 rounded-2xl p-4 bg-white flex items-start gap-3.5 shadow-2xs">
-            <div class="w-9 h-9 rounded-xl {% if exam.camera_required %}bg-blue-100 text-[#2447F5]{% else %}bg-slate-100 text-slate-500{% endif %} flex items-center justify-center shrink-0">
-              <svg width="18" height="18" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-            </div>
-            <div class="min-w-0 flex-1">
-              <div class="flex items-center justify-between gap-2">
-                <div class="font-bold text-slate-900 text-sm">Webcam &amp; Proctor Feed</div>
-                {% if exam.camera_required %}
-                  <span class="inline-flex items-center gap-1 text-[11px] font-bold text-[#2447F5] bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200 shrink-0">Required</span>
-                {% else %}
-                  <span class="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200 shrink-0">Optional</span>
-                {% endif %}
-              </div>
-              <p class="text-xs text-slate-500 font-medium mt-1 leading-relaxed">
-                {% if exam.camera_required %}
-                  Working webcam required for live integrity verification. You will preview and align your camera in the next step before beginning.
-                {% else %}
-                  Camera proctoring is not enforced for this assessment.
-                {% endif %}
-              </p>
-            </div>
-          </div>
-
-          <!-- 2. Stable Internet Connection -->
-          <div class="border-[1.5px] border-slate-200 rounded-2xl p-4 bg-white flex items-start gap-3.5 shadow-2xs">
-            <div class="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
-              <svg width="18" height="18" class="w-4 h-4 text-emerald-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-            </div>
-            <div class="min-w-0 flex-1">
-              <div class="flex items-center justify-between gap-2">
-                <div class="font-bold text-slate-900 text-sm">Internet Connection</div>
-                <span class="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 shrink-0">&ge; 1.0 Mbps</span>
-              </div>
-              <p class="text-xs text-slate-500 font-medium mt-1 leading-relaxed">
-                Broadband connection recommended. Code answers and telemetry auto-save continuously in real time.
-              </p>
-            </div>
-          </div>
-
-          <!-- 3. Fullscreen Window Lockdown -->
-          <div class="border-[1.5px] border-slate-200 rounded-2xl p-4 bg-white flex items-start gap-3.5 shadow-2xs">
-            <div class="w-9 h-9 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
-              <svg width="18" height="18" class="w-4 h-4 text-purple-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>
-            </div>
-            <div class="min-w-0 flex-1">
-              <div class="flex items-center justify-between gap-2">
-                <div class="font-bold text-slate-900 text-sm">Fullscreen Mode</div>
-                <span class="inline-flex items-center gap-1 text-[11px] font-bold text-purple-800 bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-200 shrink-0">Enforced</span>
-              </div>
-              <p class="text-xs text-slate-500 font-medium mt-1 leading-relaxed">
-                Your browser must remain locked in full-screen mode throughout the test session. Exiting fullscreen triggers warnings.
-              </p>
-            </div>
-          </div>
-
-          <!-- 4. Environment & Integrity -->
-          <div class="border-[1.5px] border-slate-200 rounded-2xl p-4 bg-white flex items-start gap-3.5 shadow-2xs">
-            <div class="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
-              <svg width="18" height="18" class="w-4 h-4 text-amber-800" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-            </div>
-            <div class="min-w-0 flex-1">
-              <div class="flex items-center justify-between gap-2">
-                <div class="font-bold text-slate-900 text-sm">Quiet Environment</div>
-                <span class="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200 shrink-0">Strict</span>
-              </div>
-              <p class="text-xs text-slate-500 font-medium mt-1 leading-relaxed">
-                Please remain alone in a well-lit room. Secondary monitors, phones, and unapproved applications must be closed.
-              </p>
-            </div>
-          </div>
-
-        </div>
-
-        <!-- Live Diagnostics Notice Box -->
-        <div class="p-3.5 rounded-2xl bg-blue-50/80 border border-blue-200/90 text-xs text-slate-700 flex items-start gap-2.5">
-          <span class="w-5 h-5 rounded-full bg-blue-100 text-[#2447F5] flex items-center justify-center shrink-0 font-black text-[11px] mt-0.5">ℹ</span>
+        <!-- Privacy & Proctoring Note -->
+        <div class="p-3 rounded-2xl bg-blue-50/70 border border-blue-200/80 text-xs text-slate-600 flex items-start gap-2.5">
+          <svg class="w-4 h-4 text-[#2447F5] shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
           <div class="leading-relaxed">
-            <strong class="text-[#0F172A] font-extrabold">Next Step: Live Hardware Diagnostics</strong><br>
-            When you enter the assessment room, your live webcam, geolocation, and network latency will be calibrated and locked before your test timer begins.
+            <strong class="text-slate-800">Security &amp; Integrity:</strong> Real-time device and browser checks ensure a fair, distraction-free environment for all candidates.
           </div>
         </div>
 
-        <!-- Rules Agreement Checkbox Card -->
-        <label for="agree" class="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-start gap-3 cursor-pointer hover:bg-slate-100/70 transition-colors select-none">
+        <!-- Rules Agreement Checkbox -->
+        <label for="agree" class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-start gap-3 cursor-pointer hover:bg-slate-100/70 transition-colors select-none">
           <input id="agree" type="checkbox" class="mt-0.5 h-4 w-4 rounded accent-[#2447F5] cursor-pointer shrink-0">
           <span class="text-xs text-slate-700 font-semibold leading-relaxed">
-            I confirm that I have reviewed the assessment rules, honor code, and technical requirements, and I agree to proceed to live diagnostics.
+            I confirm that I have reviewed the assessment guidelines, and I agree to proceed to the live diagnostic room.
           </span>
         </label>
 
@@ -567,20 +510,31 @@
       });
     }
 
-    // Capture geolocation in the background if granted, without blocking UI
+    // Pre-seed location fallback with regional timezone
     try {
+      const locEl = document.getElementById('input-start-loc');
+      if (locEl) {
+        const tz = (typeof Intl !== 'undefined' && Intl.DateTimeFormat)
+          ? Intl.DateTimeFormat().resolvedOptions().timeZone
+          : 'UTC';
+        locEl.value = JSON.stringify({
+          source: 'network_tz',
+          timezone: tz,
+          timestamp: new Date().toISOString()
+        });
+      }
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(function(pos) {
-          const locEl = document.getElementById('input-start-loc');
           if (locEl) {
             locEl.value = JSON.stringify({
+              source: 'gps',
               latitude: Number(pos.coords.latitude.toFixed(6)),
               longitude: Number(pos.coords.longitude.toFixed(6)),
               accuracy: Math.round(pos.coords.accuracy),
               timestamp: new Date().toISOString()
             });
           }
-        }, function() {}, { timeout: 3500, maximumAge: 300000 });
+        }, function() {}, { enableHighAccuracy: false, timeout: 2000, maximumAge: 300000 });
       }
     } catch (_) {}
 

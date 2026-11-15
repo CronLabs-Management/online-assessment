@@ -1,71 +1,480 @@
 {% extends "base.html" %}
 {% block title %}{% if exam %}Edit Assessment | {{ exam.title }}{% else %}New Assessment | Staff Console{% endif %}{% endblock %}
+{% block main_class %}mx-auto max-w-7xl w-full px-4 sm:px-8 py-8 sm:py-10 flex-grow flex flex-col{% endblock %}
+
 {% block content %}
-<div class="space-y-6 max-w-2xl">
-  <!-- Breadcrumb -->
-  <div>
-    {% if exam %}
-      <a href="{% url 'staff_exam_detail' exam.pk %}" class="crumb">
-        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-        <span>Back to {{ exam.title }}</span>
-      </a>
-    {% else %}
-      <a href="{% url 'staff_exam_list' %}" class="crumb">
-        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-        <span>Back to Assessments</span>
-      </a>
-    {% endif %}
-  </div>
-
-  <div>
-    <div class="flex items-center gap-2 mb-1">
-      <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-[#EEF1FE] text-[#1E3AC8] border border-blue-200">Assessment Setup</span>
-      <span class="text-xs text-slate-400">&bull;</span>
-      <span class="text-xs text-slate-500 font-medium">{% if exam %}Modify Rules{% else %}Draft Initialization{% endif %}</span>
+<div class="w-full max-w-7xl mx-auto space-y-8 pb-16">
+  
+  <!-- Breadcrumb & Top Bar -->
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
+    <div>
+      {% if exam %}
+        <a href="{% url 'staff_exam_detail' exam.pk %}" class="inline-flex items-center gap-2 text-xs sm:text-sm font-bold text-slate-600 hover:text-slate-900 transition-colors">
+          <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M15 19l-7-7 7-7"/>
+          </svg>
+          <span>Back to {{ exam.title }}</span>
+        </a>
+      {% else %}
+        <a href="{% url 'staff_exam_list' %}" class="inline-flex items-center gap-2 text-xs sm:text-sm font-bold text-slate-600 hover:text-slate-900 transition-colors">
+          <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M15 19l-7-7 7-7"/>
+          </svg>
+          <span>Back to Assessments</span>
+        </a>
+      {% endif %}
     </div>
-    <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">{% if exam %}Edit Assessment Settings{% else %}Create New Assessment{% endif %}</h1>
-    <p class="mt-1 text-sm text-slate-600">
-      {% if exam %}Changes apply to future candidate attempts. Active sessions run on the snapshot captured at attempt start.{% else %}The assessment will be created as a Draft. You can author sections, questions, and test proctoring before publishing.{% endif %}
-    </p>
+
+    <!-- Step / Process Pill Indicator -->
+    <div class="flex items-center gap-2">
+      <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-[#EEF1FE] text-[#2447F5] border border-blue-200">
+        <span class="w-1.5 h-1.5 rounded-full bg-[#2447F5]"></span>
+        {% if exam %}Settings &amp; Rules Modification{% else %}Step 1: Assessment Configuration{% endif %}
+      </span>
+      {% if exam and exam.is_published %}
+        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
+          Published Live
+        </span>
+      {% elif exam %}
+        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-extrabold bg-amber-50 text-amber-700 border border-amber-200">
+          Draft
+        </span>
+      {% endif %}
+    </div>
   </div>
 
-  <form method="post" class="card p-6 sm:p-8 space-y-6 shadow-xs">
+  <!-- Main Heading Banner -->
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div>
+      <h1 class="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#0F172A] tracking-tight">
+        {% if exam %}Edit Assessment Settings{% else %}Create New Assessment{% endif %}
+      </h1>
+      <p class="mt-1.5 text-sm sm:text-base text-slate-600 font-medium max-w-3xl">
+        {% if exam %}
+          Changes apply to future candidate attempts. Active and completed sessions preserve their historical test configuration.
+        {% else %}
+          Configure the core rules, proctoring requirements, scoring constraints, and scheduling for your new evaluation.
+        {% endif %}
+      </p>
+    </div>
+  </div>
+
+  <!-- Form Root -->
+  <form method="post" id="exam-config-form" class="space-y-8">
     {% csrf_token %}
+
+    <!-- Prominent Top Banner Errors (if any) -->
     {% if form.non_field_errors %}
-      <div class="alert alert-bad">{{ form.non_field_errors }}</div>
+      <div class="rounded-2xl border border-rose-300 bg-rose-50 p-4 sm:p-5 text-rose-900 text-sm font-semibold shadow-xs flex items-start gap-3">
+        <span class="text-lg">⚠️</span>
+        <div>
+          <div class="font-extrabold mb-1">Please correct the following errors:</div>
+          {{ form.non_field_errors }}
+        </div>
+      </div>
     {% endif %}
 
-    <div class="space-y-5">
-      {% for field in form %}
-        {% if field.field.widget.input_type == 'checkbox' %}
-          <div class="rounded-xl border border-slate-200 bg-slate-50/60 p-4 hover:border-slate-300 transition-colors">
-            <label class="flex items-start gap-3 cursor-pointer">
-              <div class="pt-0.5">{{ field }}</div>
+    <!-- 12-Column Responsive Dashboard Layout -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      
+      <!-- ===================================================================
+           LEFT COLUMN: Main Content & Proctoring Policies (8 Columns)
+           =================================================================== -->
+      <div class="lg:col-span-8 flex flex-col gap-6">
+
+        <!-- CARD 1: Assessment Identity & Instructions -->
+        <section class="bg-white border-[1.5px] border-slate-200 rounded-3xl p-6 sm:p-8 shadow-card flex flex-col gap-6">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div class="flex items-center gap-2.5">
+              <div class="w-9 h-9 rounded-xl bg-blue-100 text-[#2447F5] flex items-center justify-center font-black shrink-0">
+                <svg width="20" height="20" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+              </div>
               <div>
-                <span class="text-xs font-bold text-slate-900">{{ field.label }}</span>
-                {% if field.help_text %}<p class="mt-0.5 text-[11px] text-slate-500 leading-relaxed">{{ field.help_text }}</p>{% endif %}
+                <h2 class="text-lg font-extrabold text-[#0F172A] tracking-tight">Identity &amp; Candidate Briefing</h2>
+                <p class="text-xs text-slate-500 font-medium">Assessment title and instructions displayed to candidates.</p>
+              </div>
+            </div>
+            <span class="text-[11px] font-bold text-slate-400">Section 1</span>
+          </div>
+
+          <div class="flex flex-col gap-5">
+            <!-- Title -->
+            <div class="space-y-1.5">
+              <label for="{{ form.title.id_for_label }}" class="text-xs font-bold text-[#0F172A] flex items-center justify-between">
+                <span>Assessment Title <span class="text-rose-600">*</span></span>
+                <span class="text-[11px] font-semibold text-slate-400">Visible to candidates</span>
+              </label>
+              {{ form.title }}
+              {% if form.title.errors %}<p class="text-xs font-semibold text-rose-600 mt-1">{{ form.title.errors }}</p>{% endif %}
+              <p class="text-[11px] text-slate-500 font-medium">Use a descriptive role or evaluation title (e.g., "Full-Stack Senior Software Engineer Assessment").</p>
+            </div>
+
+            <!-- General Instructions -->
+            <div class="space-y-1.5">
+              <div class="flex items-center justify-between">
+                <label for="{{ form.instructions.id_for_label }}" class="text-xs font-bold text-[#0F172A] flex items-center gap-2">
+                  <span>Candidate Instructions</span>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-50 text-[#2447F5] border border-blue-200">Markdown Supported</span>
+                </label>
+                <span class="text-[11px] font-medium text-slate-400">Displayed before starting</span>
+              </div>
+              {{ form.instructions }}
+              {% if form.instructions.errors %}<p class="text-xs font-semibold text-rose-600 mt-1">{{ form.instructions.errors }}</p>{% endif %}
+              <p class="text-[11px] text-slate-500 font-medium">Markdown formatted guidelines, permissible references, sandbox details, and test rules.</p>
+            </div>
+
+            <!-- Email Instructions -->
+            <div class="space-y-1.5 pt-2 border-t border-slate-100">
+              <label for="{{ form.email_instructions.id_for_label }}" class="text-xs font-bold text-[#0F172A] flex items-center justify-between">
+                <span>Invitation Email Guidance</span>
+                <span class="text-[11px] font-medium text-slate-400">Appended to credentials email</span>
+              </label>
+              {{ form.email_instructions }}
+              {% if form.email_instructions.errors %}<p class="text-xs font-semibold text-rose-600 mt-1">{{ form.email_instructions.errors }}</p>{% endif %}
+              <p class="text-[11px] text-slate-500 font-medium">Optional additional instructions sent in the candidate's invitation email.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- CARD 2: Proctoring & Integrity Rules -->
+        <section class="bg-white border-[1.5px] border-slate-200 rounded-3xl p-6 sm:p-8 shadow-card flex flex-col gap-6">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div class="flex items-center gap-2.5">
+              <div class="w-9 h-9 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-black shrink-0">
+                <svg width="20" height="20" class="w-5 h-5 text-purple-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                </svg>
+              </div>
+              <div>
+                <h2 class="text-lg font-extrabold text-[#0F172A] tracking-tight">Proctoring &amp; Integrity Enforcement</h2>
+                <p class="text-xs text-slate-500 font-medium">Automated telemetry, anti-cheating restrictions, and face tracking.</p>
+              </div>
+            </div>
+            <span class="text-[11px] font-bold text-slate-400">Section 2</span>
+          </div>
+
+          <!-- 2x2 Grid of Toggle Feature Cards -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            
+            <!-- Fullscreen Required -->
+            <label class="p-4 rounded-2xl border-[1.5px] border-slate-200 bg-slate-50/70 hover:bg-blue-50/40 hover:border-blue-300 transition-all cursor-pointer flex items-start gap-3 select-none">
+              {{ form.fullscreen_required }}
+              <div class="min-w-0 flex-1">
+                <div class="text-xs font-extrabold text-[#0F172A] flex items-center justify-between">
+                  <span>Fullscreen Lock</span>
+                  <span class="text-[10px] font-bold text-slate-400">Browser Lockdown</span>
+                </div>
+                <p class="text-[11px] text-slate-500 font-medium mt-1 leading-relaxed">
+                  Requires continuous full-screen display. Exiting triggers warnings and flags session telemetry.
+                </p>
+                {% if form.fullscreen_required.errors %}<p class="text-xs font-semibold text-rose-600 mt-1">{{ form.fullscreen_required.errors }}</p>{% endif %}
               </div>
             </label>
-            {% for error in field.errors %}<p class="errorlist text-xs text-rose-600 mt-1">{{ error }}</p>{% endfor %}
-          </div>
-        {% else %}
-          <div>
-            <label class="label text-xs font-semibold" for="{{ field.id_for_label }}">{{ field.label }}</label>
-            {{ field }}
-            {% if field.help_text %}<p class="helptext text-[11px] text-slate-500 mt-1">{{ field.help_text }}</p>{% endif %}
-            {% for error in field.errors %}<p class="errorlist text-xs text-rose-600 mt-1">{{ error }}</p>{% endfor %}
-          </div>
-        {% endif %}
-      {% endfor %}
-    </div>
 
-    <div class="flex items-center gap-3 pt-4 border-t border-slate-100">
-      <button class="btn btn-primary text-xs font-semibold py-2 px-5 shadow-xs">
-        {% if exam %}Save Assessment Settings{% else %}Create Assessment Draft{% endif %}
-      </button>
-      <a href="{% if exam %}{% url 'staff_exam_detail' exam.pk %}{% else %}{% url 'staff_exam_list' %}{% endif %}" class="btn btn-secondary text-xs py-2 px-4">
-        Cancel
-      </a>
+            <!-- Camera Required -->
+            <label class="p-4 rounded-2xl border-[1.5px] border-slate-200 bg-slate-50/70 hover:bg-blue-50/40 hover:border-blue-300 transition-all cursor-pointer flex items-start gap-3 select-none">
+              {{ form.camera_required }}
+              <div class="min-w-0 flex-1">
+                <div class="text-xs font-extrabold text-[#0F172A] flex items-center justify-between">
+                  <span>Webcam Verification</span>
+                  <span class="text-[10px] font-bold text-slate-400">Hardware Gate</span>
+                </div>
+                <p class="text-[11px] text-slate-500 font-medium mt-1 leading-relaxed">
+                  Enforces live camera diagnostics before entry and runs in-browser face detection.
+                </p>
+                {% if form.camera_required.errors %}<p class="text-xs font-semibold text-rose-600 mt-1">{{ form.camera_required.errors }}</p>{% endif %}
+              </div>
+            </label>
+
+            <!-- Snapshots Enabled -->
+            <label class="p-4 rounded-2xl border-[1.5px] border-slate-200 bg-slate-50/70 hover:bg-blue-50/40 hover:border-blue-300 transition-all cursor-pointer flex items-start gap-3 select-none">
+              {{ form.snapshots_enabled }}
+              <div class="min-w-0 flex-1">
+                <div class="text-xs font-extrabold text-[#0F172A] flex items-center justify-between">
+                  <span>Integrity Snapshots</span>
+                  <span class="text-[10px] font-bold text-slate-400">Anomaly Audit</span>
+                </div>
+                <p class="text-[11px] text-slate-500 font-medium mt-1 leading-relaxed">
+                  Captures privacy-focused still frames only when an anomaly (missing face, window blur) occurs.
+                </p>
+                {% if form.snapshots_enabled.errors %}<p class="text-xs font-semibold text-rose-600 mt-1">{{ form.snapshots_enabled.errors }}</p>{% endif %}
+              </div>
+            </label>
+
+            <!-- Microphone Monitoring -->
+            <label class="p-4 rounded-2xl border-[1.5px] border-slate-200 bg-slate-50/70 hover:bg-blue-50/40 hover:border-blue-300 transition-all cursor-pointer flex items-start gap-3 select-none">
+              {{ form.microphone_monitoring }}
+              <div class="min-w-0 flex-1">
+                <div class="text-xs font-extrabold text-[#0F172A] flex items-center justify-between">
+                  <span>Audio Level Tracking</span>
+                  <span class="text-[10px] font-bold text-slate-400">Decibel Only</span>
+                </div>
+                <p class="text-[11px] text-slate-500 font-medium mt-1 leading-relaxed">
+                  Monitors environmental sound levels for sustained talking. Audio is never recorded or saved.
+                </p>
+                {% if form.microphone_monitoring.errors %}<p class="text-xs font-semibold text-rose-600 mt-1">{{ form.microphone_monitoring.errors }}</p>{% endif %}
+              </div>
+            </label>
+
+          </div>
+
+          <!-- Numeric Sensitivity Thresholds -->
+          <div class="pt-4 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <!-- Tab switch threshold -->
+            <div class="space-y-1.5">
+              <label for="{{ form.tab_switch_threshold.id_for_label }}" class="text-xs font-bold text-[#0F172A] flex items-center justify-between">
+                <span>Tab / Screen Switch Tolerance</span>
+                <span class="text-[11px] font-semibold text-slate-400">Exits allowed</span>
+              </label>
+              {{ form.tab_switch_threshold }}
+              {% if form.tab_switch_threshold.errors %}<p class="text-xs font-semibold text-rose-600 mt-1">{{ form.tab_switch_threshold.errors }}</p>{% endif %}
+              <p class="text-[11px] text-slate-500 font-medium">Exits beyond this threshold permanently flag the candidate's review record.</p>
+            </div>
+
+            <!-- Missing face seconds -->
+            <div class="space-y-1.5">
+              <label for="{{ form.missing_face_seconds.id_for_label }}" class="text-xs font-bold text-[#0F172A] flex items-center justify-between">
+                <span>Missing Face Threshold</span>
+                <span class="text-[11px] font-semibold text-slate-400">Seconds</span>
+              </label>
+              {{ form.missing_face_seconds }}
+              {% if form.missing_face_seconds.errors %}<p class="text-xs font-semibold text-rose-600 mt-1">{{ form.missing_face_seconds.errors }}</p>{% endif %}
+              <p class="text-[11px] text-slate-500 font-medium">Seconds candidate face can be absent from frame before an event is logged.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- CARD 3: Network Resilience & Disconnection Handling -->
+        <section class="bg-white border-[1.5px] border-slate-200 rounded-3xl p-6 sm:p-8 shadow-card flex flex-col gap-6">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div class="flex items-center gap-2.5">
+              <div class="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-black shrink-0">
+                <svg width="20" height="20" class="w-5 h-5 text-emerald-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                </svg>
+              </div>
+              <div>
+                <h2 class="text-lg font-extrabold text-[#0F172A] tracking-tight">Network Resilience &amp; Pause Policy</h2>
+                <p class="text-xs text-slate-500 font-medium">Protect candidates against wifi interruptions and unexpected connection loss.</p>
+              </div>
+            </div>
+            <span class="text-[11px] font-bold text-slate-400">Section 3</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <!-- Network Grace Seconds -->
+            <div class="space-y-1.5">
+              <label for="{{ form.network_grace_seconds.id_for_label }}" class="text-xs font-bold text-[#0F172A] flex items-center justify-between">
+                <span>Disconnection Grace Period</span>
+                <span class="text-[11px] font-semibold text-slate-400">Seconds</span>
+              </label>
+              {{ form.network_grace_seconds }}
+              {% if form.network_grace_seconds.errors %}<p class="text-xs font-semibold text-rose-600 mt-1">{{ form.network_grace_seconds.errors }}</p>{% endif %}
+              <p class="text-[11px] text-slate-500 font-medium">Short internet hiccups under this duration don't trigger pause time deductions.</p>
+            </div>
+
+            <!-- Max Pause Minutes -->
+            <div class="space-y-1.5">
+              <label for="{{ form.max_pause_minutes.id_for_label }}" class="text-xs font-bold text-[#0F172A] flex items-center justify-between">
+                <span>Maximum Pause Credit</span>
+                <span class="text-[11px] font-semibold text-slate-400">Minutes Total</span>
+              </label>
+              {{ form.max_pause_minutes }}
+              {% if form.max_pause_minutes.errors %}<p class="text-xs font-semibold text-rose-600 mt-1">{{ form.max_pause_minutes.errors }}</p>{% endif %}
+              <p class="text-[11px] text-slate-500 font-medium">Cumulative minutes candidate timer can pause during prolonged network dropouts.</p>
+            </div>
+
+            <!-- Pause Enabled Toggle -->
+            <div class="sm:col-span-2">
+              <label class="p-4 rounded-2xl border-[1.5px] border-slate-200 bg-slate-50/70 hover:bg-emerald-50/40 hover:border-emerald-300 transition-all cursor-pointer flex items-start gap-3 select-none">
+                {{ form.pause_enabled }}
+                <div class="min-w-0 flex-1">
+                  <div class="text-xs font-extrabold text-[#0F172A] flex items-center justify-between">
+                    <span>Enable Automatic Disconnection Pauses</span>
+                    <span class="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">Candidate Protection</span>
+                  </div>
+                  <p class="text-[11px] text-slate-500 font-medium mt-1 leading-relaxed">
+                    Automatically stops the assessment timer if the candidate loses internet connectivity, preserving their testing time until reconnection.
+                  </p>
+                  {% if form.pause_enabled.errors %}<p class="text-xs font-semibold text-rose-600 mt-1">{{ form.pause_enabled.errors }}</p>{% endif %}
+                </div>
+              </label>
+            </div>
+          </div>
+        </section>
+
+        <!-- CARD 4: Question & Choice Randomization -->
+        <section class="bg-white border-[1.5px] border-slate-200 rounded-3xl p-6 sm:p-8 shadow-card flex flex-col gap-6">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div class="flex items-center gap-2.5">
+              <div class="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-black shrink-0">
+                <svg width="20" height="20" class="w-5 h-5 text-amber-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+              </div>
+              <div>
+                <h2 class="text-lg font-extrabold text-[#0F172A] tracking-tight">Question &amp; Choice Randomization</h2>
+                <p class="text-xs text-slate-500 font-medium">Prevent answer sharing and adjacent candidate collusion.</p>
+              </div>
+            </div>
+            <span class="text-[11px] font-bold text-slate-400">Section 4</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <!-- Shuffle Questions -->
+            <label class="p-4 rounded-2xl border-[1.5px] border-slate-200 bg-slate-50/70 hover:bg-amber-50/40 hover:border-amber-300 transition-all cursor-pointer flex items-start gap-3 select-none">
+              {{ form.shuffle_questions }}
+              <div class="min-w-0 flex-1">
+                <div class="text-xs font-extrabold text-[#0F172A]">Randomize Question Order</div>
+                <p class="text-[11px] text-slate-500 font-medium mt-1 leading-relaxed">
+                  Presents questions in a distinct pseudo-random sequence for each candidate.
+                </p>
+                {% if form.shuffle_questions.errors %}<p class="text-xs font-semibold text-rose-600 mt-1">{{ form.shuffle_questions.errors }}</p>{% endif %}
+              </div>
+            </label>
+
+            <!-- Shuffle Options -->
+            <label class="p-4 rounded-2xl border-[1.5px] border-slate-200 bg-slate-50/70 hover:bg-amber-50/40 hover:border-amber-300 transition-all cursor-pointer flex items-start gap-3 select-none">
+              {{ form.shuffle_options }}
+              <div class="min-w-0 flex-1">
+                <div class="text-xs font-extrabold text-[#0F172A]">Randomize Multiple Choice Options</div>
+                <p class="text-[11px] text-slate-500 font-medium mt-1 leading-relaxed">
+                  Permutes A, B, C, D choices randomly for each candidate on every MCQ problem.
+                </p>
+                {% if form.shuffle_options.errors %}<p class="text-xs font-semibold text-rose-600 mt-1">{{ form.shuffle_options.errors }}</p>{% endif %}
+              </div>
+            </label>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- ===================================================================
+           RIGHT COLUMN: Sticky Scheduling, Workflow & Actions (4 Columns)
+           =================================================================== -->
+      <div class="lg:col-span-4 flex flex-col gap-6 lg:sticky lg:top-8">
+
+        <!-- SIDEBAR CARD 1: Scheduling & Test Duration -->
+        <section class="bg-white border-[1.5px] border-slate-200 rounded-3xl p-6 sm:p-7 shadow-card flex flex-col gap-5">
+          <div class="flex items-center gap-2.5 border-b border-slate-100 pb-3.5">
+            <div class="w-8 h-8 rounded-xl bg-blue-100 text-[#2447F5] flex items-center justify-center font-black shrink-0">
+              <svg width="18" height="18" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+            </div>
+            <div>
+              <h2 class="text-base font-extrabold text-[#0F172A] tracking-tight">Schedule &amp; Timing</h2>
+              <p class="text-[11px] text-slate-500 font-medium">Testing window and candidate duration.</p>
+            </div>
+          </div>
+
+          <div class="flex flex-col gap-4">
+            <!-- Duration Minutes -->
+            <div class="space-y-1.5">
+              <label for="{{ form.duration_minutes.id_for_label }}" class="text-xs font-bold text-[#0F172A] flex items-center justify-between">
+                <span>Total Duration <span class="text-rose-600">*</span></span>
+                <span class="text-[11px] font-semibold text-slate-400">Minutes</span>
+              </label>
+              {{ form.duration_minutes }}
+              {% if form.duration_minutes.errors %}<p class="text-xs font-semibold text-rose-600 mt-1">{{ form.duration_minutes.errors }}</p>{% endif %}
+              <p class="text-[11px] text-slate-500 font-medium">Candidate countdown begins once hardware diagnostics are confirmed.</p>
+            </div>
+
+            <!-- Opens At -->
+            <div class="space-y-1.5">
+              <label for="{{ form.opens_at.id_for_label }}" class="text-xs font-bold text-[#0F172A] flex items-center justify-between">
+                <span>Assessment Opens At <span class="text-rose-600">*</span></span>
+                <span class="text-[11px] font-semibold text-slate-400">Window Start</span>
+              </label>
+              {{ form.opens_at }}
+              {% if form.opens_at.errors %}<p class="text-xs font-semibold text-rose-600 mt-1">{{ form.opens_at.errors }}</p>{% endif %}
+              <p class="text-[11px] text-slate-500 font-medium">Waiting room opens before this; tests unlock promptly at this timestamp.</p>
+            </div>
+
+            <!-- Closes At -->
+            <div class="space-y-1.5">
+              <label for="{{ form.closes_at.id_for_label }}" class="text-xs font-bold text-[#0F172A] flex items-center justify-between">
+                <span>Assessment Closes At <span class="text-rose-600">*</span></span>
+                <span class="text-[11px] font-semibold text-slate-400">Hard Cutoff</span>
+              </label>
+              {{ form.closes_at }}
+              {% if form.closes_at.errors %}<p class="text-xs font-semibold text-rose-600 mt-1">{{ form.closes_at.errors }}</p>{% endif %}
+              <p class="text-[11px] text-slate-500 font-medium">After this timestamp, candidates cannot start new attempts.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- SIDEBAR CARD 2: Multi-Round Interview Workflow -->
+        <section class="bg-white border-[1.5px] border-slate-200 rounded-3xl p-6 sm:p-7 shadow-card flex flex-col gap-4">
+          <div class="flex items-center gap-2.5 border-b border-slate-100 pb-3">
+            <div class="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-black shrink-0">
+              <svg width="18" height="18" class="w-4 h-4 text-indigo-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+              </svg>
+            </div>
+            <div>
+              <h2 class="text-base font-extrabold text-[#0F172A] tracking-tight">Interview Workflow</h2>
+              <p class="text-[11px] text-slate-500 font-medium">Staff evaluation rounds (1 to 10).</p>
+            </div>
+          </div>
+
+          <div class="space-y-1.5">
+            <label for="{{ form.interview_rounds_count.id_for_label }}" class="text-xs font-bold text-[#0F172A] flex items-center justify-between">
+              <span>Total Interview Rounds</span>
+              <span class="text-[11px] font-semibold text-slate-400">1 to 10</span>
+            </label>
+            {{ form.interview_rounds_count }}
+            {% if form.interview_rounds_count.errors %}<p class="text-xs font-semibold text-rose-600 mt-1">{{ form.interview_rounds_count.errors }}</p>{% endif %}
+            <p class="text-[11px] text-slate-500 font-medium">Generates rubric sheets, interview questions, and scoring stages for recruitment panel reviewers.</p>
+          </div>
+        </section>
+
+        <!-- SIDEBAR CARD 3: Authoring Process Stepper Guide -->
+        <section class="bg-gradient-to-br from-blue-50/70 to-indigo-50/50 border-[1.5px] border-blue-200/90 rounded-3xl p-6 shadow-card flex flex-col gap-3.5">
+          <div class="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-[#2447F5]">
+            <span class="w-2 h-2 rounded-full bg-[#2447F5] animate-pulse"></span>
+            <span>Assessment Pipeline</span>
+          </div>
+
+          <ol class="space-y-2.5 text-xs font-semibold text-slate-700 list-none p-0 m-0">
+            <li class="flex items-center gap-2.5">
+              <span class="w-6 h-6 rounded-full bg-[#2447F5] text-white flex items-center justify-center font-extrabold text-[11px] shrink-0 shadow-2xs">1</span>
+              <span class="font-bold text-slate-900">Define Settings &amp; Proctor Rules</span>
+            </li>
+            <li class="flex items-center gap-2.5 text-slate-500">
+              <span class="w-6 h-6 rounded-full bg-white border border-slate-300 text-slate-500 flex items-center justify-center font-extrabold text-[11px] shrink-0">2</span>
+              <span>Author Sections &amp; Questions</span>
+            </li>
+            <li class="flex items-center gap-2.5 text-slate-500">
+              <span class="w-6 h-6 rounded-full bg-white border border-slate-300 text-slate-500 flex items-center justify-center font-extrabold text-[11px] shrink-0">3</span>
+              <span>Enroll Candidates &amp; Send Credentials</span>
+            </li>
+            <li class="flex items-center gap-2.5 text-slate-500">
+              <span class="w-6 h-6 rounded-full bg-white border border-slate-300 text-slate-500 flex items-center justify-center font-extrabold text-[11px] shrink-0">4</span>
+              <span>Publish &amp; Monitor Live Submissions</span>
+            </li>
+          </ol>
+        </section>
+
+        <!-- SIDEBAR CARD 4: Sticky Action Bar -->
+        <div class="bg-white border-[1.5px] border-slate-200 rounded-3xl p-5 shadow-card flex flex-col gap-3">
+          <button type="submit" class="btn btn-primary h-[54px] w-full text-sm font-extrabold shadow-cta flex items-center justify-center gap-2">
+            <span>{% if exam %}Save Assessment Settings{% else %}Create Assessment Draft{% endif %}</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M5 12h14"></path>
+              <path d="M13 6l6 6-6 6"></path>
+            </svg>
+          </button>
+          
+          <a href="{% if exam %}{% url 'staff_exam_detail' exam.pk %}{% else %}{% url 'staff_exam_list' %}{% endif %}" class="btn btn-secondary h-[46px] w-full text-xs font-bold flex items-center justify-center shadow-2xs">
+            Cancel
+          </a>
+        </div>
+
+      </div>
+
     </div>
   </form>
 </div>

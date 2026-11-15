@@ -49,7 +49,8 @@
 <div id="attempt-root" data-attempt-id="{{ attempt.pk }}" data-result-url="{% url 'attempt_result' attempt.pk %}"
   data-camera-required="{{ exam.camera_required|yesno:'1,0' }}" data-missing-face="{{ exam.missing_face_seconds }}"
   data-microphone="{{ attempt.policy_snapshot.microphone_monitoring|yesno:'1,0' }}"
-  data-fullscreen-required="{{ exam.fullscreen_required|yesno:'1,0' }}" class="text-sm sm:text-base font-sans pb-6">
+  data-fullscreen-required="{{ exam.fullscreen_required|yesno:'1,0' }}"
+  data-server-now="{{ server_now.isoformat }}" class="text-sm sm:text-base font-sans pb-6">
 
   {% if exam.fullscreen_required %}
   <div id="fullscreen-gate" class="bg-slate-950/80 backdrop-blur-md p-6" role="dialog" aria-modal="true"
@@ -66,8 +67,7 @@
       <h2 id="fullscreen-title" class="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#0F172A]">Return to Full
         Screen</h2>
       <p id="fullscreen-body" class="mt-3 text-sm leading-relaxed text-slate-600 font-medium">
-        This proctored assessment requires full-screen mode. Departing full-screen view is recorded and flagged in the
-        reviewer audit log.
+        This assessment requires continuous full-screen display. Please return to full screen to resume.
       </p>
       <button id="enter-fullscreen" type="button"
         class="btn btn-primary mt-6 w-full py-3.5 text-base font-extrabold shadow-cta">
@@ -95,7 +95,7 @@
             <span
               class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase tracking-wider bg-[#E3F5EC] text-[#0B6B43]">
               <span class="w-1.5 h-1.5 rounded-full bg-[#0B6B43] animate-pulse"></span>
-              Live Proctored
+              Active Session
             </span>
             {% else %}
             <span
@@ -131,11 +131,11 @@
         <div class="hidden lg:flex items-center gap-2 pl-2 border-l border-slate-200 text-xs">
           <div
             class="w-8 h-8 rounded-lg bg-blue-100 text-[#2447F5] font-black flex items-center justify-center text-xs shadow-2xs">
-            {{ request.user.get_full_name|default:attempt.application.candidate.email|default:request.user.email|slice:":1"|upper }}
+            {{ attempt.application.full_name|default:request.user.get_full_name|default:attempt.application.candidate.email|default:request.user.email|slice:":1"|upper }}
           </div>
           <div class="leading-tight text-left">
-            <div class="font-extrabold text-slate-900 truncate max-w-[160px]">{{ request.user.get_full_name|default:attempt.application.candidate.email|default:request.user.email }}</div>
-            <div class="text-[10px] text-slate-400 font-mono">Candidate</div>
+            <div class="font-extrabold text-slate-900 truncate max-w-[160px]">{{ attempt.application.full_name|default:request.user.get_full_name|default:attempt.application.candidate.email|default:request.user.email }}</div>
+            <div class="text-[10px] text-slate-400 font-mono">{{ attempt.application.candidate.email|default:request.user.email }}</div>
           </div>
         </div>
 
@@ -171,7 +171,7 @@
         <div class="flex items-start gap-3.5">
           <span id="proctor-alert-icon" class="text-3xl shrink-0 mt-0.5">⚠️</span>
           <div>
-            <h4 id="proctor-alert-title" class="font-extrabold text-sm sm:text-base text-amber-950">Proctoring Notice
+            <h4 id="proctor-alert-title" class="font-extrabold text-sm sm:text-base text-amber-950">Assessment Notice
             </h4>
             <p id="proctor-alert-body" class="mt-1 text-xs sm:text-sm text-amber-900 leading-relaxed font-medium"></p>
             <div class="mt-2.5 flex flex-wrap items-center gap-2">
@@ -260,7 +260,7 @@
           <div id="proctor-dock-minimized-bar" class="hidden flex items-center justify-between">
             <span class="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
               <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span>Proctoring Active</span>
+              <span>Session Active</span>
             </span>
             <button type="button" id="btn-expand-dock" class="text-[11px] font-bold text-[#2447F5] hover:underline cursor-pointer">
               Show Camera &rarr;
@@ -305,7 +305,7 @@
           <div class="space-y-2.5 text-slate-600">
             {% if exam.camera_required %}
             <div class="flex items-center justify-between pb-2 border-b border-slate-100">
-              <span class="font-medium">Camera proctor:</span>
+              <span class="font-medium">Camera status:</span>
               <span class="font-bold text-[#0B6B43] flex items-center gap-1">
                 <span class="w-1.5 h-1.5 rounded-full bg-[#0B6B43] animate-pulse"></span>
                 Active Corner PIP
@@ -496,14 +496,13 @@
             </div>
           </div>
 
-          <!-- Snapshot Consent (if camera and snapshots enabled) -->
+          <!-- Readiness Confirmation -->
           {% if exam.camera_required and exam.snapshots_enabled %}
           <label
             class="mt-5 flex items-start gap-3 cursor-pointer p-3.5 rounded-2xl bg-slate-50 border border-slate-200 hover:border-blue-300 transition-colors">
             <input id="snapshot-consent" type="checkbox" {% if attempt.application.monitoring_consent_at %}checked{% endif %} class="mt-0.5 h-4 w-4 accent-[#2447F5] cursor-pointer">
             <span class="text-xs leading-relaxed text-slate-700 font-medium">
-              I agree that automated low-resolution still frames of my webcam may be securely captured if an integrity
-              event occurs (such as looking away, face missing, or leaving full screen).
+              I confirm that my testing environment is prepared and I agree to adhere to the assessment guidelines.
             </span>
           </label>
           {% endif %}

@@ -48,7 +48,11 @@
                   {% if key.is_cooling %}<button name="action" value="reset" class="ml-3 text-sm font-medium text-slate-700 hover:underline">Use again now</button>{% endif %}
                 </form>
                 <a href="?edit={{ key.pk }}" class="ml-3 text-sm font-medium text-slate-700 hover:underline">Edit</a>
-                <form method="post" class="inline" onsubmit="return confirm('Remove the key {{ key.label|escapejs }}?');">{% csrf_token %}<input type="hidden" name="key_id" value="{{ key.pk }}">
+                <form method="post" class="inline"
+                      data-confirm="Remove the API key '{{ key.label }}'? Any ongoing interviews relying on this key will fallback to alternate keys."
+                      data-confirm-title="Remove AI API Key"
+                      data-confirm-tone="danger"
+                      data-confirm-btn="Remove Key">{% csrf_token %}<input type="hidden" name="key_id" value="{{ key.pk }}">
                   <button name="action" value="delete" class="ml-3 text-sm font-medium text-rose-600 hover:underline">Remove</button>
                 </form>
               </td>
