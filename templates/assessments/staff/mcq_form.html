@@ -61,7 +61,7 @@
 
   /* Header & Action Buttons */
   .btn-submit-main {
-    background: #0E2378;
+    background: #2447F5;
     color: #ffffff !important;
     font-size: 13px;
     font-weight: 700;
@@ -69,7 +69,7 @@
     border-radius: 10px;
     border: none;
     cursor: pointer;
-    box-shadow: 0 1px 2px rgba(14, 35, 120, 0.15);
+    box-shadow: 0 1px 2px rgba(36, 71, 245, 0.15);
     transition: all 0.15s ease;
     text-decoration: none !important;
     display: inline-flex;
@@ -80,7 +80,7 @@
   .btn-submit-main:hover {
     background: #1E3AC8;
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(14, 35, 120, 0.2);
+    box-shadow: 0 4px 12px rgba(36, 71, 245, 0.2);
   }
   .btn-cancel-main {
     background: #FFFFFF;
@@ -238,8 +238,8 @@
     transition: all 0.15s ease;
   }
   .choice-text-input:focus {
-    border-color: #0E2378;
-    box-shadow: 0 0 0 3px rgba(14, 35, 120, 0.12);
+    border-color: #2447F5;
+    box-shadow: 0 0 0 3px rgba(36, 71, 245, 0.12);
   }
   .choice-card-item.is-correct-choice .choice-text-input {
     border-color: #6EE7B7;
@@ -372,38 +372,26 @@
     margin-top: 14px;
   }
   .btn-add-choice-dashed:hover {
-    border-color: #0E2378;
+    border-color: #2447F5;
     background: #EEF2FF;
-    color: #0E2378;
+    color: #2447F5;
   }
 </style>
 
-<div class="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-  <!-- Top Navigation & Global Action Header -->
-  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200">
+<div class="w-full space-y-6">
+  <a href="{% url 'staff_exam_detail' exam.pk %}" class="ui-back">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+    {{ exam.title }}
+  </a>
+  <div class="ui-page-head">
     <div>
-      <a href="{% url 'staff_exam_detail' exam.pk %}" class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-900 transition-colors mb-2">
-        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-        Back to Assessment Overview
-      </a>
-      <div class="flex items-center gap-2">
-        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-[#0E2378] border border-blue-200">MCQ Authoring</span>
-        <span class="text-xs text-slate-400">&bull;</span>
-        <span class="text-xs text-slate-600 font-medium">{{ exam.title }}</span>
-      </div>
-      <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mt-1">
-        {% if question %}Edit question{% else %}Create question{% endif %}
-      </h1>
+      <div class="ui-eyebrow flex-wrap"><span class="ui-badge ui-badge-info">Multiple choice</span></div>
+      <h1 class="ui-title">{% if question %}Edit question{% else %}Create question{% endif %}</h1>
+      <p class="ui-subtitle">Write the question, add options and mark the correct one.</p>
     </div>
-
-    <!-- Quick Actions in Header -->
-    <div class="flex items-center gap-3">
-      <a href="{% url 'staff_exam_detail' exam.pk %}" class="btn-cancel-main">
-        Cancel
-      </a>
-      <button type="submit" form="mcq-form" class="btn-submit-main">
-        {% if question %}Save Changes{% else %}Save Question{% endif %}
-      </button>
+    <div class="ui-page-actions">
+      <a href="{% url 'staff_exam_detail' exam.pk %}" class="ui-btn">Cancel</a>
+      <button type="submit" form="mcq-form" class="ui-btn ui-btn-primary"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> {% if question %}Save changes{% else %}Save question{% endif %}</button>
     </div>
   </div>
 
@@ -471,7 +459,7 @@
                 Provide at least 2 choices. Click <strong>Mark Correct</strong> on the correct choice.
               </p>
             </div>
-            <button type="button" id="btn-add-choice-top" class="btn-cancel-main text-xs font-bold py-1.5 px-3 text-[#0E2378] border-[#0E2378]/30 hover:bg-blue-50">
+            <button type="button" id="btn-add-choice-top" class="btn-cancel-main text-xs font-bold py-1.5 px-3 text-[#2447F5] border-[#2447F5]/30 hover:bg-blue-50">
               + Add Choice
             </button>
           </div>
@@ -567,7 +555,7 @@
       </div>
 
       <!-- RIGHT SIDEBAR: Configuration, Placement & Submit (4 cols, sticky) -->
-      <div class="lg:col-span-4 space-y-6 lg:sticky lg:top-6">
+      <div class="lg:col-span-4 space-y-6 lg:sticky lg:top-[84px]">
 
         <!-- Card: Section Assignment -->
         <div class="authoring-card space-y-4">

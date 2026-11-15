@@ -12,7 +12,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
 from django.core.cache import cache
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -149,6 +149,8 @@ def home(request):
     applications = (
         Application.objects.filter(candidate=request.user)
         .select_related("exam")
+        # One query for every card's section count instead of one per card.
+        .annotate(section_count=Count("exam__sections", distinct=True))
         .order_by("exam__opens_at")
     )
     attempts = {a.exam_id: a for a in Attempt.objects.filter(candidate=request.user)}
@@ -206,6 +208,7 @@ def exam_detail(request, pk):
             "attempt": attempt,
             "state": candidate_state_for(application, attempt),
             "server_now": timezone.now(),
+            "sections": list(exam.sections.order_by("order")),
         },
     )
 
@@ -378,7 +381,19 @@ def confirm_details(request, pk):
 @team_required
 def staff_exam_list(request):
     exams = Exam.objects.all() if has_perm(request.user, "tests.view") else Exam.objects.none()
-    return render(request, "assessments/staff/exam_list.html", {"exams": exams, "now": timezone.now()})
+    # Counts for every card in one query, instead of several queries per test.
+    exams = list(exams.annotate(
+        candidate_count=Count("applications", distinct=True),
+        section_count=Count("sections", distinct=True),
+    ))
+    now = timezone.now()
+    summary = {
+        "total": len(exams),
+        "published": sum(1 for e in exams if e.is_published),
+        "open_now": sum(1 for e in exams if e.is_published and e.opens_at <= now < e.closes_at),
+        "candidates": sum(e.candidate_count for e in exams),
+    }
+    return render(request, "assessments/staff/exam_list.html", {"exams": exams, "now": now, "summary": summary})
 
 
 @permission_required("tests.manage")
@@ -990,8 +1005,30 @@ def staff_settings(request):
             "email_status": email_status,
             "ai_key_count": len(active_keys),
             "ai_key_resting": sum(1 for k in active_keys if k.is_cooling),
+            "environment": _platform_environment(),
         },
     )
+
+
+def _platform_environment():
+    """Real deployment facts for the Settings sidebar (never hardcoded labels)."""
+    from django.db import connection
+
+    mode = (getattr(dj_settings, "CODE_RUNNER", "") or "").strip().lower()
+    judge0 = bool(getattr(dj_settings, "JUDGE0_URL", ""))
+    if mode == "judge0" or (mode == "" and judge0):
+        runner = "Judge0 sandbox" if judge0 else "Judge0 (URL not set)"
+    elif mode == "local":
+        runner = "Local (development only)"
+    else:
+        runner = "Not configured"
+    return {
+        "time_zone": dj_settings.TIME_ZONE,
+        "runner": runner,
+        "runner_ok": runner == "Judge0 sandbox" or (mode == "local" and dj_settings.DEBUG),
+        "database": connection.vendor.replace("postgresql", "PostgreSQL").replace("sqlite", "SQLite").replace("mysql", "MySQL"),
+        "debug": dj_settings.DEBUG,
+    }
 
 
 def csrf_failure_view(request, reason=""):

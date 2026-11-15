@@ -1,313 +1,149 @@
 {% extends "base.html" %}
 {% load tz %}
-{% block title %}Candidate Portal | My Assessments{% endblock %}
+{% block title %}My assessments{% endblock %}
 
 {% block content %}
-<div class="space-y-8">
-  <!-- Page Header -->
-  <div class="flex flex-col gap-2">
-    <div class="inline-flex items-center gap-2">
-      <span class="text-xs sm:text-sm font-extrabold tracking-wider uppercase text-[#2447F5]">Candidate portal</span>
-      {% if rows %}
-      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-blue-50 text-[#2447F5] border border-blue-200/80">
-        {{ rows|length }} Active
-      </span>
-      {% endif %}
-    </div>
-    <h1 class="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-[#0F172A] tracking-tight">Your assessments</h1>
-    <p class="text-base sm:text-lg text-slate-600 font-medium max-w-2xl">
-      Complete the system check, then start your test when the window opens.
-    </p>
+<div class="ui-page-head">
+  <div>
+    <h1 class="ui-title">Your assessments</h1>
+    <p class="ui-subtitle">Check your device, then start your test once its window opens. Your timer only starts when you begin.</p>
   </div>
+</div>
 
-  <div class="flex flex-wrap lg:flex-nowrap gap-8 items-start">
-    
-    <!-- Left Main Column (Assessments) -->
-    <div class="w-full flex-1 min-w-0 flex flex-col gap-8" style="flex: 1 1 600px;">
-
-      {% if rows %}
-        {% for row in rows %}
-          {% if row.state.code == "confirm" %}
-            <div class="rounded-2xl border-[1.5px] border-[#D5DEFB] bg-[#F1F5FF] p-6 sm:p-7 shadow-card flex flex-col sm:flex-row sm:items-center justify-between gap-5">
-              <div class="flex items-start gap-4">
-                <div class="w-12 h-12 rounded-xl bg-[#EEF1FE] flex items-center justify-center text-[#2447F5] shrink-0 border border-blue-200">
-                  <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-                  </svg>
-                </div>
-                <div>
-                  <div class="inline-flex items-center gap-2 mb-1">
-                    <span class="text-xs font-extrabold uppercase tracking-wider text-[#2447F5]">Verification required</span>
-                  </div>
-                  <h2 class="text-lg sm:text-xl font-extrabold text-[#0F172A]">Candidate Profile Verification</h2>
-                  <p class="text-xs sm:text-sm text-slate-600 mt-1 leading-relaxed">
-                    Please confirm your full legal name, phone number, and resume for <strong>{{ row.exam.title }}</strong> before test access unlocks.
-                  </p>
-                </div>
-              </div>
-              <a href="{% url 'confirm_details' row.exam.pk %}" class="btn btn-primary px-6 py-3 text-sm font-extrabold shrink-0 shadow-cta">
-                <span>Verify Details &rarr;</span>
-              </a>
-            </div>
-          {% endif %}
-
-          <!-- Assessment Card -->
-          <section class="bg-white border-[1.5px] border-slate-200 rounded-3xl p-6 sm:p-8 lg:p-9 flex flex-col gap-7 shadow-card transition-all hover:border-slate-300">
-            <!-- Badges Row -->
-            <div class="flex flex-wrap items-center gap-2.5">
-              {% include "assessments/partials/state_badge.html" with state=row.state %}
-              {% if row.exam.camera_required %}
-              <span class="inline-flex items-center gap-1.5 rounded-full bg-[#EEF1F7] px-3.5 py-1.5 text-xs font-extrabold text-slate-700">
-                <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
-                </svg>
-                Proctored
-              </span>
-              {% endif %}
-            </div>
-
-            <!-- Title & Overview -->
-            <div class="flex flex-col gap-2">
-              <h2 class="text-2xl sm:text-3xl font-extrabold text-[#0F172A] tracking-tight leading-snug">
-                {{ row.exam.title }}
-              </h2>
-              <p class="text-sm sm:text-base text-slate-600 font-medium leading-relaxed">
-                {% if row.exam.instructions %}
-                  {{ row.exam.instructions|truncatewords:24 }}
-                {% else %}
-                  Timed technical evaluation covering core knowledge and coding problem solving.
-                {% endif %}
-              </p>
-            </div>
-
-            <!-- 3 Metrics Blocks -->
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div class="flex items-center gap-3.5 p-3.5 rounded-2xl bg-[#EEF1FE]/60 border border-blue-200/60">
-                <div class="w-11 h-11 rounded-xl bg-[#EEF1FE] flex items-center justify-center text-[#2447F5] shrink-0 border border-blue-200/70">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <circle cx="12" cy="12" r="9"></circle>
-                    <path d="M12 7v5l3 2"></path>
-                  </svg>
-                </div>
-                <div>
-                  <div class="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">Duration</div>
-                  <div class="text-base sm:text-lg font-extrabold text-slate-900 num">{{ row.exam.duration_minutes }} minutes</div>
-                </div>
-              </div>
-
-              <div class="flex items-center gap-3.5 p-3.5 rounded-2xl bg-[#EEF1FE]/60 border border-blue-200/60">
-                <div class="w-11 h-11 rounded-xl bg-[#EEF1FE] flex items-center justify-center text-[#2447F5] shrink-0 border border-blue-200/70">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M12 2l9 5-9 5-9-5 9-5z"></path>
-                    <path d="M3 12l9 5 9-5"></path>
-                    <path d="M3 17l9 5 9-5"></path>
-                  </svg>
-                </div>
-                <div>
-                  <div class="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">Sections</div>
-                  <div class="text-base sm:text-lg font-extrabold text-slate-900">
-                    {% if row.exam.sections.count %}
-                      {{ row.exam.sections.count }} Section{{ row.exam.sections.count|pluralize }}
-                    {% else %}
-                      Standard test
-                    {% endif %}
-                  </div>
-                </div>
-              </div>
-
-              <div class="flex items-center gap-3.5 p-3.5 rounded-2xl bg-[#EEF1FE]/60 border border-blue-200/60">
-                <div class="w-11 h-11 rounded-xl bg-[#EEF1FE] flex items-center justify-center text-[#2447F5] shrink-0 border border-blue-200/70">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <rect x="3" y="4" width="18" height="18" rx="2"></rect>
-                    <path d="M16 2v4"></path>
-                    <path d="M8 2v4"></path>
-                    <path d="M3 10h18"></path>
-                  </svg>
-                </div>
-                <div>
-                  <div class="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">Window Opens</div>
-                  <div class="text-base sm:text-lg font-extrabold text-slate-900 num">{{ row.exam.opens_at|localtime|date:"D, d M H:i" }}</div>
-                </div>
-              </div>
-            </div>
-
-            <div class="h-px bg-slate-200"></div>
-
-            <!-- "Before you begin" Readiness Checklist -->
-            <div class="flex flex-col gap-3.5">
-              <h3 class="text-lg font-extrabold text-[#0F172A]">Before you begin</h3>
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                <div class="flex items-center justify-between gap-3 border-[1.5px] border-slate-200 rounded-xl px-4 py-3 bg-white">
-                  <div class="flex items-center gap-3">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0F172A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                      <path d="M23 7l-7 5 7 5V7z"></path>
-                      <rect x="1" y="5" width="15" height="14" rx="2"></rect>
-                    </svg>
-                    <span class="font-bold text-slate-800">Camera</span>
-                  </div>
-                  {% if row.exam.camera_required %}
-                    <span class="bg-[#EEF1FE] text-[#2447F5] text-xs font-extrabold rounded-full px-3 py-1">Required</span>
-                  {% else %}
-                    <span class="bg-[#EEF1F7] text-slate-500 text-xs font-extrabold rounded-full px-3 py-1">Not required</span>
-                  {% endif %}
-                </div>
-
-                <div class="flex items-center justify-between gap-3 border-[1.5px] border-slate-200 rounded-xl px-4 py-3 bg-white">
-                  <div class="flex items-center gap-3">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0F172A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                      <path d="M8 3H5a2 2 0 0 0-2 2v3"></path>
-                      <path d="M21 8V5a2 2 0 0 0-2-2h-3"></path>
-                      <path d="M3 16v3a2 2 0 0 0 2 2h3"></path>
-                      <path d="M16 21h3a2 2 0 0 0 2-2v-3"></path>
-                    </svg>
-                    <span class="font-bold text-slate-800">Fullscreen mode</span>
-                  </div>
-                  <span class="bg-[#EEF1F7] text-slate-700 text-xs font-extrabold rounded-full px-3 py-1">Required</span>
-                </div>
-
-                <div class="flex items-center justify-between gap-3 border-[1.5px] border-slate-200 rounded-xl px-4 py-3 bg-white">
-                  <div class="flex items-center gap-3">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0F172A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                      <path d="M5 12.55a11 11 0 0 1 14 0"></path>
-                      <path d="M1.42 9a16 16 0 0 1 21.16 0"></path>
-                      <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
-                      <path d="M12 20h.01"></path>
-                    </svg>
-                    <span class="font-bold text-slate-800">Internet connection</span>
-                  </div>
-                  <span class="bg-[#E3F5EC] text-[#0B6B43] text-xs font-extrabold rounded-full px-3 py-1">Stable</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Action Buttons Row -->
-            <div class="flex flex-wrap items-center gap-4 pt-1">
-              {% if row.state.code == "confirm" %}
-                <a href="{% url 'confirm_details' row.exam.pk %}" class="btn btn-primary h-[58px] px-8 text-base font-extrabold shadow-cta">
-                  <span>Verify Details &amp; Resume &rarr;</span>
-                </a>
-              {% elif row.state.code == "open" %}
-                <a href="{% url 'exam_detail' row.exam.pk %}" class="btn btn-primary h-[58px] px-8 text-base font-extrabold shadow-cta">
-                  <span>Proceed to Assessment</span>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M5 12h14"></path>
-                    <path d="M13 6l6 6-6 6"></path>
-                  </svg>
-                </a>
-                <a href="{% url 'exam_detail' row.exam.pk %}" class="btn btn-secondary h-[58px] px-6 text-sm font-bold text-slate-700 hover:text-slate-900 border-slate-200 bg-white">
-                  <span>System Check</span>
-                </a>
-              {% elif row.state.code == "in_progress" %}
-                <a href="{% url 'attempt_page' row.attempt.pk %}" class="btn btn-primary h-[58px] px-8 text-base font-extrabold shadow-cta">
-                  <span>Continue Assessment</span>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M5 12h14"></path>
-                    <path d="M13 6l6 6-6 6"></path>
-                  </svg>
-                </a>
-              {% elif row.state.code == "ended" %}
-                <a href="{% url 'attempt_result' row.attempt.pk %}" class="btn btn-secondary h-[58px] px-7 text-base font-extrabold">
-                  <span>View Submission</span>
-                </a>
-              {% elif row.state.code == "closed" %}
-                <span class="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-slate-100 border border-slate-200 text-sm text-slate-500 font-extrabold">
-                  Assessment Window Closed
-                </span>
-              {% elif row.state.code == "waiting" %}
-                <span class="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-800 font-extrabold">
-                  Opens at {{ row.exam.opens_at|localtime|date:"D, d M H:i" }}
-                </span>
-                <a href="{% url 'exam_detail' row.exam.pk %}" class="btn btn-secondary h-[58px] px-6 text-sm font-bold text-slate-700 hover:text-slate-900 border-slate-200 bg-white">
-                  <span>Pre-Check System</span>
-                </a>
-              {% elif row.state.code == "revoked" %}
-                <span class="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-rose-50 border border-rose-200 text-sm text-rose-800 font-extrabold">
-                  Access Removed
-                </span>
-              {% else %}
-                <a href="{% url 'exam_detail' row.exam.pk %}" class="btn btn-primary h-[58px] px-8 text-base font-extrabold shadow-cta">
-                  <span>View Assessment</span>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M5 12h14"></path>
-                    <path d="M13 6l6 6-6 6"></path>
-                  </svg>
-                </a>
-              {% endif %}
-            </div>
-          </section>
-        {% endfor %}
-
-      {% else %}
-        <!-- Empty State -->
-        <section class="bg-white border-[1.5px] border-slate-200 rounded-3xl p-12 text-center flex flex-col items-center gap-4 shadow-card">
-          <div class="w-16 h-16 rounded-2xl bg-blue-50 text-[#2447F5] flex items-center justify-center">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 3l8 3v6c0 4.5-3.2 8-8 9-4.8-1-8-4.5-8-9V6l8-3z"></path>
-              <path d="M8.5 12l2.5 2.5 4.5-5"></path>
-            </svg>
-          </div>
-          <h2 class="text-2xl font-extrabold text-[#0F172A]">No Assessments Scheduled</h2>
-          <p class="text-slate-500 max-w-md text-sm sm:text-base leading-relaxed">
-            You do not currently have any active assessment invitations. When an evaluation window is assigned to your account, it will appear here.
-          </p>
-        </section>
+<div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] items-start">
+  <div class="flex flex-col gap-5 min-w-0">
+    {% for row in rows %}
+      {% if row.state.code == "confirm" %}
+      <div class="ui-flash" role="note">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+        <div class="ui-flash-body">
+          <strong class="font-semibold">Confirm your details to unlock {{ row.exam.title }}.</strong>
+          Check your name and phone number and add your resume. It takes about a minute.
+        </div>
+      </div>
       {% endif %}
 
-    </div>
-
-    <!-- Right Sidebar Column (Quick Guidance & Manual) -->
-    <aside class="w-full lg:w-[360px] lg:shrink-0 flex flex-col gap-6 lg:sticky lg:top-24" style="flex: 1 1 340px; max-width: 380px;">
-      
-      <!-- Candidate Resource Card -->
-      <section class="bg-white border-[1.5px] border-slate-200 rounded-3xl p-6 sm:p-7 shadow-card flex flex-col gap-5">
-        <div class="flex items-center gap-2.5 border-b border-slate-100 pb-3.5">
-          <div class="w-8 h-8 rounded-xl bg-blue-100 text-[#2447F5] flex items-center justify-center font-black shrink-0">
-            <svg width="18" height="18" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
-            </svg>
+      <section class="ui-card ui-card-interactive overflow-hidden" aria-labelledby="exam-{{ row.exam.pk }}-title">
+        <div class="ui-card-pad flex flex-col gap-5">
+          <div class="flex flex-wrap items-center gap-2">
+            {% include "assessments/partials/state_badge.html" with state=row.state %}
+            {% if row.exam.camera_required %}
+            <span class="ui-badge">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+              Proctored
+            </span>
+            {% endif %}
           </div>
+
           <div>
-            <h3 class="text-base font-extrabold text-[#0F172A] tracking-tight">Candidate Resources</h3>
-            <p class="text-[11px] text-slate-500 font-medium">Preparation guide &amp; hardware checklist</p>
+            <h2 id="exam-{{ row.exam.pk }}-title" class="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">{{ row.exam.title }}</h2>
+            {% if row.exam.instructions %}
+            <p class="mt-2 text-[15px] leading-relaxed text-slate-600">{{ row.exam.instructions|truncatewords:28 }}</p>
+            {% endif %}
           </div>
+
+          <dl class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div class="ui-stat">
+              <span class="ui-stat-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke-width="2"/><path stroke-linecap="round" stroke-width="2" d="M12 7v5l3 2"/></svg></span>
+              <div class="min-w-0"><dt class="ui-stat-label">Duration</dt><dd class="ui-stat-value">{{ row.exam.duration_minutes }} minutes</dd></div>
+            </div>
+            <div class="ui-stat">
+              <span class="ui-stat-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 2l9 5-9 5-9-5 9-5zM3 12l9 5 9-5M3 17l9 5 9-5"/></svg></span>
+              <div class="min-w-0"><dt class="ui-stat-label">Sections</dt><dd class="ui-stat-value">{{ row.application.section_count }} section{{ row.application.section_count|pluralize }}</dd></div>
+            </div>
+            <div class="ui-stat">
+              <span class="ui-stat-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" stroke-width="2"/><path stroke-linecap="round" stroke-width="2" d="M16 2v4M8 2v4M3 10h18"/></svg></span>
+              <div class="min-w-0"><dt class="ui-stat-label">{% if row.state.code == "waiting" %}Opens{% else %}Window{% endif %}</dt><dd class="ui-stat-value">{{ row.exam.opens_at|localtime|date:"D j M, H:i" }}</dd></div>
+            </div>
+          </dl>
+
+          {% if row.state.code == "open" or row.state.code == "waiting" or row.state.code == "confirm" %}
+          <div>
+            <h3 class="text-sm font-semibold text-slate-900 mb-2.5">You will need</h3>
+            <ul class="flex flex-wrap gap-2 text-sm">
+              <li class="ui-badge {% if row.exam.camera_required %}ui-badge-info{% endif %}">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                Camera {% if row.exam.camera_required %}required{% else %}optional{% endif %}
+              </li>
+              <li class="ui-badge {% if row.exam.fullscreen_required %}ui-badge-info{% endif %}">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg>
+                Full screen {% if row.exam.fullscreen_required %}required{% else %}recommended{% endif %}
+              </li>
+              <li class="ui-badge">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12.55a11 11 0 0114 0M1.42 9a16 16 0 0121.16 0M8.53 16.11a6 6 0 016.95 0M12 20h.01"/></svg>
+                Steady internet
+              </li>
+            </ul>
+          </div>
+          {% endif %}
         </div>
 
-        <div class="flex flex-col gap-2.5 text-xs font-semibold text-slate-700">
-          <a href="{% url 'platform_manual' %}#chapter-1" class="flex items-center justify-between p-3 rounded-2xl bg-slate-50 hover:bg-blue-50/50 hover:border-blue-200 border border-slate-200 transition-colors group">
-            <div class="flex items-center gap-2.5">
-              <span class="text-base">💻</span>
-              <span class="font-bold text-slate-900 group-hover:text-[#2447F5]">Hardware &amp; Browser Guide</span>
-            </div>
-            <span class="text-slate-400 group-hover:text-[#2447F5]">&rarr;</span>
-          </a>
-
-          <a href="{% url 'platform_manual' %}#chapter-1-rules" class="flex items-center justify-between p-3 rounded-2xl bg-slate-50 hover:bg-blue-50/50 hover:border-blue-200 border border-slate-200 transition-colors group">
-            <div class="flex items-center gap-2.5">
-              <span class="text-base">🛡️</span>
-              <span class="font-bold text-slate-900 group-hover:text-[#2447F5]">Proctoring &amp; Privacy FAQ</span>
-            </div>
-            <span class="text-slate-400 group-hover:text-[#2447F5]">&rarr;</span>
-          </a>
-
-          <a href="{% url 'platform_manual' %}#chapter-1-troubleshooting" class="flex items-center justify-between p-3 rounded-2xl bg-slate-50 hover:bg-blue-50/50 hover:border-blue-200 border border-slate-200 transition-colors group">
-            <div class="flex items-center gap-2.5">
-              <span class="text-base">📶</span>
-              <span class="font-bold text-slate-900 group-hover:text-[#2447F5]">Network &amp; Disconnections</span>
-            </div>
-            <span class="text-slate-400 group-hover:text-[#2447F5]">&rarr;</span>
-          </a>
-        </div>
-
-        <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
-          <span class="text-slate-500 font-medium">Need immediate assistance?</span>
-          <a href="mailto:{{ site_settings.contact_email|default:'support@example.com' }}" class="font-bold text-[#2447F5] hover:underline">
-            Support Desk
-          </a>
+        <div class="flex flex-wrap items-center gap-2.5 px-5 sm:px-6 py-4 border-t border-slate-100 bg-slate-50/60">
+          {% if row.state.code == "confirm" %}
+            <a href="{% url 'confirm_details' row.exam.pk %}" class="ui-btn ui-btn-primary">
+              Confirm details
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </a>
+          {% elif row.state.code == "open" %}
+            <a href="{% url 'exam_detail' row.exam.pk %}" class="ui-btn ui-btn-primary">
+              Review rules and start
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </a>
+          {% elif row.state.code == "in_progress" %}
+            <a href="{% url 'attempt_page' row.attempt.pk %}" class="ui-btn ui-btn-primary">
+              Continue test
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </a>
+            <span class="text-sm text-slate-500">Your answers are saved. The timer continues from where it paused.</span>
+          {% elif row.state.code == "ended" %}
+            <a href="{% url 'attempt_result' row.attempt.pk %}" class="ui-btn">View submission</a>
+          {% elif row.state.code == "closed" %}
+            <span class="text-sm font-medium text-slate-500">This test window has closed.</span>
+          {% elif row.state.code == "waiting" %}
+            <a href="{% url 'exam_detail' row.exam.pk %}" class="ui-btn">Read the rules</a>
+            <span class="text-sm text-slate-500">Opens {{ row.exam.opens_at|localtime|date:"l j F, H:i" }}</span>
+          {% elif row.state.code == "revoked" %}
+            <span class="text-sm font-medium text-rose-700">Access to this test was removed. Contact the person who invited you if this looks wrong.</span>
+          {% else %}
+            <a href="{% url 'exam_detail' row.exam.pk %}" class="ui-btn ui-btn-primary">View test</a>
+          {% endif %}
         </div>
       </section>
-
-    </aside>
-
+    {% empty %}
+      <section class="ui-card ui-empty">
+        <div class="ui-empty-icon">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+        </div>
+        <h2>No assessments yet</h2>
+        <p>When you are invited to a test it will appear here, and you will also get an email with the details.</p>
+      </section>
+    {% endfor %}
   </div>
+
+  <aside class="ui-card lg:sticky lg:top-[84px]" aria-labelledby="resources-title">
+    <div class="ui-card-head">
+      <div>
+        <h2 id="resources-title" class="ui-card-title">Before you start</h2>
+        <p class="ui-card-desc">Short guides from the user manual.</p>
+      </div>
+    </div>
+    <nav class="p-2" aria-label="Guides">
+      <a href="{% url 'platform_manual' %}#chapter-1" class="ui-link-row">
+        <span class="ui-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg></span>
+        Device and browser setup
+        <svg class="ui-link-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+      </a>
+      <a href="{% url 'platform_manual' %}#chapter-1-rules" class="ui-link-row">
+        <span class="ui-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg></span>
+        Monitoring and privacy
+        <svg class="ui-link-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+      </a>
+      <a href="{% url 'platform_manual' %}#chapter-1-troubleshooting" class="ui-link-row">
+        <span class="ui-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12.55a11 11 0 0114 0M1.42 9a16 16 0 0121.16 0M8.53 16.11a6 6 0 016.95 0M12 20h.01"/></svg></span>
+        If your connection drops
+        <svg class="ui-link-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+      </a>
+    </nav>
+  </aside>
 </div>
 {% endblock %}

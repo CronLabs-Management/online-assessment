@@ -73,8 +73,8 @@
   .coding-form-input:focus,
   .coding-card input[type="text"]:focus,
   .coding-card input[type="number"]:focus {
-    border-color: #0E2378;
-    box-shadow: 0 0 0 3px rgba(14, 35, 120, 0.12);
+    border-color: #2447F5;
+    box-shadow: 0 0 0 3px rgba(36, 71, 245, 0.12);
   }
 
   .coding-form-textarea,
@@ -92,8 +92,8 @@
   }
   .coding-form-textarea:focus,
   .coding-card textarea:focus {
-    border-color: #0E2378;
-    box-shadow: 0 0 0 3px rgba(14, 35, 120, 0.12);
+    border-color: #2447F5;
+    box-shadow: 0 0 0 3px rgba(36, 71, 245, 0.12);
   }
 
   /* Markdown Editor & Toolbar */
@@ -200,7 +200,7 @@
   .md-preview-container ul { list-style-type: disc; padding-left: 20px; margin-bottom: 8px; }
   .md-preview-container ol { list-style-type: decimal; padding-left: 20px; margin-bottom: 8px; }
   .md-preview-container blockquote {
-    border-left: 3px solid #0E2378;
+    border-left: 3px solid #2447F5;
     padding-left: 10px;
     color: #475569;
     font-style: italic;
@@ -442,10 +442,10 @@
     border-color: #CBD5E1;
   }
   .lang-chip-btn.active {
-    border-color: #0E2378;
+    border-color: #2447F5;
     background: #EFF6FF;
-    color: #0E2378;
-    box-shadow: 0 1px 3px rgba(14, 35, 120, 0.1);
+    color: #2447F5;
+    box-shadow: 0 1px 3px rgba(36, 71, 245, 0.1);
   }
   .lang-tag-pill {
     font-size: 10px;
@@ -457,13 +457,13 @@
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   }
   .lang-chip-btn.active .lang-tag-pill {
-    background: #0E2378;
+    background: #2447F5;
     color: #FFFFFF;
   }
 
   /* Header & Action Buttons */
   .btn-submit-main {
-    background: #0E2378;
+    background: #2447F5;
     color: #ffffff !important;
     font-size: 13px;
     font-weight: 700;
@@ -471,7 +471,7 @@
     border-radius: 10px;
     border: none;
     cursor: pointer;
-    box-shadow: 0 1px 2px rgba(14, 35, 120, 0.15);
+    box-shadow: 0 1px 2px rgba(36, 71, 245, 0.15);
     transition: all 0.15s ease;
     text-decoration: none !important;
     display: inline-flex;
@@ -482,7 +482,7 @@
   .btn-submit-main:hover {
     background: #1E3AC8;
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(14, 35, 120, 0.2);
+    box-shadow: 0 4px 12px rgba(36, 71, 245, 0.2);
   }
   .btn-cancel-main {
     background: #FFFFFF;
@@ -509,7 +509,7 @@
     border: 2px dashed #CBD5E1;
     border-radius: 12px;
     background: #F8FAFC;
-    color: #0E2378;
+    color: #2447F5;
     font-size: 13px;
     font-weight: 700;
     cursor: pointer;
@@ -521,7 +521,7 @@
   }
   .btn-add-dashed:hover {
     background: #EFF6FF;
-    border-color: #0E2378;
+    border-color: #2447F5;
     color: #1E3AC8;
   }
   .btn-del-action {
@@ -582,44 +582,20 @@
   }
 </style>
 
-<div class="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-  <!-- Top Navigation & Action Header -->
-  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200">
+<div class="w-full space-y-6">
+  <a href="{% url 'staff_exam_detail' exam.pk %}" class="ui-back">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+    {{ exam.title }}
+  </a>
+  <div class="ui-page-head">
     <div>
-      <a href="{% url 'staff_exam_detail' exam.pk %}" class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-900 transition-colors mb-2">
-        <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-        Back to Assessment Overview
-      </a>
-      <div class="flex flex-wrap items-center gap-2">
-        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-indigo-50 text-indigo-800 border border-indigo-200">
-          Coding Problem Authoring
-        </span>
-        <span class="text-xs text-slate-400">&bull;</span>
-        <span class="text-xs text-slate-600 font-medium">Exam: {{ exam.title }}</span>
-        <span class="text-xs text-slate-400">&bull;</span>
-        <span class="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-          <span>&#9881;</span> Auto Sandbox Judge
-        </span>
-      </div>
-      <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mt-1">
-        {% if problem %}Edit coding problem{% else %}Create coding problem{% endif %}
-      </h1>
-      <p class="text-xs sm:text-sm text-slate-500 mt-1">
-        Configure problem description, I/O stream specifications, starter boilerplate, and automated evaluation test cases.
-      </p>
+      <div class="ui-eyebrow flex-wrap"><span class="ui-badge ui-badge-info">Coding problem</span></div>
+      <h1 class="ui-title">{% if problem %}Edit coding problem{% else %}Create coding problem{% endif %}</h1>
+      <p class="ui-subtitle">Problem statement, input and output format, starter code and the test cases used for grading.</p>
     </div>
-
-    <!-- Quick Actions in Header -->
-    <div class="flex items-center gap-3">
-      <a href="{% url 'staff_exam_detail' exam.pk %}" class="btn-cancel-main">
-        Cancel
-      </a>
-      <button type="submit" form="coding-form" class="btn-submit-main">
-        <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-        </svg>
-        {% if problem %}Save Changes{% else %}Save Challenge{% endif %}
-      </button>
+    <div class="ui-page-actions">
+      <a href="{% url 'staff_exam_detail' exam.pk %}" class="ui-btn">Cancel</a>
+      <button type="submit" form="coding-form" class="ui-btn ui-btn-primary"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> {% if problem %}Save changes{% else %}Save problem{% endif %}</button>
     </div>
   </div>
 
@@ -992,13 +968,13 @@
       </div>
 
       <!-- RIGHT SIDEBAR (4 cols, sticky) -->
-      <div class="lg:col-span-4 space-y-6 lg:sticky lg:top-6">
+      <div class="lg:col-span-4 space-y-6 lg:sticky lg:top-[84px]">
 
         <!-- Card: Supported Languages -->
         <div class="coding-card space-y-4">
           <div class="pb-3 border-b border-slate-100">
             <h3 class="coding-card-title">
-              <svg style="width: 18px; height: 18px; color: #0E2378;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg style="width: 18px; height: 18px; color: #2447F5;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
               </svg>
               Supported Languages
@@ -1056,7 +1032,7 @@
         <div class="coding-card space-y-4">
           <div class="pb-3 border-b border-slate-100">
             <h3 class="coding-card-title">
-              <svg style="width: 18px; height: 18px; color: #0E2378;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg style="width: 18px; height: 18px; color: #2447F5;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
               </svg>
               Scoring &amp; Sequencing

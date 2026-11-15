@@ -2,24 +2,15 @@
 {% block title %}Edit Candidate | {{ application.full_name }}{% endblock %}
 {% block content %}
 <div class="space-y-6 max-w-xl">
-  <!-- Breadcrumb -->
-  <div>
-    <a href="{% url 'staff_exam_candidates' application.exam_id %}" class="crumb">
-      <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-      <span>Back to Candidates</span>
-    </a>
-  </div>
-
-  <div>
-    <div class="flex items-center gap-2 mb-1">
-      <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-[#EEF1FE] text-[#1E3AC8] border border-blue-200">Candidate Records</span>
-      <span class="text-xs text-slate-400">&bull;</span>
-      <span class="text-xs text-slate-500 font-medium">{{ application.exam.title }}</span>
+  <a href="{% url 'staff_exam_candidates' application.exam_id %}" class="ui-back">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+    Candidates · {{ application.exam.title }}
+  </a>
+  <div class="ui-page-head">
+    <div>
+      <h1 class="ui-title">Edit candidate</h1>
+      <p class="ui-subtitle">Contact details and sign-in access for this test.</p>
     </div>
-    <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Edit Candidate Details</h1>
-    <p class="mt-1 text-sm text-slate-600">
-      Update contact information and candidate access credentials.
-    </p>
   </div>
 
   <form method="post" enctype="multipart/form-data" class="card p-6 space-y-5 shadow-xs">

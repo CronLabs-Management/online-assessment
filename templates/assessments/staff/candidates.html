@@ -4,82 +4,14 @@
 
 {% block content %}
 <div class="space-y-6 text-left max-w-[1360px] mx-auto pb-12" id="candidates-management-page">
-  <!-- Top Breadcrumb -->
-  <div class="text-left">
-    <a href="{% url 'staff_exam_detail' exam.pk %}" class="crumb inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 transition-colors font-medium">
-      <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
-      <span>Back to {{ exam.title }}</span>
-    </a>
-  </div>
-
-  <!-- Header with Exam Context & Actions -->
-  <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 pb-4 border-b border-slate-200">
-    <div>
-      <div class="flex items-center gap-2 mb-1.5 flex-wrap">
-        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-[#EEF1FE] text-[#1E3AC8] border border-blue-200">
-          Candidate Operations
-        </span>
-        <span class="text-xs text-slate-300">•</span>
-        <span class="text-xs text-slate-500 font-semibold">{{ exam.title }}</span>
-        <span class="text-xs text-slate-300">•</span>
-        <span class="text-xs text-slate-500 font-semibold">{{ counts.total }} enrolled</span>
-      </div>
-      <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Candidates &amp; Review Queue</h1>
-      <p class="mt-1 text-xs sm:text-sm text-slate-500">
-        Monitor test performance, review interview rounds, and manage candidate access.
-      </p>
-    </div>
-
-    <!-- Quick Action Bar -->
-    <div class="flex items-center gap-2 sm:gap-2.5 flex-wrap">
-      <a href="{% url 'platform_manual' %}#chapter-3" target="_blank" class="btn btn-secondary text-xs font-bold shadow-2xs inline-flex items-center gap-1.5 py-2 px-3 rounded-lg border-slate-200 hover:bg-slate-50 text-slate-600" title="Candidate Management Guide &amp; CSV format">
-        <span>📖</span> Manual
-      </a>
-      {% if "candidates.manage" in oa_perms %}<a href="{% url 'staff_candidates_sample_csv' exam.pk %}" class="btn btn-secondary text-xs font-bold shadow-2xs inline-flex items-center gap-1.5 py-2 px-3 rounded-lg border-slate-200 hover:bg-slate-50" title="Download CSV template for bulk importing candidates">
-        <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"/></svg>
-        Sample CSV
-      </a>{% endif %}
-      {% if "results.export" in oa_perms %}<a href="{% url 'staff_export_csv' exam.pk %}" class="btn btn-secondary text-xs font-bold shadow-2xs inline-flex items-center gap-1.5 py-2 px-3 rounded-lg border-slate-200 hover:bg-slate-50" title="Export candidate list and attempt results to CSV">
-        <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-        Export CSV
-      </a>{% endif %}
-      <button type="button" onclick="document.getElementById('change-rounds-modal').classList.remove('hidden');" class="btn btn-secondary text-xs font-bold shadow-2xs inline-flex items-center gap-1.5 py-2 px-3 rounded-lg border-slate-200 hover:bg-slate-50 text-slate-700" title="Configure interview rounds count">
-        <span>⚙️</span> Interview Rounds ({{ exam.interview_rounds_count }})
-      </button>
-      <button type="button" onclick="openBatchModal()" class="btn btn-secondary text-xs font-bold shadow-2xs inline-flex items-center gap-1.5 py-2 px-3 rounded-lg border-slate-200 hover:bg-slate-50 text-slate-800" title="Open Batch Credential Dispatch operations">
-        <span>✉️</span> Batch Credentials
-        {% if counts.unsent > 0 %}
-          <span class="inline-flex items-center justify-center px-1.5 py-0.2 rounded-full text-[10px] font-black bg-amber-500 text-white">
-            {{ counts.unsent }}
-          </span>
-        {% endif %}
-      </button>
-      {% if "candidates.manage" in oa_perms %}<a href="{% url 'staff_candidates_import' exam.pk %}" class="btn btn-primary text-xs font-bold shadow-2xs inline-flex items-center gap-1.5 py-2 px-3.5 rounded-lg bg-[#335eea] hover:bg-[#254bd0] text-white">
-        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
-        + Add Candidates
-      </a>{% endif %}
-    </div>
-  </div>
-
-  <!-- Navigation Sub-tabs -->
-  <div class="flex items-center gap-1.5 border-b border-slate-200 pb-1 text-sm font-semibold">
-    <a href="{% url 'staff_exam_overview' exam.pk %}" class="px-3.5 py-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors">
-      Telemetry &amp; Overview
-    </a>
-    <a href="{% url 'staff_exam_detail' exam.pk %}" class="px-3.5 py-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors">
-      Configuration &amp; Questions
-    </a>
-    <a href="{% url 'staff_exam_candidates' exam.pk %}" class="px-3.5 py-2 rounded-lg bg-[#EEF1FE] text-[#1E3AC8] font-bold border border-blue-200">
-      Candidates ({{ counts.total }})
-    </a>
-  </div>
+  {% include "assessments/staff/partials/exam_header.html" with active="candidates" count=counts.total %}
 
   <!-- Production-Grade Smart Batch Credential Dispatch Notification Banner -->
   {% if counts.unsent > 0 %}
     <div class="credential-dispatch-banner" style="display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: space-between !important; gap: 20px !important; width: 100% !important; box-sizing: border-box !important;">
       <div class="credential-dispatch-content" style="display: flex !important; align-items: center !important; gap: 14px !important; flex: 1 1 auto !important; min-width: 260px !important;">
         <div class="credential-dispatch-icon">
-          ✉️
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
         </div>
         <div class="credential-dispatch-text" style="flex: 1 1 auto !important; min-width: 240px !important;">
           <div class="credential-dispatch-title-row" style="display: flex !important; align-items: center !important; gap: 10px !important; flex-wrap: wrap !important;">
@@ -112,7 +44,8 @@
   {% endif %}
 
   <!-- Quick Filter Pills / Metric Segmented Control -->
-  <div class="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs select-none" id="quick-filter-pills" role="tablist">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+  <div class="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs select-none min-w-0" id="quick-filter-pills" role="tablist">
     <button type="button" onclick="setQuickFilter('')" class="quick-pill {% if not status and not flagged %}active{% endif %}" data-filter-status="">
       All Candidates <span class="pill-count">{{ counts.total }}</span>
     </button>
@@ -128,6 +61,22 @@
     <button type="button" onclick="setQuickFilter('completed')" class="quick-pill {% if status == 'completed' %}active{% endif %}" data-filter-status="completed">
       Completed <span class="pill-count">{{ counts.completed|default:0 }}</span>
     </button>
+  </div>
+  <div class="flex items-center gap-2 shrink-0">
+    {% if "tests.manage" in oa_perms %}
+    <button type="button" onclick="document.getElementById('change-rounds-modal').classList.remove('hidden');" class="ui-btn ui-btn-sm" title="Change how many interview rounds this test has">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h10M4 18h6"/></svg>
+      Interview rounds <span class="text-slate-500 num">{{ exam.interview_rounds_count }}</span>
+    </button>
+    {% endif %}
+    {% if "credentials.send" in oa_perms %}
+    <button type="button" onclick="openBatchModal()" class="ui-btn ui-btn-sm" title="Send or resend login details">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+      Send login details
+      {% if counts.unsent > 0 %}<span class="ui-badge ui-badge-warning !h-5 !px-1.5 num">{{ counts.unsent }}</span>{% endif %}
+    </button>
+    {% endif %}
+  </div>
   </div>
 
   <style>
@@ -807,7 +756,7 @@
                       </a>
                     {% else %}
                       <a href="{% url 'staff_candidate_edit' app.pk %}" class="btn btn-secondary text-xs font-bold py-1.5 px-3 rounded-lg border-slate-200 hover:bg-slate-50 text-slate-700 shadow-2xs inline-flex items-center gap-1" title="Edit candidate details">
-                        <span>✏️</span> Edit
+                        <span><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg></span> Edit
                       </a>
                     {% endif %}
 
@@ -820,7 +769,7 @@
                           Candidate Actions
                         </div>
                         <a href="{% url 'staff_candidate_edit' app.pk %}" class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-slate-700 hover:bg-slate-50 font-medium transition-colors">
-                          <span class="text-xs">✏️</span>
+                          <span class="text-xs"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg></span>
                           <span>Edit Details</span>
                         </a>
                         {% if app.has_resume_file %}
@@ -832,7 +781,7 @@
                         <form method="post" action="{% url 'staff_resend_credentials' app.pk %}" class="block m-0">
                           {% csrf_token %}
                           <button type="submit" class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-[#335eea] hover:bg-blue-50 font-medium transition-colors text-left" title="Resend the current working password via email">
-                            <span class="text-xs">✉️</span>
+                            <span class="text-xs"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg></span>
                             <span>Resend Credentials</span>
                           </button>
                         </form>
@@ -845,7 +794,7 @@
                           {% csrf_token %}
                           <input type="hidden" name="send_email" value="1">
                           <button type="submit" class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-amber-700 hover:bg-amber-50 font-medium transition-colors text-left" title="Generate a fresh random password and email it">
-                            <span class="text-xs">🔄</span>
+                            <span class="text-xs"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg></span>
                             <span>Regenerate &amp; Send</span>
                           </button>
                         </form>
@@ -884,7 +833,7 @@
             <tr>
               <td colspan="11" class="px-5 py-12 text-center text-slate-500">
                 <div class="w-12 h-12 mx-auto rounded-2xl bg-slate-100 flex items-center justify-center text-2xl text-slate-400 mb-3">
-                  🔍
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/></svg>
                 </div>
                 <p class="font-bold text-base text-slate-900">No candidates match your filters</p>
                 <p class="mt-1 text-xs text-slate-500">Try searching for a different name, email, or clearing the status filter.</p>
@@ -977,7 +926,7 @@
     <!-- Modal Header -->
     <div class="flex items-center justify-between pb-3 border-b border-slate-100">
       <div class="flex items-center gap-2">
-        <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50 text-[#1E3AC8] font-bold text-sm">✉️</span>
+        <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50 text-[#1E3AC8] font-bold text-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg></span>
         <div>
           <h3 class="font-bold text-sm text-slate-900 leading-tight">Batch Credentials</h3>
           <p class="text-[11px] text-slate-500">{{ counts.total }} enrolled • {{ counts.unsent }} awaiting emails</p>
@@ -1016,7 +965,7 @@
     <details class="group border border-slate-200/80 rounded-xl overflow-hidden bg-white">
       <summary class="p-3 text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-50/50 cursor-pointer list-none flex items-center justify-between select-none">
         <span class="flex items-center gap-1.5 text-rose-700">
-          <span>⚠️</span> Advanced: Regenerate All Passwords
+          <span><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg></span> Advanced: Regenerate All Passwords
         </span>
         <span class="text-slate-400 text-[10px] group-open:rotate-180 transition-transform">▼</span>
       </summary>
@@ -1053,7 +1002,7 @@
   <div class="bg-white rounded-2xl shadow-elevated max-w-md w-full p-6 text-left border border-slate-200 space-y-4" onclick="event.stopPropagation()">
     <div class="flex items-center justify-between pb-3 border-b border-slate-100">
       <div class="flex items-center gap-2">
-        <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-[#EEF1FE] text-[#0E2378] font-bold text-sm">🎯</span>
+        <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-[#EEF1FE] text-[#2447F5] font-bold text-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></span>
         <h3 class="font-extrabold text-base text-slate-900">Configure Interview Rounds</h3>
       </div>
       <button type="button" onclick="document.getElementById('change-rounds-modal').classList.add('hidden');" class="text-slate-400 hover:text-slate-700 text-lg font-bold p-1 rounded-lg">&times;</button>

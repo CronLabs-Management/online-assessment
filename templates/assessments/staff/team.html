@@ -2,17 +2,14 @@
 {% block title %}Team | {{ site_settings.site_name|default:"Assessments" }}{% endblock %}
 {% block content %}
 <div class="space-y-8">
-  <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 pb-5 border-b border-slate-200">
+  <div class="ui-page-head">
     <div>
-      <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Team</h1>
-      <p class="mt-1 text-sm text-slate-600 max-w-2xl">
-        Admins can do everything. Staff can do only what their role allows. Change a role and everyone in it gets the
-        change at once.
-      </p>
+      <h1 class="ui-title">Team</h1>
+      <p class="ui-subtitle">Admins can do everything. Staff can do only what their role allows. Change a role and everyone in it gets the change at once.</p>
     </div>
-    <div class="flex items-center gap-2">
-      <a href="{% url 'team_role_add' %}" class="btn btn-secondary text-sm py-2 px-4">New role</a>
-      <a href="{% url 'team_member_add' %}" class="btn btn-primary text-sm py-2 px-4">Add staff member</a>
+    <div class="ui-page-actions">
+      <a href="{% url 'team_role_add' %}" class="ui-btn">New role</a>
+      <a href="{% url 'team_member_add' %}" class="ui-btn ui-btn-primary">Add staff member</a>
     </div>
   </div>
 

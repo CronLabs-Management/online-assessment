@@ -247,6 +247,15 @@ SITE_SETTINGS_LOCAL_SECONDS = 0 if TESTING else 10
 # The overdue-attempt sweep called from busy staff pages runs at most this often (cron is never throttled).
 EXPIRE_SWEEP_THROTTLE_SECONDS = 0 if TESTING else 30
 
+# Static files: in production WhiteNoise serves hashed, pre-compressed copies (app.3f9c1a.css) with a
+# one-year cache, so returning visitors load no CSS or JS again until a file changes. Development and
+# tests keep plain names, so no collectstatic is needed there. deploy.sh runs collectstatic.
+if not DEBUG and not TESTING and importlib.util.find_spec("whitenoise"):
+    STORAGES = {
+        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+        "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+    }
+
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 2000
 
 

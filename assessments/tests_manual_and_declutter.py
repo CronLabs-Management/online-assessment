@@ -122,7 +122,7 @@ class PlatformManualAndUIDeclutterTests(TestCase):
         self.assertEqual(response.status_code, 200)
         content = response.content.decode("utf-8")
         self.assertIn(reverse("platform_manual"), content)
-        self.assertIn("Candidate Resources", content)
+        self.assertIn("Before you start", content)
 
     def test_exam_detail_briefing_screen_clean_layout(self):
         """Exam detail briefing screen displays 4-chip conduct rules and system readiness checklist."""
@@ -131,17 +131,14 @@ class PlatformManualAndUIDeclutterTests(TestCase):
         self.assertEqual(response.status_code, 200)
         content = response.content.decode("utf-8")
         
-        # Verify 4-chip code of conduct
-        self.assertIn("Continuous Fullscreen", content)
-        self.assertIn("Keep Face Centered", content)
-        self.assertIn("Work Independently", content)
-        self.assertIn("Continuous Auto-Save", content)
-        
-        # Verify pre-flight checklist
-        self.assertIn("Pre-Flight Checklist", content)
-        self.assertIn("Webcam Feed", content)
-        self.assertIn("Fullscreen Window", content)
-        
+        # Rules and the readiness checklist follow the test's own settings.
+        self.assertIn("Rules during the test", content)
+        self.assertIn("Work on your own", content)
+        self.assertIn("Your work saves as you go", content)
+        self.assertIn("Ready to start", content)
+        self.assertIn("Camera", content)
+        self.assertIn("Full screen", content)
+
         # Verify manual guide link
         self.assertIn(f'{reverse("platform_manual")}#chapter-1', content)
 
@@ -151,8 +148,9 @@ class PlatformManualAndUIDeclutterTests(TestCase):
         response = self.client.get(reverse("confirm_details", args=[self.exam.pk]), HTTP_HOST="127.0.0.1")
         self.assertEqual(response.status_code, 200)
         content = response.content.decode("utf-8")
-        self.assertIn("Step 1 of 3: Identity &amp; Profile Verification", content)
-        self.assertIn("Candidate Full Name", content)
+        self.assertIn("Step 1 of 3", content)
+        self.assertIn("Confirm your details", content)
+        self.assertIn('id="monitoring-notice-title"', content)
 
     def test_staff_team_role_form_clean_layout(self):
         """Team role form renders 12-column responsive grid without legend overlap."""
@@ -181,7 +179,7 @@ class PlatformManualAndUIDeclutterTests(TestCase):
         self.assertIn("Candidate", content)
         self.assertIn("mobile-nav-toggle", content)
         self.assertIn("mobile-nav-drawer", content)
-        self.assertIn("nav-item-pill", content)
+        self.assertIn("ui-nav-link", content)
 
     def test_redesigned_header_staff_view(self):
         """Staff header renders staff console badge, exams navigation, and docs badge."""
@@ -190,7 +188,7 @@ class PlatformManualAndUIDeclutterTests(TestCase):
         self.assertEqual(response.status_code, 200)
         content = response.content.decode("utf-8")
         self.assertIn("Staff", content)
-        self.assertIn("Exams", content)
+        self.assertIn("Tests", content)
         self.assertIn("mobile-nav-toggle", content)
         self.assertIn("mobile-nav-drawer", content)
 
@@ -202,10 +200,12 @@ class PlatformManualAndUIDeclutterTests(TestCase):
         content = response.content.decode("utf-8")
         self.assertIn("header-signout-trigger", content)
         self.assertIn("mobile-signout-trigger", content)
-        self.assertIn("signout-confirm-modal", content)
-        self.assertIn("signout-modal-cancel", content)
-        self.assertIn("signout-modal-confirm", content)
         self.assertIn("global-logout-form", content)
+        # Both triggers submit the logout form, which asks first through the shared dialog.
+        self.assertIn('form="global-logout-form"', content)
+        self.assertRegex(content, r'id="global-logout-form"[^>]*data-confirm=')
+        self.assertIn('id="oa-modal-cancel"', content)
+        self.assertIn('id="oa-modal-confirm"', content)
 
     def test_universal_in_app_modal_present_and_declarative_confirms(self):
         """Universal in-app modal shell is rendered and destructive actions use data-confirm instead of native confirm()."""
@@ -218,8 +218,8 @@ class PlatformManualAndUIDeclutterTests(TestCase):
         self.assertIn('id="oa-universal-modal"', content)
         self.assertIn('id="oa-modal-confirm"', content)
         self.assertIn('id="oa-modal-cancel"', content)
-        self.assertIn('window.oaConfirm', content)
-        self.assertIn('window.oaAlert', content)
+        # window.oaConfirm / window.oaAlert live in the shared script every page loads.
+        self.assertIn("js/ui.js", content)
         
         # Verify team delete role uses data-confirm without native confirm()
         StaffRole.objects.create(name="Temporary Role", description="Temporary")

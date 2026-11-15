@@ -1,61 +1,25 @@
 {% extends "base.html" %}
-{% block title %}{% if exam %}Edit Assessment | {{ exam.title }}{% else %}New Assessment | Staff Console{% endif %}{% endblock %}
-{% block main_class %}mx-auto max-w-7xl w-full px-4 sm:px-8 py-8 sm:py-10 flex-grow flex flex-col{% endblock %}
+{% block title %}{% if exam %}Settings | {{ exam.title }}{% else %}New test{% endif %}{% endblock %}
 
 {% block content %}
-<div class="w-full max-w-7xl mx-auto space-y-8 pb-16">
+<div class="w-full space-y-6 pb-8">
   
-  <!-- Breadcrumb & Top Bar -->
-  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
+  {% if exam %}
+  <a href="{% url 'staff_exam_detail' exam.pk %}" class="ui-back">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+    {{ exam.title }}
+  </a>
+  {% else %}
+  <a href="{% url 'staff_exam_list' %}" class="ui-back">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+    All tests
+  </a>
+  {% endif %}
+  <div class="ui-page-head">
     <div>
-      {% if exam %}
-        <a href="{% url 'staff_exam_detail' exam.pk %}" class="inline-flex items-center gap-2 text-xs sm:text-sm font-bold text-slate-600 hover:text-slate-900 transition-colors">
-          <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M15 19l-7-7 7-7"/>
-          </svg>
-          <span>Back to {{ exam.title }}</span>
-        </a>
-      {% else %}
-        <a href="{% url 'staff_exam_list' %}" class="inline-flex items-center gap-2 text-xs sm:text-sm font-bold text-slate-600 hover:text-slate-900 transition-colors">
-          <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M15 19l-7-7 7-7"/>
-          </svg>
-          <span>Back to Assessments</span>
-        </a>
-      {% endif %}
-    </div>
-
-    <!-- Step / Process Pill Indicator -->
-    <div class="flex items-center gap-2">
-      <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-[#EEF1FE] text-[#2447F5] border border-blue-200">
-        <span class="w-1.5 h-1.5 rounded-full bg-[#2447F5]"></span>
-        {% if exam %}Settings &amp; Rules Modification{% else %}Step 1: Assessment Configuration{% endif %}
-      </span>
-      {% if exam and exam.is_published %}
-        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
-          Published Live
-        </span>
-      {% elif exam %}
-        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-extrabold bg-amber-50 text-amber-700 border border-amber-200">
-          Draft
-        </span>
-      {% endif %}
-    </div>
-  </div>
-
-  <!-- Main Heading Banner -->
-  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-    <div>
-      <h1 class="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#0F172A] tracking-tight">
-        {% if exam %}Edit Assessment Settings{% else %}Create New Assessment{% endif %}
-      </h1>
-      <p class="mt-1.5 text-sm sm:text-base text-slate-600 font-medium max-w-3xl">
-        {% if exam %}
-          Changes apply to future candidate attempts. Active and completed sessions preserve their historical test configuration.
-        {% else %}
-          Configure the core rules, proctoring requirements, scoring constraints, and scheduling for your new evaluation.
-        {% endif %}
-      </p>
+      <div class="ui-eyebrow flex-wrap">{% if exam %}{% if exam.is_published %}<span class="ui-badge ui-badge-success ui-badge-dot">Published</span>{% else %}<span class="ui-badge ui-badge-warning ui-badge-dot">Draft</span>{% endif %}{% else %}<span class="ui-badge ui-badge-info">Step 1 of 2</span>{% endif %}</div>
+      <h1 class="ui-title">{% if exam %}Test settings{% else %}New test{% endif %}</h1>
+      <p class="ui-subtitle">{% if exam %}Changes apply to attempts that start after you save. Attempts already started keep the settings they began with.{% else %}Set the schedule, rules and proctoring. You add sections and questions on the next screen.{% endif %}</p>
     </div>
   </div>
 
@@ -66,7 +30,7 @@
     <!-- Prominent Top Banner Errors (if any) -->
     {% if form.non_field_errors %}
       <div class="rounded-2xl border border-rose-300 bg-rose-50 p-4 sm:p-5 text-rose-900 text-sm font-semibold shadow-xs flex items-start gap-3">
-        <span class="text-lg">⚠️</span>
+        <span class="text-lg"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg></span>
         <div>
           <div class="font-extrabold mb-1">Please correct the following errors:</div>
           {{ form.non_field_errors }}
@@ -354,7 +318,7 @@
       <!-- ===================================================================
            RIGHT COLUMN: Sticky Scheduling, Workflow & Actions (4 Columns)
            =================================================================== -->
-      <div class="lg:col-span-4 flex flex-col gap-6 lg:sticky lg:top-8">
+      <div class="lg:col-span-4 flex flex-col gap-6 lg:sticky lg:top-[84px]">
 
         <!-- SIDEBAR CARD 1: Scheduling & Test Duration -->
         <section class="bg-white border-[1.5px] border-slate-200 rounded-3xl p-6 sm:p-7 shadow-card flex flex-col gap-5">

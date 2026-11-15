@@ -2,66 +2,11 @@
 {% load tz assessment_tags %}
 {% block title %}Configure | {{ exam.title }}{% endblock %}
 {% block content %}
-<div class="space-y-6 text-left">
-  <!-- Breadcrumb -->
-  <div class="text-left">
-    <a href="{% url 'staff_exam_list' %}" class="crumb">
-      <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-      <span>Back to Assessments</span>
-    </a>
-  </div>
-
-  <!-- Header & Exam Context -->
-  <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 text-left">
-    <div class="text-left">
-      <div class="flex items-center gap-2 mb-1">
-        {% if exam.is_published %}
-          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
-            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-            Published
-          </span>
-        {% else %}
-          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-            <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
-            Draft Mode
-          </span>
-        {% endif %}
-        <span class="text-xs text-slate-400">&bull;</span>
-        <span class="text-xs text-slate-500 font-medium">{{ exam.opens_at|localtime|date:"D d M Y, H:i" }} &ndash; {{ exam.closes_at|localtime|date:"D d M Y, H:i" }} ({{ exam.duration_minutes }}m)</span>
-      </div>
-      <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight text-left">{{ exam.title }}</h1>
-    </div>
-    <div class="flex flex-wrap items-center gap-2">
-      <a href="{% url 'staff_exam_edit' exam.pk %}" class="btn btn-secondary text-xs font-semibold shadow-xs">
-        <svg class="w-3.5 h-3.5 mr-1 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-        Edit Settings
-      </a>
-      <a href="{% url 'staff_exam_candidates' exam.pk %}" class="btn btn-secondary text-xs font-semibold shadow-xs">
-        <svg class="w-3.5 h-3.5 mr-1 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
-        Candidates ({{ candidate_count }})
-      </a>
-      <a href="{% url 'staff_exam_overview' exam.pk %}" class="btn btn-secondary text-xs font-semibold shadow-xs">
-        <svg class="w-3.5 h-3.5 mr-1 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-        Telemetry Overview
-      </a>
-    </div>
-  </div>
-
-  <!-- Assessment Sub-navigation Tabs -->
-  <div class="flex items-center gap-2 border-b border-slate-200 pb-1 text-sm font-medium">
-    <a href="{% url 'staff_exam_overview' exam.pk %}" class="px-3.5 py-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors">
-      Telemetry &amp; Overview
-    </a>
-    <a href="{% url 'staff_exam_detail' exam.pk %}" class="px-3.5 py-2 rounded-lg bg-[#EEF1FE] text-[#1E3AC8] font-bold border border-blue-200">
-      Configuration &amp; Questions
-    </a>
-    <a href="{% url 'staff_exam_candidates' exam.pk %}" class="px-3.5 py-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors">
-      Candidates ({{ candidate_count }})
-    </a>
-  </div>
+<div class="text-left">
+  {% include "assessments/staff/partials/exam_header.html" with active="questions" count=candidate_count %}
 
   <!-- 2-Column Layout: Left Controls / Right Question Bank -->
-  <div class="exam-layout-grid items-start">
+  <div class="grid gap-6 lg:grid-cols-[340px_minmax(0,1fr)] items-start">
     <!-- ASIDE: Publish Checklist & Proctoring Policy -->
     <aside class="space-y-6 lg:sticky lg:top-24 lg:self-start">
       <!-- Card: Before you publish -->
@@ -156,10 +101,10 @@
       <div class="card p-5 space-y-3">
         <div class="flex items-center justify-between pb-2 border-b border-slate-100">
           <div class="flex items-center gap-2">
-            <span class="text-sm">🎯</span>
+            <span class="text-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></span>
             <h2 class="text-xs font-bold uppercase tracking-wider text-slate-700">Interview Rounds Setup</h2>
           </div>
-          <span class="px-2 py-0.5 rounded text-[11px] font-extrabold bg-[#0E2378] text-white">
+          <span class="px-2 py-0.5 rounded text-[11px] font-extrabold bg-[#2447F5] text-white">
             {{ exam.interview_rounds_count }} Round{{ exam.interview_rounds_count|pluralize }}
           </span>
         </div>
@@ -241,7 +186,7 @@
     </aside>
 
     <!-- MAIN: MCQ Sections & Coding Pool -->
-    <div class="space-y-8">
+    <div class="flex flex-col gap-8 min-w-0">
       <style>
         .config-card {
           background: #ffffff;
@@ -295,22 +240,21 @@
           align-items: center;
           justify-content: center;
           gap: 6px;
-          background: #0E2378;
+          background: #2447F5;
           color: #ffffff !important;
           font-size: 13px;
           font-weight: 700;
           padding: 8px 16px;
           border-radius: 10px;
           text-decoration: none !important;
-          box-shadow: 0 1px 2px rgba(14, 35, 120, 0.15);
+          box-shadow: 0 1px 2px rgba(36, 71, 245, 0.15);
           transition: all 0.15s ease;
           white-space: nowrap;
           border: none;
           cursor: pointer;
         }
         .config-btn-primary:hover {
-          background: #1E3AC8;
-          transform: translateY(-1px);
+          background: var(--ui-brand-hover);
         }
 
         /* Section Container */
@@ -341,7 +285,7 @@
           height: 22px;
           min-width: 22px;
           border-radius: 6px;
-          background: #0E2378;
+          background: #2447F5;
           color: #ffffff;
           font-size: 11px;
           font-weight: 800;
@@ -533,13 +477,13 @@
         }
         .btn-act-blue {
           background: #EEF2FF;
-          color: #0E2378;
+          color: #2447F5;
           border: 1px solid #C7D2FE;
           font-weight: 700;
         }
         .btn-act-blue:hover {
           background: #E0E7FF;
-          color: #0E2378;
+          color: #2447F5;
         }
         .btn-act-danger {
           background: #FFFFFF;
@@ -570,7 +514,7 @@
           cursor: pointer;
           font-size: 13px;
           font-weight: 700;
-          color: #0E2378;
+          color: #2447F5;
           display: flex;
           align-items: center;
           justify-content: space-between;
@@ -589,7 +533,7 @@
         <div class="config-card-header">
           <div>
             <div class="flex items-center gap-2">
-              <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-[#0E2378] border border-blue-200">MCQ Curriculum</span>
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-[#2447F5] border border-blue-200">MCQ Curriculum</span>
               <h2 class="config-card-title">Multiple-Choice Questions by Section</h2>
             </div>
             <p class="config-card-desc">
@@ -684,7 +628,7 @@
               {% else %}
                 <div class="p-6 text-center text-xs text-slate-500 bg-white">
                   No questions assigned to this section yet.
-                  <a href="{% url 'staff_mcq_add' exam.pk %}?section={{ section.pk }}" class="text-[#0E2378] font-bold hover:underline ml-1">+ Add Question</a>
+                  <a href="{% url 'staff_mcq_add' exam.pk %}?section={{ section.pk }}" class="text-[#2447F5] font-bold hover:underline ml-1">+ Add Question</a>
                 </div>
               {% endif %}
             </div>
@@ -805,7 +749,7 @@
             </li>
           {% empty %}
             <li class="px-6 py-10 text-center bg-white text-xs text-slate-500">
-              No coding challenges added yet. Click <a href="{% url 'staff_coding_add' exam.pk %}" class="text-[#0E2378] font-bold hover:underline">+ Add Coding Challenge</a> to create one.
+              No coding challenges added yet. Click <a href="{% url 'staff_coding_add' exam.pk %}" class="text-[#2447F5] font-bold hover:underline">+ Add Coding Challenge</a> to create one.
             </li>
           {% endfor %}
         </ol>
