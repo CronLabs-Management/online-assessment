@@ -40,6 +40,7 @@
 </div>
 
 <nav class="ui-tabs" aria-label="Test sections">
+  <span class="ui-tab-glider" aria-hidden="true"></span>
   <a href="{% url 'staff_exam_overview' exam.pk %}" class="ui-tab" {% if active == "overview" %}aria-current="page"{% endif %}>Overview</a>
   <a href="{% url 'staff_exam_detail' exam.pk %}" class="ui-tab" {% if active == "questions" %}aria-current="page"{% endif %}>Setup and questions</a>
   <a href="{% url 'staff_exam_candidates' exam.pk %}" class="ui-tab" {% if active == "candidates" %}aria-current="page"{% endif %}>Candidates <span class="ui-count">{{ count }}</span></a>

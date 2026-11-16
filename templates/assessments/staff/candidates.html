@@ -3,40 +3,36 @@
 {% block title %}Candidates | {{ exam.title }}{% endblock %}
 
 {% block content %}
-<div class="space-y-6 text-left max-w-[1360px] mx-auto pb-12" id="candidates-management-page">
+<div class="space-y-6 text-left" id="candidates-management-page">
   {% include "assessments/staff/partials/exam_header.html" with active="candidates" count=counts.total %}
 
   <!-- Production-Grade Smart Batch Credential Dispatch Notification Banner -->
   {% if counts.unsent > 0 %}
-    <div class="credential-dispatch-banner" style="display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: space-between !important; gap: 20px !important; width: 100% !important; box-sizing: border-box !important;">
-      <div class="credential-dispatch-content" style="display: flex !important; align-items: center !important; gap: 14px !important; flex: 1 1 auto !important; min-width: 260px !important;">
-        <div class="credential-dispatch-icon">
+    <div class="card p-4 rounded-2xl bg-amber-50/50 border border-amber-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div class="flex items-center gap-3.5">
+        <div class="w-10 h-10 rounded-xl bg-amber-100 border border-amber-300 text-amber-800 flex items-center justify-center shrink-0">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
         </div>
-        <div class="credential-dispatch-text" style="flex: 1 1 auto !important; min-width: 240px !important;">
-          <div class="credential-dispatch-title-row" style="display: flex !important; align-items: center !important; gap: 10px !important; flex-wrap: wrap !important;">
-            <h3 class="credential-dispatch-title" style="margin: 0 !important; font-size: 15px !important; font-weight: 800 !important; color: #78350F !important; line-height: 1.3 !important; white-space: normal !important;">
-              {{ counts.unsent }} Candidate{{ counts.unsent|pluralize }} Awaiting Login Credentials
-            </h3>
-            <span class="credential-dispatch-badge">
-              Action Required
-            </span>
+        <div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-sm font-extrabold text-slate-900">{{ counts.unsent }} Candidate{{ counts.unsent|pluralize }} Awaiting Login Details</span>
+            <span class="ui-badge ui-badge-warning !text-[10px]">Action required</span>
           </div>
-          <p class="credential-dispatch-desc" style="margin: 4px 0 0 0 !important; font-size: 13px !important; color: #92400E !important; line-height: 1.5 !important;">
-            These candidates are enrolled in <strong>{{ exam.title }}</strong> but have not yet received invitation emails with their password and assessment link.
+          <p class="text-xs text-slate-600 mt-0.5">
+            These candidates are enrolled in <strong>{{ exam.title }}</strong> but have not yet received email invitations with their password and assessment link.
           </p>
         </div>
       </div>
-      <div class="credential-dispatch-actions" style="display: flex !important; align-items: center !important; gap: 10px !important; flex-shrink: 0 !important;">
+      <div class="flex items-center gap-2 shrink-0">
         <form method="post" action="{% url 'staff_send_credentials' exam.pk %}">
           {% csrf_token %}
           <input type="hidden" name="mode" value="unsent">
-          <button type="submit" class="btn-dispatch-primary">
+          <button type="submit" class="ui-btn ui-btn-primary ui-btn-sm">
             <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
             <span>Send to {{ counts.unsent }} Candidate{{ counts.unsent|pluralize }}</span>
           </button>
         </form>
-        <button type="button" onclick="openBatchModal()" class="btn-dispatch-secondary">
+        <button type="button" onclick="openBatchModal()" class="ui-btn ui-btn-sm">
           <span>Batch Options ▾</span>
         </button>
       </div>
@@ -60,6 +56,9 @@
     </button>
     <button type="button" onclick="setQuickFilter('completed')" class="quick-pill {% if status == 'completed' %}active{% endif %}" data-filter-status="completed">
       Completed <span class="pill-count">{{ counts.completed|default:0 }}</span>
+    </button>
+    <button type="button" onclick="setQuickFilter('on_hold')" class="quick-pill {% if status == 'on_hold' %}active{% endif %}" data-filter-status="on_hold">
+      On Hold <span class="pill-count text-amber-700 bg-amber-50">{{ counts.on_hold|default:0 }}</span>
     </button>
   </div>
   <div class="flex items-center gap-2 shrink-0">
@@ -293,8 +292,8 @@
     .btn-review-cta {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      padding: 6px 12px;
+      gap: 5px;
+      padding: 5px 10px;
       border-radius: 8px;
       font-weight: 800;
       font-size: 11px;
@@ -344,17 +343,37 @@
         transform: scale(1) translateY(0);
       }
     }
+
+    /* Zero horizontal scroll table container */
+    #candidates-management-page {
+      max-width: 100% !important;
+      overflow-x: hidden !important;
+    }
+    #candidate-table-card {
+      overflow-x: hidden !important;
+      width: 100% !important;
+    }
+    .candidate-table-wrap {
+      width: 100% !important;
+      overflow-x: hidden !important;
+    }
+    @media (max-width: 767px) {
+      .candidate-table-wrap {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+      }
+    }
   </style>
 
   <!-- Filter Toolbar (Search + Sort + Counter) -->
-  <form id="candidate-filters-form" method="get" class="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs" onsubmit="event.preventDefault(); applyFiltersAsync();">
+  <form id="candidate-filters-form" method="get" class="card p-3 shadow-xs" onsubmit="event.preventDefault(); applyFiltersAsync();">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <!-- Search Input -->
       <div class="relative min-w-[260px] flex-1 max-w-md">
         <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
         </span>
-        <input id="q" type="search" name="q" value="{{ q }}" placeholder="Search name, email, or phone..." class="input-icon-left w-full text-xs font-medium pr-8 py-2 rounded-lg border border-slate-200 focus:border-[#335eea] focus:ring-1 focus:ring-[#335eea] bg-slate-50/50" autocomplete="off">
+        <input id="q" type="search" name="q" value="{{ q }}" placeholder="Search name, email, or phone..." class="input-icon-left w-full text-xs font-medium !pl-9 pr-8 py-2 rounded-lg border border-slate-200 focus:border-[#335eea] focus:ring-1 focus:ring-[#335eea] bg-slate-50/50" autocomplete="off">
         {% if q %}
           <button type="button" onclick="document.getElementById('q').value=''; applyFiltersAsync();" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs">✕</button>
         {% endif %}
@@ -403,14 +422,14 @@
   </form>
 
   <!-- Candidate Table Card with Clickable Header Sorts -->
-  <div id="candidate-table-card" class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs relative">
-    <div class="overflow-x-auto min-h-[340px] pb-24">
-      <table class="w-full text-xs text-left border-collapse min-w-[1000px]">
+  <div id="candidate-table-card" class="card overflow-hidden shadow-xs relative w-full">
+    <div class="candidate-table-wrap min-h-[340px] pb-24 w-full">
+      <table class="w-full text-xs text-left border-collapse">
         <caption class="sr-only">Candidates for {{ exam.title }}</caption>
         <thead class="border-b border-slate-200 bg-slate-50/90 text-slate-600 font-bold uppercase tracking-wider text-[11px] select-none">
           <tr>
             <!-- Col 0: Bulk Checkbox Header -->
-            <th scope="col" class="w-10 px-3 py-3.5 text-center">
+            <th scope="col" class="w-9 px-2.5 py-3 text-center">
               <label class="inline-flex items-center cursor-pointer select-none">
                 <input type="checkbox" id="select-all-candidates" onchange="toggleSelectAll(this)" class="w-4 h-4 rounded border-slate-300 text-[#335eea] focus:ring-[#335eea] cursor-pointer" title="Select / deselect all candidates">
                 <span class="sr-only">Select All</span>
@@ -418,27 +437,27 @@
             </th>
 
             <!-- Col 1: Candidate Profile -->
-            <th scope="col" class="px-4 py-3.5">
-              <button type="button" onclick="setSort('{% if sort == 'name_asc' %}name_desc{% else %}name_asc{% endif %}')" class="inline-flex items-center gap-1.5 font-bold uppercase tracking-wider text-[11px] text-slate-700 hover:text-slate-950 group" title="Sort by Candidate Name">
-                <span>Candidate Profile</span>
+            <th scope="col" class="px-3 py-3 text-left">
+              <button type="button" onclick="setSort('{% if sort == 'name_asc' %}name_desc{% else %}name_asc{% endif %}')" class="inline-flex items-center gap-1 font-bold uppercase tracking-wider text-[11px] text-slate-700 hover:text-slate-950 group" title="Sort by Candidate Name">
+                <span>Candidate</span>
                 <span class="text-xs transition-colors {% if sort == 'name_asc' or sort == 'name_desc' %}text-[#335eea] font-black{% else %}text-slate-300 group-hover:text-slate-500{% endif %}">
                   {% if sort == 'name_asc' %}▲{% elif sort == 'name_desc' %}▼{% else %}⇅{% endif %}
                 </span>
               </button>
             </th>
 
-            <!-- Col 2: Login Credentials (Moved to Column 2) -->
-            <th scope="col" class="px-3.5 py-3.5 font-bold uppercase tracking-wider text-[11px] text-slate-700">
+            <!-- Col 2: Login Credentials -->
+            <th scope="col" class="px-2.5 py-3 text-left">
               <div class="flex items-center justify-between gap-1">
-                <span>Login Credentials</span>
-                <button type="button" id="btn-toggle-all-passwords" onclick="toggleAllPasswords()" class="text-[10px] font-sans font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-1.5 py-0.5 rounded border border-slate-300" title="Show or hide all candidate passwords">Show All</button>
+                <span class="font-bold uppercase tracking-wider text-[11px] text-slate-700">Credentials</span>
+                <button type="button" id="btn-toggle-all-passwords" onclick="toggleAllPasswords()" class="text-[9px] font-sans font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-1 py-0.5 rounded border border-slate-300" title="Show or hide all candidate passwords">Show</button>
               </div>
             </th>
 
             <!-- Col 3: MCQ Marks -->
-            <th scope="col" class="px-3 py-3.5 text-center">
-              <button type="button" onclick="setSort('{% if sort == 'mcq_desc' %}mcq_asc{% else %}mcq_desc{% endif %}')" class="inline-flex items-center gap-1 font-bold uppercase tracking-wider text-[11px] text-slate-700 hover:text-slate-950 group" title="Sort by MCQ Score">
-                <span>MCQ Marks</span>
+            <th scope="col" class="px-2 py-3 text-center">
+              <button type="button" onclick="setSort('{% if sort == 'mcq_desc' %}mcq_asc{% else %}mcq_desc{% endif %}')" class="inline-flex items-center gap-0.5 font-bold uppercase tracking-wider text-[11px] text-slate-700 hover:text-slate-950 group" title="Sort by MCQ Score">
+                <span>MCQ</span>
                 <span class="text-xs transition-colors {% if sort == 'mcq_desc' or sort == 'mcq_asc' %}text-[#335eea] font-black{% else %}text-slate-300 group-hover:text-slate-500{% endif %}">
                   {% if sort == 'mcq_desc' %}▼{% elif sort == 'mcq_asc' %}▲{% else %}⇅{% endif %}
                 </span>
@@ -447,9 +466,9 @@
 
             <!-- Col 4: Coding Marks (if codes exists) -->
             {% if has_coding %}
-              <th scope="col" class="px-3 py-3.5 text-center">
-                <button type="button" onclick="setSort('{% if sort == 'coding_desc' %}coding_asc{% else %}coding_desc{% endif %}')" class="inline-flex items-center gap-1 font-bold uppercase tracking-wider text-[11px] text-slate-700 hover:text-slate-950 group" title="Sort by Coding Score">
-                  <span>Coding Marks</span>
+              <th scope="col" class="px-2 py-3 text-center">
+                <button type="button" onclick="setSort('{% if sort == 'coding_desc' %}coding_asc{% else %}coding_desc{% endif %}')" class="inline-flex items-center gap-0.5 font-bold uppercase tracking-wider text-[11px] text-slate-700 hover:text-slate-950 group" title="Sort by Coding Score">
+                  <span>Coding</span>
                   <span class="text-xs transition-colors {% if sort == 'coding_desc' or sort == 'coding_asc' %}text-[#335eea] font-black{% else %}text-slate-300 group-hover:text-slate-500{% endif %}">
                     {% if sort == 'coding_desc' %}▼{% elif sort == 'coding_asc' %}▲{% else %}⇅{% endif %}
                   </span>
@@ -458,9 +477,9 @@
             {% endif %}
 
             <!-- Col 5: Total Marks (Assessment Total) -->
-            <th scope="col" class="px-3 py-3.5 text-center">
-              <button type="button" onclick="setSort('{% if sort == 'total_desc' %}total_asc{% else %}total_desc{% endif %}')" class="inline-flex items-center gap-1 font-bold uppercase tracking-wider text-[11px] text-slate-700 hover:text-slate-950 group" title="Sort by Total Assessment Score">
-                <span>Total Marks</span>
+            <th scope="col" class="px-2 py-3 text-center">
+              <button type="button" onclick="setSort('{% if sort == 'total_desc' %}total_asc{% else %}total_desc{% endif %}')" class="inline-flex items-center gap-0.5 font-bold uppercase tracking-wider text-[11px] text-slate-700 hover:text-slate-950 group" title="Sort by Total Assessment Score">
+                <span>Total</span>
                 <span class="text-xs transition-colors {% if sort == 'total_desc' or sort == 'total_asc' %}text-[#335eea] font-black{% else %}text-slate-300 group-hover:text-slate-500{% endif %}">
                   {% if sort == 'total_desc' %}▼{% elif sort == 'total_asc' %}▲{% else %}⇅{% endif %}
                 </span>
@@ -468,9 +487,9 @@
             </th>
 
             <!-- Col 6: Round 1 Score -->
-            <th scope="col" class="px-3 py-3.5 text-center">
-              <button type="button" onclick="setSort('{% if sort == 'r1_desc' %}r1_asc{% else %}r1_desc{% endif %}')" class="inline-flex items-center gap-1 font-bold uppercase tracking-wider text-[11px] text-slate-700 hover:text-slate-950 group" title="Sort by Round 1 Score">
-                <span>Round 1 Score</span>
+            <th scope="col" class="px-2 py-3 text-center">
+              <button type="button" onclick="setSort('{% if sort == 'r1_desc' %}r1_asc{% else %}r1_desc{% endif %}')" class="inline-flex items-center gap-0.5 font-bold uppercase tracking-wider text-[11px] text-slate-700 hover:text-slate-950 group" title="Sort by Round 1 Score">
+                <span>Round 1</span>
                 <span class="text-xs transition-colors {% if sort == 'r1_desc' or sort == 'r1_asc' %}text-[#335eea] font-black{% else %}text-slate-300 group-hover:text-slate-500{% endif %}">
                   {% if sort == 'r1_desc' %}▼{% elif sort == 'r1_asc' %}▲{% else %}⇅{% endif %}
                 </span>
@@ -479,9 +498,9 @@
 
             <!-- Col 7: Round 2 Score (if exists / configured) -->
             {% if has_round_2 %}
-              <th scope="col" class="px-3 py-3.5 text-center">
-                <button type="button" onclick="setSort('{% if sort == 'r2_desc' %}r2_asc{% else %}r2_desc{% endif %}')" class="inline-flex items-center gap-1 font-bold uppercase tracking-wider text-[11px] text-slate-700 hover:text-slate-950 group" title="Sort by Round 2 Score">
-                  <span>Round 2 Score</span>
+              <th scope="col" class="px-2 py-3 text-center">
+                <button type="button" onclick="setSort('{% if sort == 'r2_desc' %}r2_asc{% else %}r2_desc{% endif %}')" class="inline-flex items-center gap-0.5 font-bold uppercase tracking-wider text-[11px] text-slate-700 hover:text-slate-950 group" title="Sort by Round 2 Score">
+                  <span>Round 2</span>
                   <span class="text-xs transition-colors {% if sort == 'r2_desc' or sort == 'r2_asc' %}text-[#335eea] font-black{% else %}text-slate-300 group-hover:text-slate-500{% endif %}">
                     {% if sort == 'r2_desc' %}▼{% elif sort == 'r2_asc' %}▲{% else %}⇅{% endif %}
                   </span>
@@ -490,19 +509,18 @@
             {% endif %}
 
             <!-- Col 8: Final Score -->
-            <th scope="col" class="px-3 py-3.5 text-center">
-              <button type="button" onclick="setSort('{% if sort == 'final_desc' %}final_asc{% else %}final_desc{% endif %}')" class="inline-flex items-center gap-1 font-bold uppercase tracking-wider text-[11px] text-slate-900 hover:text-blue-700 group" title="Sort by Final Cumulative Score">
-                <span>Final Score</span>
+            <th scope="col" class="px-2 py-3 text-center">
+              <button type="button" onclick="setSort('{% if sort == 'final_desc' %}final_asc{% else %}final_desc{% endif %}')" class="inline-flex items-center gap-0.5 font-bold uppercase tracking-wider text-[11px] text-slate-900 hover:text-blue-700 group" title="Sort by Final Cumulative Score">
+                <span>Final</span>
                 <span class="text-xs transition-colors {% if sort == 'final_desc' or sort == 'final_asc' %}text-[#335eea] font-black{% else %}text-slate-300 group-hover:text-slate-500{% endif %}">
                   {% if sort == 'final_desc' %}▼{% elif sort == 'final_asc' %}▲{% else %}⇅{% endif %}
                 </span>
               </button>
             </th>
 
-
-            <!-- Col 10: Actions Header with Date Enrolled Sort -->
-            <th scope="col" class="px-4 py-3.5 text-right">
-              <div class="flex items-center justify-end gap-2">
+            <!-- Col 9: Actions Header with Date Enrolled Sort -->
+            <th scope="col" class="px-3 py-3 text-right">
+              <div class="flex items-center justify-end gap-1.5">
                 <button type="button" onclick="setSort('{% if sort == 'newest' %}oldest{% else %}newest{% endif %}')" class="inline-flex items-center gap-1 font-bold uppercase tracking-wider text-[10px] text-slate-500 hover:text-slate-900 group" title="Toggle newest/oldest enrollment date">
                   <span>Date:</span>
                   <span class="{% if sort == 'newest' or sort == 'oldest' %}text-[#335eea] font-bold{% else %}text-slate-400 group-hover:text-slate-600{% endif %}">
@@ -519,27 +537,27 @@
             {% with app=row.application attempt=row.attempt %}
               <tr class="candidate-row align-middle hover:bg-slate-50/70 transition-colors" id="row-app-{{ app.pk }}">
                 <!-- Col 0: Row Checkbox -->
-                <td class="w-10 px-3 py-3.5 text-center">
+                <td class="w-9 px-2.5 py-3 text-center">
                   <label class="inline-flex items-center cursor-pointer select-none">
-                    <input type="checkbox" name="selected_candidate" value="{{ app.pk }}" data-email="{{ app.candidate.email|default:app.candidate.username }}" data-name="{{ app.full_name }}" onchange="handleRowSelect(this)" class="candidate-checkbox w-4 h-4 rounded border-slate-300 text-[#335eea] focus:ring-[#335eea] cursor-pointer">
+                    <input type="checkbox" name="selected_candidate" value="{{ app.pk }}" data-app-id="{{ app.pk }}" data-attempt-id="{{ attempt.pk|default:'' }}" data-email="{{ app.candidate.email|default:app.candidate.username }}" data-name="{{ app.full_name }}" data-r1-decision="{{ row.round_1.decision|default:'' }}" data-r2-decision="{{ row.round_2.decision|default:'' }}" onchange="handleRowSelect(this)" class="candidate-checkbox w-4 h-4 rounded border-slate-300 text-[#335eea] focus:ring-[#335eea] cursor-pointer">
                     <span class="sr-only">Select {{ app.full_name }}</span>
                   </label>
                 </td>
 
                 <!-- Col 1: Candidate Profile & Resume -->
-                <td class="px-4 py-3.5">
-                  <div class="flex items-start gap-3">
-                    <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-50 to-indigo-100 border border-blue-200 text-[#1E3AC8] font-black flex items-center justify-center text-xs shrink-0 shadow-2xs">
+                <td class="px-3 py-3">
+                  <div class="flex items-start gap-2.5">
+                    <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-50 to-indigo-100 border border-blue-200 text-[#1E3AC8] font-black flex items-center justify-center text-[10px] shrink-0 shadow-2xs">
                       {{ app.full_name|slice:":1"|upper }}
                     </div>
                     <div class="min-w-0">
-                      <div class="flex items-center gap-1.5 flex-wrap">
+                      <div class="flex items-center gap-1.5 flex-wrap candidate-row-name-badges">
                         {% if attempt %}
-                          <a href="{% url 'staff_attempt_review' attempt.pk %}" class="font-extrabold text-slate-900 text-xs hover:text-[#335eea] transition-colors truncate block">
+                          <a href="{% url 'staff_attempt_review' attempt.pk %}" class="font-extrabold text-slate-900 text-xs hover:text-[#335eea] transition-colors truncate block max-w-[130px] sm:max-w-[170px] xl:max-w-[220px]" title="{{ app.full_name }}">
                             {{ app.full_name }}
                           </a>
                         {% else %}
-                          <a href="{% url 'staff_candidate_edit' app.pk %}" class="font-extrabold text-slate-900 text-xs hover:text-[#335eea] transition-colors truncate block">
+                          <a href="{% url 'staff_candidate_edit' app.pk %}" class="font-extrabold text-slate-900 text-xs hover:text-[#335eea] transition-colors truncate block max-w-[130px] sm:max-w-[170px] xl:max-w-[220px]" title="{{ app.full_name }}">
                             {{ app.full_name }}
                           </a>
                         {% endif %}
@@ -556,10 +574,14 @@
                           <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-rose-100 text-rose-800 border border-rose-300">
                             ✕ Rejected
                           </span>
+                        {% elif row.round_1.decision == 'further_review' or row.round_2.decision == 'further_review' %}
+                          <span class="candidate-hold-badge inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-100 text-amber-900 border border-amber-300" title="Candidate decision is on hold for further review">
+                            ⏳ On Hold
+                          </span>
                         {% endif %}
                       </div>
 
-                      <p class="text-[11px] text-slate-500 font-mono truncate mt-0.5">{{ app.candidate.email|default:app.candidate.username }}</p>
+                      <p class="text-[11px] text-slate-500 font-mono truncate mt-0.5 max-w-[130px] sm:max-w-[170px] xl:max-w-[220px]" title="{{ app.candidate.email|default:app.candidate.username }}">{{ app.candidate.email|default:app.candidate.username }}</p>
 
                       <div class="flex items-center gap-1.5 mt-0.5 flex-wrap text-[10px] text-slate-400">
                         {% if app.phone %}
@@ -583,27 +605,27 @@
                 </td>
 
                 <!-- Col 2: Login Credentials -->
-                <td class="px-3.5 py-3.5">
+                <td class="px-2.5 py-3">
                   <div class="space-y-1">
-                    <div class="flex items-center gap-1 font-mono text-[11px] bg-slate-100 text-slate-900 px-2 py-0.5 rounded border border-slate-200 w-fit">
-                      <span class="text-slate-500 font-bold select-none text-[10px]">PWD:</span>
+                    <div class="flex items-center gap-1 font-mono text-[10px] bg-slate-100 text-slate-900 px-1.5 py-0.5 rounded border border-slate-200 w-fit">
+                      <span class="text-slate-400 font-bold select-none text-[9px]">PWD:</span>
                       {% if app.plain_password and "credentials.view" not in oa_perms %}
                         <span class="text-slate-400 font-normal">Hidden</span>
                       {% elif app.plain_password %}
                         <span class="password-cell font-mono font-bold tracking-wider text-slate-900 select-all" data-app-id="{{ app.pk }}" data-password="{{ app.plain_password }}" data-masked="true">••••••••</span>
-                        <button type="button" onclick="togglePassword(this, '{{ app.pk }}')" class="btn-toggle-pwd ml-1 text-[10px] font-sans font-bold text-slate-600 hover:text-slate-900 bg-white px-1.5 py-0.5 rounded border border-slate-200" title="Show / hide password">Show</button>
-                        <button type="button" onclick="copyPassword('{{ app.plain_password }}', '{{ app.pk }}', this)" class="btn-copy-pwd text-[10px] font-sans font-bold text-[#335eea] hover:text-[#254bd0] bg-white px-1.5 py-0.5 rounded border border-slate-200" title="Copy password">Copy</button>
+                        <button type="button" onclick="togglePassword(this, '{{ app.pk }}')" class="btn-toggle-pwd ml-0.5 text-[9px] font-sans font-bold text-slate-600 hover:text-slate-900 bg-white px-1 py-0.2 rounded border border-slate-200" title="Show / hide password">Show</button>
+                        <button type="button" onclick="copyPassword('{{ app.plain_password }}', '{{ app.pk }}', this)" class="btn-copy-pwd text-[9px] font-sans font-bold text-[#335eea] hover:text-[#254bd0] bg-white px-1 py-0.2 rounded border border-slate-200" title="Copy password">Copy</button>
                       {% else %}
                         <span class="text-slate-400 font-normal italic">Pending</span>
                       {% endif %}
                     </div>
                     <div>
                       {% if app.credentials_sent_at %}
-                        <span class="text-[10px] font-semibold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 inline-block">
+                        <span class="text-[9px] font-semibold text-emerald-800 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200 inline-block whitespace-nowrap">
                           Sent {{ app.credentials_sent_at|localtime|date:"d M, H:i" }}
                         </span>
                       {% else %}
-                        <span class="text-[10px] font-semibold text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 inline-block">
+                        <span class="text-[9px] font-semibold text-amber-800 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200 inline-block whitespace-nowrap">
                           Not sent
                         </span>
                       {% endif %}
@@ -612,7 +634,7 @@
                 </td>
 
                 <!-- Col 3: MCQ Marks -->
-                <td class="px-3 py-3.5 text-center font-mono">
+                <td class="px-2 py-3 text-center font-mono">
                   {% if row.mcq_score is not None %}
                     <span class="font-bold text-slate-900 text-xs">{{ row.mcq_score }}</span>
                   {% else %}
@@ -622,7 +644,7 @@
 
                 <!-- Col 4: Coding Marks (if codes exists) -->
                 {% if has_coding %}
-                  <td class="px-3 py-3.5 text-center font-mono">
+                  <td class="px-2 py-3 text-center font-mono">
                     {% if row.coding_score is not None %}
                       <span class="font-bold text-slate-900 text-xs">{{ row.coding_score }}</span>
                     {% else %}
@@ -632,7 +654,7 @@
                 {% endif %}
 
                 <!-- Col 5: Total Marks (Assessment Total) -->
-                <td class="px-3 py-3.5 text-center font-mono">
+                <td class="px-2 py-3 text-center font-mono">
                   {% if row.total_score is not None %}
                     <div>
                       <strong class="font-extrabold text-[#1E3AC8] text-xs">{{ row.total_score }}</strong>
@@ -646,33 +668,41 @@
                 </td>
 
                 <!-- Col 6: Round 1 Score -->
-                <td class="px-3 py-3.5 text-center">
+                <td class="px-2 py-3 text-center round-cell" data-round="1" data-app-id="{{ app.pk }}">
                   {% if row.round_1 %}
                     {% if row.round_1.score is not None %}
                       <div class="font-mono">
                         <strong class="font-extrabold text-slate-900 text-xs">{{ row.round_1.score }}</strong>
                         <span class="text-slate-400 text-[10px]">/ {{ row.round_1.max }}</span>
                       </div>
-                      <div class="mt-0.5">
+                      <div class="mt-0.5 round-badge-wrapper">
                         {% if row.round_1.decision == 'recommended' %}
-                          <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200" title="Round 1 Recommended">R1: Done ✓</span>
+                          <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200" title="Round 1 Recommended">Pass ✓</span>
                         {% elif row.round_1.decision == 'not_recommended' %}
                           <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold bg-rose-50 text-rose-800 border border-rose-200">Fail ✕</span>
+                        {% elif row.round_1.decision == 'further_review' %}
+                          <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-100 text-amber-900 border border-amber-300" title="Round 1 On Hold">⏳ On Hold</span>
                         {% else %}
-                          <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-50 text-amber-800 border border-amber-200">Hold</span>
+                          <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-100 text-slate-700 border border-slate-300">Done</span>
                         {% endif %}
                       </div>
                     {% else %}
-                      {% if row.round_1.decision == 'recommended' %}
-                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">R1: Done ✓</span>
-                      {% elif row.round_1.decision == 'not_recommended' %}
-                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-800 border border-rose-200">Fail ✕</span>
-                      {% else %}
-                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">Done</span>
-                      {% endif %}
+                      <div class="round-badge-wrapper">
+                        {% if row.round_1.decision == 'recommended' %}
+                          <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">Pass ✓</span>
+                        {% elif row.round_1.decision == 'not_recommended' %}
+                          <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-800 border border-rose-200">Fail ✕</span>
+                        {% elif row.round_1.decision == 'further_review' %}
+                          <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">⏳ On Hold</span>
+                        {% else %}
+                          <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-300">Done</span>
+                        {% endif %}
+                      </div>
                     {% endif %}
                   {% elif attempt %}
-                    <span class="text-[10px] font-medium text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">Pending ⏳</span>
+                    <div class="round-badge-wrapper">
+                      <span class="text-[10px] font-medium text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">Pending ⏳</span>
+                    </div>
                   {% else %}
                     <span class="text-slate-300 font-mono text-xs">—</span>
                   {% endif %}
@@ -680,39 +710,47 @@
 
                 <!-- Col 7: Round 2 Score (if configured) -->
                 {% if has_round_2 %}
-                  <td class="px-3 py-3.5 text-center">
+                  <td class="px-2 py-3 text-center round-cell" data-round="2" data-app-id="{{ app.pk }}">
                     {% if row.round_2 %}
                       {% if row.round_2.score is not None %}
                         <div class="font-mono">
                           <strong class="font-extrabold text-slate-900 text-xs">{{ row.round_2.score }}</strong>
                           <span class="text-slate-400 text-[10px]">/ {{ row.round_2.max }}</span>
                         </div>
-                        <div class="mt-0.5">
+                        <div class="mt-0.5 round-badge-wrapper">
                           {% if row.round_2.decision == 'recommended' %}
                             <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">Pass ✓</span>
                           {% elif row.round_2.decision == 'not_recommended' %}
                             <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold bg-rose-50 text-rose-800 border border-rose-200">Fail ✕</span>
+                          {% elif row.round_2.decision == 'further_review' %}
+                            <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-100 text-amber-900 border border-amber-300" title="Round 2 On Hold">⏳ On Hold</span>
                           {% else %}
-                            <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-50 text-amber-800 border border-amber-200">Hold</span>
+                            <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-100 text-slate-700 border border-slate-300">Done</span>
                           {% endif %}
                         </div>
                       {% else %}
-                        {% if row.round_2.decision == 'recommended' %}
-                          <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">Pass ✓</span>
-                        {% elif row.round_2.decision == 'not_recommended' %}
-                          <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-800 border border-rose-200">Fail ✕</span>
-                        {% else %}
-                          <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">Done</span>
-                        {% endif %}
+                        <div class="round-badge-wrapper">
+                          {% if row.round_2.decision == 'recommended' %}
+                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">Pass ✓</span>
+                          {% elif row.round_2.decision == 'not_recommended' %}
+                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-800 border border-rose-200">Fail ✕</span>
+                          {% elif row.round_2.decision == 'further_review' %}
+                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">⏳ On Hold</span>
+                          {% else %}
+                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-300">Done</span>
+                          {% endif %}
+                        </div>
                       {% endif %}
                     {% elif attempt %}
-                      {% if row.round_1 and row.round_1.decision == 'not_recommended' %}
-                        <span class="text-[10px] text-slate-400 italic">Skipped</span>
-                      {% elif row.round_1 %}
-                        <span class="text-[10px] font-medium text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">Round 2 Pending ⏳</span>
-                      {% else %}
-                        <span class="text-[10px] text-slate-400">Locked</span>
-                      {% endif %}
+                      <div class="round-badge-wrapper">
+                        {% if row.round_1 and row.round_1.decision == 'not_recommended' %}
+                          <span class="text-[10px] text-slate-400 italic">Skipped</span>
+                        {% elif row.round_1 %}
+                          <span class="text-[10px] font-medium text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">Round 2 Pending ⏳</span>
+                        {% else %}
+                          <span class="text-[10px] text-slate-400">Locked</span>
+                        {% endif %}
+                      </div>
                     {% else %}
                       <span class="text-slate-300 font-mono text-xs">—</span>
                     {% endif %}
@@ -720,7 +758,7 @@
                 {% endif %}
 
                 <!-- Col 8: Final Score -->
-                <td class="px-3 py-3.5 text-center">
+                <td class="px-2 py-3 text-center">
                   {% if row.final_score is not None %}
                     <div>
                       <strong class="font-black text-slate-900 text-sm font-mono">{{ row.final_score }}</strong>
@@ -747,15 +785,15 @@
                   {% endif %}
                 </td>
 
-                <!-- Col 10: Clear Hero Review Action + Controls -->
-                <td class="px-4 py-3.5 text-right whitespace-nowrap">
+                <!-- Col 9: Clear Hero Review Action + Controls -->
+                <td class="px-3 py-3 text-right whitespace-nowrap">
                   <div class="inline-flex items-center justify-end gap-1.5 whitespace-nowrap">
                     {% if attempt %}
                       <a href="{% url 'staff_attempt_review' attempt.pk %}" class="btn-review-cta" title="Open candidate review workspace">
-                        Review Candidate →
+                        Review →
                       </a>
                     {% else %}
-                      <a href="{% url 'staff_candidate_edit' app.pk %}" class="btn btn-secondary text-xs font-bold py-1.5 px-3 rounded-lg border-slate-200 hover:bg-slate-50 text-slate-700 shadow-2xs inline-flex items-center gap-1" title="Edit candidate details">
+                      <a href="{% url 'staff_candidate_edit' app.pk %}" class="btn btn-secondary text-xs font-bold py-1.5 px-2.5 rounded-lg border-slate-200 hover:bg-slate-50 text-slate-700 shadow-2xs inline-flex items-center gap-1" title="Edit candidate details">
                         <span><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg></span> Edit
                       </a>
                     {% endif %}
@@ -851,56 +889,90 @@
   </div>
 </div>
 
-<div id="bulk-actions-dock" class="hidden whitespace-nowrap max-w-[calc(100vw-32px)] overflow-x-auto bg-slate-900/95 backdrop-blur-md text-white shadow-2xl rounded-2xl px-4 py-2.5 border border-slate-700/80 flex items-center gap-3 transition-all duration-200" style="position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%); z-index: 9999;">
-  <div class="flex items-center gap-2 pr-3 border-r border-slate-700/80">
-    <span class="w-2 h-2 rounded-full bg-blue-400 animate-pulse"></span>
-    <span id="bulk-selected-count" class="text-xs font-bold font-mono text-blue-300 bg-blue-950/80 px-2 py-0.5 rounded border border-blue-800">
-      0 Selected
-    </span>
-  </div>
+<!-- Production Floating Bulk Actions Dock (Viewport Centered Card) -->
+<div id="bulk-actions-dock-wrapper" class="hidden fixed inset-x-0 bottom-6 z-50 pointer-events-none flex justify-center px-4">
+  <div id="bulk-actions-dock" class="pointer-events-auto max-w-full bulk-dock-glass px-3 py-2 flex items-center gap-2 transition-all duration-200">
+    <!-- Count badge + quick clear -->
+    <div class="flex items-center gap-1.5 pl-1 pr-2.5 border-r border-white/10 shrink-0">
+      <span class="w-2 h-2 rounded-full bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.8)] animate-pulse"></span>
+      <span id="bulk-selected-count" class="text-xs font-bold font-mono text-blue-200 bg-blue-500/20 px-2.5 py-1 rounded-lg border border-blue-400/30">
+        0 Selected
+      </span>
+      <button type="button" onclick="deselectAllCandidates()" class="text-slate-400 hover:text-white text-xs font-bold p-1 rounded-lg hover:bg-white/10 transition-colors" title="Deselect all candidates" aria-label="Deselect all">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
 
-  <div class="flex items-center gap-2">
-    <!-- Action 1: Send Credentials to Selected -->
-    <button type="button" onclick="submitBulkSendCredentials(this)" class="btn btn-primary text-xs font-bold py-1.5 px-3 rounded-lg bg-[#335eea] hover:bg-[#254bd0] text-white shadow-2xs inline-flex items-center gap-1.5 cursor-pointer">
+    <!-- Primary Action: Send Credentials -->
+    <button type="button" onclick="submitBulkSendCredentials(this)" class="bulk-dock-btn-primary shrink-0" title="Send assessment access credentials to selected candidates">
       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
       <span>Send Credentials <span id="bulk-send-count"></span></span>
     </button>
 
-    <!-- Action 2: Export Selected CSV -->
-    <button type="button" onclick="bulkExportSelected()" class="btn text-xs font-bold py-1.5 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 shadow-2xs inline-flex items-center gap-1.5" title="Export CSV for selected candidates">
-      <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-      <span>Export Selected</span>
+    <!-- Quick Utilities: Export & Copy Emails -->
+    <button type="button" onclick="bulkExportSelected()" class="bulk-dock-btn-glass shrink-0" title="Export CSV for selected candidates">
+      <svg class="w-3.5 h-3.5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      <span>Export</span>
     </button>
 
-    <!-- Action 3: Copy Selected Emails -->
-    <button type="button" onclick="bulkCopyEmails(this)" class="btn text-xs font-bold py-1.5 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 shadow-2xs inline-flex items-center gap-1.5" title="Copy emails of selected candidates">
-      <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+    <button type="button" onclick="bulkCopyEmails(this)" class="bulk-dock-btn-glass shrink-0" title="Copy emails of selected candidates">
+      <svg class="w-3.5 h-3.5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
       <span>Copy Emails</span>
     </button>
 
+    <!-- Round Decision Controls -->
     {% if "interviews.conduct" in oa_perms %}
-    <div class="flex items-center gap-1.5 pl-2 border-l border-slate-700/80">
-      <label for="bulk-round" class="text-[11px] text-slate-400 font-semibold">Round</label>
-      <select id="bulk-round" class="!w-14 !text-xs !rounded-md !bg-slate-800 !border-slate-700 !text-slate-100 !py-1 !px-2">
-        {% for rnd in round_choices %}<option value="{{ rnd }}">{{ rnd }}</option>{% endfor %}
+    <div class="h-4 w-px bg-white/15 mx-0.5 shrink-0"></div>
+
+    <div class="flex items-center gap-1.5 shrink-0">
+      <select id="bulk-round" class="bulk-round-select" title="Target interview round" onchange="updateBulkBar()">
+        {% for rnd in round_choices %}
+          <option value="{{ rnd }}">Round {{ rnd }}</option>
+        {% endfor %}
       </select>
-      <button type="button" onclick="submitBulkAction('advance')" class="btn text-xs font-bold py-1.5 px-2.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white" title="Mark the selected candidates as passed for this round">Advance</button>
-      <button type="button" onclick="submitBulkAction('hold')" class="btn text-xs font-bold py-1.5 px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">Hold</button>
-      <button type="button" onclick="submitBulkAction('reject')" class="btn text-xs font-bold py-1.5 px-2.5 rounded-lg bg-rose-800 hover:bg-rose-700 text-white">Reject</button>
-      <label class="inline-flex items-center gap-1 text-[11px] text-slate-400 font-semibold cursor-pointer" title="By default, candidates who already have a decision for this round are left as they are">
-        <input type="checkbox" id="bulk-overwrite" class="h-3.5 w-3.5"> Replace existing
-      </label>
+
+      <button type="button" onclick="submitBulkAction('advance')" class="bulk-dock-btn-advance" title="Mark selected candidates as passed for this round">
+        Advance
+      </button>
+
+      <button type="button" id="bulk-btn-hold" onclick="submitBulkHoldToggle()" class="bulk-dock-btn-ghost text-slate-300 hover:text-white hover:bg-white/10" data-action="hold" title="Put selected candidates on hold for further review">
+        Hold
+      </button>
+
+      <button type="button" onclick="submitBulkAction('reject')" class="bulk-dock-btn-ghost text-rose-300 hover:text-rose-200 hover:bg-rose-500/20" title="Reject selected candidates">
+        Reject
+      </button>
     </div>
     {% endif %}
-    {% if "candidates.manage" in oa_perms %}
-    <button type="button" onclick="submitBulkAction('flag')" class="btn text-xs font-bold py-1.5 px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700" title="Flag the selected attempts for review">Flag</button>
-    <button type="button" onclick="submitBulkAction('unflag')" class="btn text-xs font-bold py-1.5 px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700" title="Clear the review flag">Unflag</button>
-    {% endif %}
 
-    <!-- Action 4: Deselect / Clear -->
-    <button type="button" onclick="deselectAllCandidates()" class="text-slate-400 hover:text-white text-xs font-bold px-2 py-1 rounded transition-colors" title="Deselect all">
-      &times; Clear
-    </button>
+    <div class="h-4 w-px bg-white/15 mx-0.5 shrink-0"></div>
+
+    <!-- More Actions Dropdown (Flag, Unflag, Overwrite) -->
+    <details class="relative inline-block text-left shrink-0" id="bulk-more-menu">
+      <summary class="bulk-dock-btn-glass cursor-pointer list-none select-none inline-flex items-center gap-1.5" title="Additional batch operations">
+        <span>More</span>
+        <svg class="w-3 h-3 text-slate-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+      </summary>
+      <div class="bulk-dock-menu-dropdown space-y-1">
+        {% if "candidates.manage" in oa_perms %}
+          <button type="button" onclick="submitBulkAction('flag'); document.getElementById('bulk-more-menu').removeAttribute('open');" class="bulk-dock-menu-item text-amber-300 hover:bg-amber-500/15">
+            <span class="text-sm">⚑</span>
+            <span>Flag for Review</span>
+          </button>
+          <button type="button" onclick="submitBulkAction('unflag'); document.getElementById('bulk-more-menu').removeAttribute('open');" class="bulk-dock-menu-item text-slate-300 hover:bg-white/10 hover:text-white">
+            <span class="text-sm">⚐</span>
+            <span>Remove Review Flag</span>
+          </button>
+        {% endif %}
+        {% if "interviews.conduct" in oa_perms %}
+          <div class="border-t border-white/10 my-1"></div>
+          <label class="bulk-dock-menu-item text-slate-300 hover:bg-white/10 hover:text-white cursor-pointer select-none">
+            <input type="checkbox" id="bulk-overwrite" class="h-3.5 w-3.5 rounded bg-slate-900 border-white/20 text-blue-500 cursor-pointer">
+            <span class="text-[11px] font-medium">Overwrite existing</span>
+          </label>
+        {% endif %}
+      </div>
+    </details>
   </div>
 </div>
 
@@ -921,8 +993,8 @@
 </form>
 
 <!-- Modal: Compact Batch Credential Dispatch Operations -->
-<div id="batch-credentials-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4" onclick="if(event.target===this) closeBatchModal();">
-  <div class="bg-white rounded-2xl shadow-elevated max-w-md w-full p-5 text-left border border-slate-200 space-y-4" onclick="event.stopPropagation()">
+<div id="batch-credentials-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-md p-4" onclick="if(event.target===this) closeBatchModal();">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-5 text-left border border-slate-200 space-y-4" onclick="event.stopPropagation()">
     <!-- Modal Header -->
     <div class="flex items-center justify-between pb-3 border-b border-slate-100">
       <div class="flex items-center gap-2">
@@ -998,8 +1070,8 @@
 </div>
 
 <!-- Modal: Change Total Interview Rounds -->
-<div id="change-rounds-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4" onclick="if(event.target===this) this.classList.add('hidden');">
-  <div class="bg-white rounded-2xl shadow-elevated max-w-md w-full p-6 text-left border border-slate-200 space-y-4" onclick="event.stopPropagation()">
+<div id="change-rounds-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-md p-4" onclick="if(event.target===this) this.classList.add('hidden');">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 text-left border border-slate-200 space-y-4" onclick="event.stopPropagation()">
     <div class="flex items-center justify-between pb-3 border-b border-slate-100">
       <div class="flex items-center gap-2">
         <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-[#EEF1FE] text-[#2447F5] font-bold text-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></span>
@@ -1149,6 +1221,7 @@ function getSelectedCheckboxes() {
 
 function updateBulkBar() {
   const selected = getSelectedCheckboxes();
+  const wrapper = document.getElementById('bulk-actions-dock-wrapper');
   const bar = document.getElementById('bulk-actions-dock');
   const countLabel = document.getElementById('bulk-selected-count');
   const sendCountSpan = document.getElementById('bulk-send-count');
@@ -1174,12 +1247,46 @@ function updateBulkBar() {
   });
 
   if (selected.length > 0) {
+    if (wrapper) wrapper.classList.remove('hidden');
     if (bar) bar.classList.remove('hidden');
     if (countLabel) countLabel.textContent = selected.length + ' Selected';
     if (sendCountSpan) sendCountSpan.textContent = '(' + selected.length + ')';
+
+    // Dynamically update Hold vs Unhold button based on selected candidates
+    const holdBtn = document.getElementById('bulk-btn-hold');
+    if (holdBtn) {
+      const roundSel = document.getElementById('bulk-round');
+      const round = roundSel ? roundSel.value : '1';
+      const decisionAttr = 'data-r' + round + '-decision';
+
+      const allOnHold = selected.every(function(cb) {
+        return cb.getAttribute(decisionAttr) === 'further_review';
+      });
+
+      if (allOnHold) {
+        holdBtn.textContent = 'Unhold';
+        holdBtn.title = 'Remove hold from Round ' + round + ' and restore to pending review';
+        holdBtn.className = 'bulk-dock-btn-ghost text-amber-300 hover:text-amber-200 hover:bg-amber-500/20 font-bold';
+        holdBtn.setAttribute('data-action', 'unhold');
+      } else {
+        holdBtn.textContent = 'Hold';
+        holdBtn.title = 'Put selected candidates on hold for Round ' + round;
+        holdBtn.className = 'bulk-dock-btn-ghost text-slate-300 hover:text-white hover:bg-white/10';
+        holdBtn.setAttribute('data-action', 'hold');
+      }
+    }
   } else {
+    if (wrapper) wrapper.classList.add('hidden');
     if (bar) bar.classList.add('hidden');
+    const moreMenu = document.getElementById('bulk-more-menu');
+    if (moreMenu) moreMenu.removeAttribute('open');
   }
+}
+
+function submitBulkHoldToggle() {
+  const holdBtn = document.getElementById('bulk-btn-hold');
+  const action = (holdBtn && holdBtn.getAttribute('data-action') === 'unhold') ? 'unhold' : 'hold';
+  submitBulkAction(action);
 }
 
 function toggleSelectAll(master) {
@@ -1248,9 +1355,9 @@ function submitBulkSendCredentials(btn) {
   form.submit();
 }
 
-// Click-outside listener to close row action dropdowns
+// Click-outside listener to close row action dropdowns and bulk more menu
 document.addEventListener('click', function(e) {
-  const openDropdowns = document.querySelectorAll('details.row-actions-dropdown[open]');
+  const openDropdowns = document.querySelectorAll('details.row-actions-dropdown[open], details#bulk-more-menu[open]');
   openDropdowns.forEach(function(details) {
     if (!details.contains(e.target)) {
       details.removeAttribute('open');
@@ -1258,10 +1365,10 @@ document.addEventListener('click', function(e) {
   });
 });
 
-// Escape key to close row action dropdowns
+// Escape key to close row action dropdowns and bulk more menu
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
-    const openDropdowns = document.querySelectorAll('details.row-actions-dropdown[open]');
+    const openDropdowns = document.querySelectorAll('details.row-actions-dropdown[open], details#bulk-more-menu[open]');
     openDropdowns.forEach(function(details) {
       details.removeAttribute('open');
     });
@@ -1279,46 +1386,185 @@ document.addEventListener('toggle', function(e) {
   }
 }, true);
 
+// Fast Async In-Place Bulk Action (No Page Reload)
 function submitBulkAction(action) {
   const selected = getSelectedCheckboxes();
   if (selected.length === 0) return;
   const roundSel = document.getElementById('bulk-round');
-  const round = roundSel ? roundSel.value : '';
-  const words = {advance: 'Advance', hold: 'Put on hold', reject: 'Reject', flag: 'Flag', unflag: 'Clear the flag on'};
-  const where = (action === 'advance' || action === 'hold' || action === 'reject') ? ' in round ' + round : '';
+  const round = roundSel ? roundSel.value : '1';
+  const words = {
+    advance: 'Advance',
+    hold: 'Put on hold',
+    unhold: 'Release hold on',
+    reject: 'Reject',
+    flag: 'Flag',
+    unflag: 'Clear the flag on'
+  };
+  const where = (action === 'advance' || action === 'hold' || action === 'unhold' || action === 'reject') ? ' in round ' + round : '';
   const actionTitle = words[action] || 'Update';
   const tone = (action === 'reject') ? 'danger' : 'warning';
-  const confirmMsg = 'Are you sure you want to ' + words[action].toLowerCase() + ' ' + selected.length + ' candidate(s)' + where + '?';
+  const confirmMsg = 'Are you sure you want to ' + (words[action] || action).toLowerCase() + ' ' + selected.length + ' candidate(s)' + where + '?';
 
   const proceed = function() {
-    document.getElementById('bulk-action-input').value = action;
-    document.getElementById('bulk-round-input').value = round;
+    const formData = new FormData();
+    formData.append('action', action);
+    formData.append('round', round);
+    formData.append('async', '1');
     const overwriteBox = document.getElementById('bulk-overwrite');
-    document.getElementById('bulk-overwrite-input').value = overwriteBox && overwriteBox.checked ? '1' : '';
-    const box = document.getElementById('bulk-action-ids');
-    box.innerHTML = '';
+    if (overwriteBox && overwriteBox.checked) {
+      formData.append('overwrite', '1');
+    }
     selected.forEach(function(cb) {
-      const inp = document.createElement('input');
-      inp.type = 'hidden';
-      inp.name = 'selected_ids';
-      inp.value = cb.value;
-      box.appendChild(inp);
+      formData.append('selected_ids', cb.value);
     });
-    document.getElementById('bulk-action-form').submit();
+
+    const countLabel = document.getElementById('bulk-selected-count');
+    const origCountText = countLabel ? countLabel.textContent : '';
+    if (countLabel) countLabel.textContent = 'Updating...';
+
+    fetch("{% url 'staff_candidates_bulk' exam.pk %}", {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': getCsrfToken(),
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      body: formData
+    })
+    .then(function(res) {
+      return res.json();
+    })
+    .then(function(data) {
+      if (data.ok) {
+        showToast(data.message || 'Updated candidates successfully', 'success');
+        const changedAppIds = (data.changed_app_ids && data.changed_app_ids.length > 0)
+          ? data.changed_app_ids.map(String)
+          : selected.map(function(b) { return String(b.value); });
+
+        changedAppIds.forEach(function(appId) {
+          const cb = document.querySelector(`.candidate-checkbox[value="${appId}"]`);
+          const row = cb ? cb.closest('tr') : null;
+          if (!row) return;
+
+          const decisionAttr = 'data-r' + round + '-decision';
+          if (action === 'hold') {
+            if (cb) cb.setAttribute(decisionAttr, 'further_review');
+            updateRoundCellBadge(row, round, 'further_review');
+            addHoldBadgeToName(row);
+          } else if (action === 'unhold') {
+            if (cb) cb.setAttribute(decisionAttr, '');
+            updateRoundCellBadge(row, round, 'pending');
+            removeHoldBadgeFromNameIfClean(row, cb);
+          } else if (action === 'advance') {
+            if (cb) cb.setAttribute(decisionAttr, 'recommended');
+            updateRoundCellBadge(row, round, 'recommended');
+          } else if (action === 'reject') {
+            if (cb) cb.setAttribute(decisionAttr, 'not_recommended');
+            updateRoundCellBadge(row, round, 'not_recommended');
+          } else if (action === 'flag' || action === 'unflag') {
+            const flagBadge = row.querySelector('.candidate-flag-badge');
+            if (flagBadge) {
+              if (action === 'flag') flagBadge.classList.remove('hidden');
+              else flagBadge.classList.add('hidden');
+            }
+          }
+        });
+
+        // Close dropdown if triggered from 'More'
+        const moreMenu = document.getElementById('bulk-more-menu');
+        if (moreMenu) moreMenu.removeAttribute('open');
+
+        // Dynamically update Bulk Bar (e.g. flips Hold to Unhold)
+        updateBulkBar();
+      } else {
+        showToast(data.error || 'Failed to update candidates', 'error');
+        if (countLabel) countLabel.textContent = origCountText;
+      }
+    })
+    .catch(function(err) {
+      console.error('Bulk action error:', err);
+      showToast('Network error while processing bulk action.', 'error');
+      if (countLabel) countLabel.textContent = origCountText;
+    });
   };
 
-  if (window.oaConfirm) {
+  // Rejections prompt confirmation; other decisions execute immediately and smoothly
+  if (action === 'reject' && window.oaConfirm) {
     window.oaConfirm({
       title: 'Confirm Bulk ' + actionTitle,
       message: confirmMsg,
       tone: tone,
-      confirmText: words[action] + ' Candidates'
+      confirmText: (words[action] || 'Confirm') + ' Candidates'
     }).then(function(confirmed) {
       if (confirmed) proceed();
     });
   } else {
     proceed();
   }
+}
+
+function updateRoundCellBadge(row, roundNum, decision) {
+  const cell = row.querySelector(`.round-cell[data-round="${roundNum}"]`);
+  if (!cell) return;
+  const wrapper = cell.querySelector('.round-badge-wrapper');
+  if (!wrapper) return;
+
+  if (decision === 'further_review') {
+    wrapper.innerHTML = '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300" title="Round ' + roundNum + ' On Hold">⏳ On Hold</span>';
+  } else if (decision === 'recommended') {
+    wrapper.innerHTML = '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200" title="Round ' + roundNum + ' Recommended">Pass ✓</span>';
+  } else if (decision === 'not_recommended') {
+    wrapper.innerHTML = '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-800 border border-rose-200" title="Round ' + roundNum + ' Rejected">Fail ✕</span>';
+  } else if (decision === 'pending') {
+    wrapper.innerHTML = '<span class="text-[10px] font-medium text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">Pending ⏳</span>';
+  }
+}
+
+function addHoldBadgeToName(row) {
+  const nameContainer = row.querySelector('.candidate-row-name-badges');
+  if (!nameContainer) return;
+  if (!nameContainer.querySelector('.candidate-hold-badge')) {
+    const badge = document.createElement('span');
+    badge.className = 'candidate-hold-badge inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-100 text-amber-900 border border-amber-300';
+    badge.title = 'Candidate decision is on hold for further review';
+    badge.innerHTML = '⏳ On Hold';
+    nameContainer.appendChild(badge);
+  }
+}
+
+function removeHoldBadgeFromNameIfClean(row, cb) {
+  const r1 = cb ? cb.getAttribute('data-r1-decision') : '';
+  const r2 = cb ? cb.getAttribute('data-r2-decision') : '';
+  if (r1 !== 'further_review' && r2 !== 'further_review') {
+    const badge = row.querySelector('.candidate-hold-badge');
+    if (badge) badge.remove();
+  }
+}
+
+function showToast(message, type) {
+  let toast = document.getElementById('in-app-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'in-app-toast';
+    toast.className = 'fixed top-5 right-5 z-[9999] transition-all duration-300 pointer-events-none transform -translate-y-2 opacity-0';
+    document.body.appendChild(toast);
+  }
+  const isErr = type === 'error';
+  const bgClass = isErr ? 'bg-rose-950/90 border-rose-500/40 text-rose-100' : 'bg-slate-900/90 border-emerald-500/40 text-slate-100';
+  const icon = isErr ? '✕' : '✓';
+  const iconBg = isErr ? 'bg-rose-500' : 'bg-emerald-500';
+  toast.innerHTML = `
+    <div class="pointer-events-auto flex items-center gap-2.5 px-4 py-2.5 rounded-xl shadow-2xl border text-xs font-semibold backdrop-blur-md ${bgClass}">
+      <span class="flex items-center justify-center w-4 h-4 rounded-full ${iconBg} text-white text-[10px] font-black">${icon}</span>
+      <span>${message}</span>
+    </div>
+  `;
+  toast.classList.remove('-translate-y-2', 'opacity-0');
+  toast.classList.add('translate-y-0', 'opacity-100');
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer = setTimeout(function() {
+    toast.classList.remove('translate-y-0', 'opacity-100');
+    toast.classList.add('-translate-y-2', 'opacity-0');
+  }, 3500);
 }
 
 function bulkExportSelected() {

@@ -3626,10 +3626,8 @@ and selection */
   }
 }
 
-@media (min-width: 1024px) {
-
-  /* Credential Dispatch Banner */
-  .credential-dispatch-banner {
+/* Credential Dispatch Banner */
+.credential-dispatch-banner {
     display: flex !important;
     flex-direction: row !important;
     align-items: center !important;
@@ -4100,4 +4098,226 @@ and selection */
   padding-left: 42px !important;
 }
 
+/* ==========================================================================
+   Bulk Actions Floating Dock & Glassmorphism System
+   ========================================================================== */
+
+.bulk-dock-glass {
+  background: rgba(15, 23, 42, 0.94) !important;
+  backdrop-filter: blur(20px) saturate(190%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(190%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.65), 0 0 25px -5px rgba(36, 71, 245, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.18) !important;
+  border-radius: 16px !important;
+  color: #FFFFFF !important;
+  animation: bulkDockEntrance 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+@keyframes bulkDockEntrance {
+  0% {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.bulk-dock-btn-primary {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  height: 32px !important;
+  background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%) !important;
+  box-shadow: 0 2px 10px rgba(37, 99, 235, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  border-radius: 10px !important;
+  color: #FFFFFF !important;
+  font-weight: 700 !important;
+  font-size: 12px !important;
+  line-height: 1 !important;
+  padding: 0 13px !important;
+  cursor: pointer !important;
+  transition: all 0.16s ease !important;
+  text-decoration: none !important;
+  white-space: nowrap !important;
+  box-sizing: border-box !important;
+}
+
+.bulk-dock-btn-primary:hover {
+  background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%) !important;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+  transform: translateY(-0.5px) !important;
+  color: #FFFFFF !important;
+}
+
+.bulk-dock-btn-primary:active {
+  transform: translateY(0) scale(0.98) !important;
+}
+
+.bulk-dock-btn-glass {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  height: 32px !important;
+  background: rgba(255, 255, 255, 0.07) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-radius: 10px !important;
+  color: #E2E8F0 !important;
+  font-weight: 600 !important;
+  font-size: 12px !important;
+  line-height: 1 !important;
+  padding: 0 11px !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  text-decoration: none !important;
+  white-space: nowrap !important;
+  box-sizing: border-box !important;
+}
+
+.bulk-dock-btn-glass:hover {
+  background: rgba(255, 255, 255, 0.14) !important;
+  border-color: rgba(255, 255, 255, 0.26) !important;
+  color: #FFFFFF !important;
+}
+
+.bulk-dock-btn-glass:active {
+  transform: scale(0.98) !important;
+}
+
+/* Standalone Round Selector with integrated SVG arrow and crisp typography */
+.bulk-round-select,
+#bulk-round {
+  display: inline-block !important;
+  width: auto !important;
+  height: 32px !important;
+  line-height: 32px !important;
+  padding: 0 26px 0 11px !important;
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394A3B8' stroke-width='2.5'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 9px center !important;
+  background-size: 11px 11px !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  border-radius: 10px !important;
+  color: #FFFFFF !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  font-family: inherit !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  vertical-align: middle !important;
+  box-sizing: border-box !important;
+}
+
+.bulk-round-select:hover,
+#bulk-round:hover {
+  background-color: rgba(255, 255, 255, 0.14) !important;
+  border-color: rgba(255, 255, 255, 0.28) !important;
+  color: #FFFFFF !important;
+}
+
+.bulk-round-select:focus,
+#bulk-round:focus {
+  outline: none !important;
+  border-color: #3B82F6 !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.35) !important;
+}
+
+.bulk-round-select option,
+#bulk-round option {
+  background-color: #0F172A !important;
+  color: #FFFFFF !important;
+  padding: 8px 12px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+}
+
+.bulk-dock-btn-advance {
+  display: inline-flex !important;
+  align-items: center !important;
+  height: 32px !important;
+  background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+  box-shadow: 0 2px 8px rgba(5, 150, 105, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+  border: 1px solid rgba(52, 211, 153, 0.35) !important;
+  border-radius: 10px !important;
+  color: #FFFFFF !important;
+  font-weight: 700 !important;
+  font-size: 12px !important;
+  line-height: 1 !important;
+  padding: 0 12px !important;
+  cursor: pointer !important;
+  transition: all 0.16s ease !important;
+  white-space: nowrap !important;
+  box-sizing: border-box !important;
+}
+
+.bulk-dock-btn-advance:hover {
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%) !important;
+  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+  color: #FFFFFF !important;
+}
+
+.bulk-dock-btn-ghost {
+  display: inline-flex !important;
+  align-items: center !important;
+  height: 32px !important;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  border-radius: 10px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  line-height: 1 !important;
+  padding: 0 9px !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  white-space: nowrap !important;
+  box-sizing: border-box !important;
+}
+
+.bulk-dock-menu-dropdown {
+  position: absolute !important;
+  bottom: calc(100% + 12px) !important;
+  right: 0 !important;
+  width: 220px !important;
+  background: rgba(15, 23, 42, 0.94) !important;
+  backdrop-filter: blur(24px) saturate(200%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(200%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 20px 40px -8px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+  padding: 6px !important;
+  z-index: 60 !important;
+  animation: bulkMenuIn 0.15s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+@keyframes bulkMenuIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.bulk-dock-menu-item {
+  width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 8px 12px !important;
+  border-radius: 8px !important;
+  font-size: 12px !important;
+  font-weight: 550 !important;
+  text-decoration: none !important;
+  border: none !important;
+  background: transparent !important;
+  cursor: pointer !important;
+  transition: all 0.14s ease !important;
 }

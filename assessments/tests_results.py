@@ -140,3 +140,29 @@ class BulkActionTests(ResultsFixture):
         self.assertFalse(InterviewReview.objects.exists())
         self._bulk("flag")
         self.assertEqual(Attempt.objects.filter(flagged_for_review=True).count(), 2)
+
+    def test_bulk_hold_and_unhold(self):
+        # 1. Hold candidate
+        res = self._bulk("hold", 1, [self.attempts[0]])
+        self.assertEqual(res.status_code, 302)
+        review = InterviewReview.objects.get(attempt=self.attempts[0], round_number=1)
+        self.assertEqual(review.decision, InterviewReview.Decision.FURTHER_REVIEW)
+
+        # 2. Unhold candidate
+        res = self._bulk("unhold", 1, [self.attempts[0]])
+        self.assertEqual(res.status_code, 302)
+        self.assertFalse(InterviewReview.objects.filter(attempt=self.attempts[0], round_number=1).exists())
+
+    def test_bulk_action_ajax_returns_json_without_redirect(self):
+        url = reverse("staff_candidates_bulk", args=[self.exam.pk])
+        res = self.client.post(
+            url,
+            {"action": "hold", "round": 1, "selected_ids": [self.attempts[0].application_id]},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertTrue(data.get("ok"))
+        self.assertEqual(data.get("action"), "hold")
+        self.assertIn("On Hold", data.get("message", ""))
+

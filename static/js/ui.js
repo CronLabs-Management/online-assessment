@@ -225,4 +225,97 @@
   document.querySelectorAll(".ui-flash[data-autohide]").forEach(function (flash) {
     setTimeout(function () { if (document.body.contains(flash)) dismiss(flash); }, 6000);
   });
+
+  /* ------------------------------------------------- Gliding Morph Indicators */
+  function setupMorphGlider(containerSelector, itemSelector, gliderSelector, opts) {
+    var containers = document.querySelectorAll(containerSelector);
+    if (!containers.length) return;
+
+    containers.forEach(function (container) {
+      var glider = container.querySelector(gliderSelector);
+      if (!glider) {
+        glider = document.createElement("span");
+        glider.className = gliderSelector.replace(/^\./, "");
+        glider.setAttribute("aria-hidden", "true");
+        container.prepend(glider);
+      }
+
+      var items = Array.prototype.slice.call(container.querySelectorAll(itemSelector));
+      if (!items.length) return;
+
+      var activeItem = container.querySelector(itemSelector + '[aria-current="page"]') || null;
+      var currentTarget = activeItem;
+      var inset = (opts && opts.inset) || 0;
+
+      function render(target, immediate) {
+        if (!target) {
+          glider.style.opacity = "0";
+          return;
+        }
+        var left = target.offsetLeft + inset;
+        var width = Math.max(0, target.offsetWidth - (inset * 2));
+
+        if (immediate || reduceMotion) {
+          glider.style.transition = "none";
+          glider.style.transform = "translate3d(" + left + "px, 0, 0)";
+          glider.style.width = width + "px";
+          glider.style.opacity = "1";
+          glider.offsetHeight; // force reflow
+          glider.style.transition = "";
+        } else {
+          glider.style.transform = "translate3d(" + left + "px, 0, 0)";
+          glider.style.width = width + "px";
+          glider.style.opacity = "1";
+        }
+      }
+
+      // Initial placement
+      render(activeItem, true);
+
+      // Re-align on font load and window load
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(function () {
+          if (currentTarget) render(currentTarget, true);
+        });
+      }
+      window.addEventListener("load", function () {
+        if (currentTarget) render(currentTarget, true);
+      });
+
+      // Hover and focus
+      items.forEach(function (item) {
+        item.addEventListener("mouseenter", function () {
+          currentTarget = item;
+          render(item, false);
+        });
+        item.addEventListener("focus", function () {
+          currentTarget = item;
+          render(item, false);
+        });
+      });
+
+      // Mouse leave container: glide back to active page
+      container.addEventListener("mouseleave", function () {
+        currentTarget = activeItem;
+        render(activeItem, false);
+      });
+
+      // Focus leaves container: return to active page
+      container.addEventListener("focusout", function (e) {
+        if (!container.contains(e.relatedTarget)) {
+          currentTarget = activeItem;
+          render(activeItem, false);
+        }
+      });
+
+      // Resize
+      window.addEventListener("resize", function () {
+        if (currentTarget) render(currentTarget, true);
+      }, { passive: true });
+    });
+  }
+
+  // Initialize morph gliders for both top navbar and section tabs
+  setupMorphGlider(".ui-nav", ".ui-nav-link", ".ui-nav-glider");
+  setupMorphGlider(".ui-tabs", ".ui-tab", ".ui-tab-glider", { inset: 8 });
 })();

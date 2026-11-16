@@ -127,3 +127,14 @@ class UIShellTests(TestCase):
         self.assertIn('class="ui-header', html)
         self.assertIn('id="user-menu-button"', html)
         self.assertNotIn("Prototype", html)
+
+    def test_nav_glider_present_in_shell(self):
+        self.client.force_login(self.staff)
+        html = self.client.get(reverse("staff_exam_list")).content.decode()
+        self.assertIn('class="ui-nav-glider"', html)
+        self.assertIn('class="ui-nav-link"', html)
+
+    def test_exam_header_tab_glider_present(self):
+        self.client.force_login(self.staff)
+        html = self.client.get(reverse("staff_exam_overview", args=[self.exam.pk])).content.decode()
+        self.assertIn('class="ui-tab-glider"', html)

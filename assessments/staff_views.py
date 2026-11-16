@@ -46,6 +46,12 @@ def staff_exam_overview(request, pk):
     completed_scores = finished.aggregate(
         mcq=Avg("mcq_score"), coding=Avg("coding_score")
     )
+    submitted_count = attempts.filter(status=Attempt.Status.SUBMITTED).count()
+    expired_count = attempts.filter(status=Attempt.Status.EXPIRED).count()
+    in_progress_count = attempts.filter(status=Attempt.Status.IN_PROGRESS).count()
+    finished_count = finished.count()
+    rate = round(100 * finished_count / approved, 1) if approved else 0
+
     context = {
         "exam": exam,
         "on_list": applications.count(),
@@ -54,11 +60,15 @@ def staff_exam_overview(request, pk):
         "emailed": applications.filter(credentials_sent_at__isnull=False).count(),
         "confirmed": applications.filter(details_confirmed_at__isnull=False).count(),
         "not_started": not_started,
-        "in_progress": attempts.filter(status=Attempt.Status.IN_PROGRESS).count(),
-        "submitted": attempts.filter(status=Attempt.Status.SUBMITTED).count(),
-        "expired": attempts.filter(status=Attempt.Status.EXPIRED).count(),
+        "in_progress": in_progress_count,
+        "submitted": submitted_count,
+        "expired": expired_count,
         "flagged": attempts.filter(flagged_for_review=True).count(),
-        "completion_rate": round(100 * finished.count() / approved, 1) if approved else 0,
+        "completion_rate": rate,
+        "submitted_pct": round(100 * submitted_count / approved, 1) if approved else 0,
+        "expired_pct": round(100 * expired_count / approved, 1) if approved else 0,
+        "in_progress_pct": round(100 * in_progress_count / approved, 1) if approved else 0,
+        "not_started_pct": round(100 * not_started / approved, 1) if approved else 0,
         "avg_mcq": round(float(completed_scores["mcq"] or 0), 2),
         "avg_coding": round(float(completed_scores["coding"] or 0), 2),
     }
@@ -92,7 +102,10 @@ def _candidate_rows(exam, q="", status="", flagged=False, sort="newest", score_v
             continue
         if status == "completed" and (attempt is None or attempt.status not in (Attempt.Status.SUBMITTED, Attempt.Status.EXPIRED)):
             continue
-        if status and status not in ("not_started", "revoked", "completed") and (attempt is None or attempt.status != status):
+        if status == "on_hold":
+            if not (attempt and any(r.decision == InterviewReview.Decision.FURTHER_REVIEW for r in attempt.reviews.all())):
+                continue
+        if status and status not in ("not_started", "revoked", "completed", "on_hold") and (attempt is None or attempt.status != status):
             continue
         if flagged and not (attempt and attempt.flagged_for_review):
             continue
@@ -235,6 +248,9 @@ def staff_exam_candidates(request, pk):
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
     finished_count = exam.attempts.filter(status__in=[Attempt.Status.SUBMITTED, Attempt.Status.EXPIRED]).count()
+    on_hold_count = exam.attempts.filter(
+        reviews__decision=InterviewReview.Decision.FURTHER_REVIEW
+    ).distinct().count()
     counts = {
         "total": exam.applications.count(),
         "unsent": exam.applications.filter(status=Application.Status.APPROVED, credentials_sent_at__isnull=True).count(),
@@ -245,6 +261,7 @@ def staff_exam_candidates(request, pk):
         "expired": exam.attempts.filter(status=Attempt.Status.EXPIRED).count(),
         "in_progress": exam.attempts.filter(status=Attempt.Status.IN_PROGRESS).count(),
         "flagged": exam.attempts.filter(flagged_for_review=True).count(),
+        "on_hold": on_hold_count,
     }
     has_coding = exam.coding_problems.exists() or exam.sections.filter(kind="coding").exists() or any(r["coding_score"] is not None for r in rows)
     has_round_2 = (getattr(exam, "interview_rounds_count", 1) or 1) >= 2 or any(r["round_2"] is not None for r in rows)
@@ -281,6 +298,7 @@ def staff_exam_candidates(request, pk):
             ],
             "statuses": [
                 ("completed", "Completed (All)"),
+                ("on_hold", "On Hold (Further Review)"),
                 ("submitted", "Submitted (On Time)"),
                 ("expired", "Timed Out / Expired"),
                 ("in_progress", "In Progress"),
@@ -465,28 +483,51 @@ def staff_candidates_bulk(request, pk):
     exam = get_object_or_404(Exam, pk=pk)
     action = request.POST.get("action", "")
     ids = [i for i in request.POST.getlist("selected_ids") if i.isdigit()]
+    is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest" or request.POST.get("async") == "1"
     back = redirect("staff_exam_candidates", pk=exam.pk)
+
     if not ids:
-        messages.error(request, "Select at least one candidate first.")
+        msg = "Select at least one candidate first."
+        if is_ajax:
+            return JsonResponse({"ok": False, "error": msg}, status=400)
+        messages.error(request, msg)
         return back
-    needed = "interviews.conduct" if action in BULK_DECISIONS else "candidates.manage"
-    if action not in BULK_DECISIONS and action not in ("flag", "unflag"):
-        messages.error(request, "Unknown action.")
+
+    needed = "interviews.conduct" if (action in BULK_DECISIONS or action == "unhold") else "candidates.manage"
+    if action not in BULK_DECISIONS and action not in ("flag", "unflag", "unhold"):
+        msg = "Unknown action."
+        if is_ajax:
+            return JsonResponse({"ok": False, "error": msg}, status=400)
+        messages.error(request, msg)
         return back
+
     if not has_perm(request.user, needed):
-        messages.error(request, "Your role does not allow this action.")
+        msg = "Your role does not allow this action."
+        if is_ajax:
+            return JsonResponse({"ok": False, "error": msg}, status=403)
+        messages.error(request, msg)
         return back
 
     attempts = list(
         Attempt.objects.filter(exam=exam, application_id__in=ids).select_related("application")
     )
     skipped = len(ids) - len(attempts)
+
     if action in ("flag", "unflag"):
         flag = action == "flag"
         changed = Attempt.objects.filter(pk__in=[a.pk for a in attempts]).update(flagged_for_review=flag)
         audit(request.user, f"bulk.{action}", f"exam:{exam.pk}", f"attempts={changed}")
         note = f" {skipped} had not started the test." if skipped else ""
-        messages.success(request, f"{'Flagged' if flag else 'Cleared the flag on'} {changed} candidate(s).{note}")
+        msg = f"{'Flagged' if flag else 'Cleared the flag on'} {changed} candidate(s).{note}"
+        if is_ajax:
+            return JsonResponse({
+                "ok": True,
+                "action": action,
+                "count": changed,
+                "changed_app_ids": [a.application_id for a in attempts],
+                "message": msg,
+            })
+        messages.success(request, msg)
         return back
 
     total_rounds = max(exam.interview_rounds_count or 1, 1)
@@ -495,6 +536,28 @@ def staff_candidates_bulk(request, pk):
     except ValueError:
         round_number = 1
     round_number = max(1, min(round_number, total_rounds))
+
+    if action == "unhold":
+        deleted_reviews = list(InterviewReview.objects.filter(
+            attempt__in=attempts, round_number=round_number, decision=InterviewReview.Decision.FURTHER_REVIEW
+        ).select_related("attempt"))
+        changed_ids = [r.attempt_id for r in deleted_reviews]
+        changed_app_ids = [r.attempt.application_id for r in deleted_reviews if r.attempt.application_id]
+        InterviewReview.objects.filter(pk__in=[r.pk for r in deleted_reviews]).delete()
+        audit(request.user, "bulk.unhold", f"exam:{exam.pk}", f"round={round_number}, count={len(changed_ids)}")
+        msg = f"Round {round_number}: Released hold on {len(changed_ids)} candidate(s)."
+        if is_ajax:
+            return JsonResponse({
+                "ok": True,
+                "action": "unhold",
+                "round": round_number,
+                "count": len(changed_ids),
+                "changed_app_ids": changed_app_ids,
+                "message": msg,
+            })
+        messages.success(request, msg)
+        return back
+
     decision = BULK_DECISIONS[action]
     overwrite = request.POST.get("overwrite") == "1"
     signer = request.user.get_full_name() or request.user.username
@@ -540,7 +603,19 @@ def staff_candidates_bulk(request, pk):
         notes.append(f"{kept} already had a decision for this round and were left as they are (tick Replace existing to change them).")
     if skipped:
         notes.append(f"{skipped} skipped (test not finished or no attempt).")
-    messages.success(request, " ".join([f"Round {round_number}: {label} for {len(changed_ids)} candidate(s)."] + notes))
+    full_msg = " ".join([f"Round {round_number}: {label} for {len(changed_ids)} candidate(s)."] + notes)
+    if is_ajax:
+        return JsonResponse({
+            "ok": True,
+            "action": action,
+            "decision": decision,
+            "label": label,
+            "round": round_number,
+            "count": len(changed_ids),
+            "changed_app_ids": [a.application_id for a in attempts if a.pk in changed_ids],
+            "message": full_msg,
+        })
+    messages.success(request, full_msg)
     return back
 
 

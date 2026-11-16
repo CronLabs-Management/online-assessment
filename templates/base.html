@@ -42,6 +42,7 @@
 
         {% if user.is_authenticated %}
         <nav class="ui-nav" aria-label="Main">
+          <span class="ui-nav-glider" aria-hidden="true"></span>
           {% if oa_is_team %}
             <a class="ui-nav-link" href="{% url 'staff_exam_list' %}" {% if url_name|slice:':6' == 'staff_' and url_name != 'staff_settings' and url_name != 'staff_ai_keys' and url_name != 'staff_audit_log' %}aria-current="page"{% endif %}>
               <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
