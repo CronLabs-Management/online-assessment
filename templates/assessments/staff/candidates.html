@@ -677,7 +677,7 @@
                       </div>
                       <div class="mt-0.5 round-badge-wrapper">
                         {% if row.round_1.decision == 'recommended' %}
-                          <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200" title="Round 1 Recommended">Pass ✓</span>
+                          <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200" title="Round 1 Recommended">R1: Done ✓</span>
                         {% elif row.round_1.decision == 'not_recommended' %}
                           <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold bg-rose-50 text-rose-800 border border-rose-200">Fail ✕</span>
                         {% elif row.round_1.decision == 'further_review' %}
@@ -689,7 +689,7 @@
                     {% else %}
                       <div class="round-badge-wrapper">
                         {% if row.round_1.decision == 'recommended' %}
-                          <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">Pass ✓</span>
+                          <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">R1: Done ✓</span>
                         {% elif row.round_1.decision == 'not_recommended' %}
                           <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-800 border border-rose-200">Fail ✕</span>
                         {% elif row.round_1.decision == 'further_review' %}
@@ -1511,7 +1511,8 @@ function updateRoundCellBadge(row, roundNum, decision) {
   if (decision === 'further_review') {
     wrapper.innerHTML = '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300" title="Round ' + roundNum + ' On Hold">⏳ On Hold</span>';
   } else if (decision === 'recommended') {
-    wrapper.innerHTML = '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200" title="Round ' + roundNum + ' Recommended">Pass ✓</span>';
+    const text = (roundNum === 1 || roundNum === '1') ? 'R1: Done ✓' : 'Pass ✓';
+    wrapper.innerHTML = '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200" title="Round ' + roundNum + ' Recommended">' + text + '</span>';
   } else if (decision === 'not_recommended') {
     wrapper.innerHTML = '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-800 border border-rose-200" title="Round ' + roundNum + ' Rejected">Fail ✕</span>';
   } else if (decision === 'pending') {
