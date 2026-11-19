@@ -368,15 +368,18 @@ def api_submission_status(request, pk, submission_id):
 @api_view
 @require_POST
 def api_code_run(request, pk):
-    """Runs code against the public cases. The code and result are kept for reviewers; no score changes."""
+    """Runs code against the public cases or custom stdin input. The code and result are kept for reviewers; no score changes."""
     data = _body(request)
     problem_id = _int(data, "problem_id")
     language = str(data.get("language", "")).replace("\x00", "")[:20]
     code = str(data.get("code", "")).replace("\x00", "")
+    custom_input = data.get("custom_input")
+    if custom_input is not None:
+        custom_input = str(custom_input).replace("\x00", "")[:65536]
     # Same checks as every candidate action (time rules, approval, session). The sandbox call itself
     # runs after the lock is released, so a slow run never holds up the attempt.
     problem = _perform(request, pk, lambda a, now: services.run_preflight(a, now, problem_id, language, code))
-    results = services.run_results(problem, language, code)
+    results = services.run_results(problem, language, code, custom_input=custom_input)
     services.record_code_run(pk, problem, language, code, results)
     return JsonResponse({"ok": True, **results})
 

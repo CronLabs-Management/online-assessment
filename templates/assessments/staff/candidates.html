@@ -363,6 +363,18 @@
         -webkit-overflow-scrolling: touch;
       }
     }
+
+    /* Dynamic Column Visibility Rules */
+    #candidate-table.hide-col-credentials [data-col="credentials"],
+    #candidate-table.hide-col-mcq [data-col="mcq"],
+    #candidate-table.hide-col-coding [data-col="coding"],
+    #candidate-table.hide-col-total [data-col="total"],
+    #candidate-table.hide-col-r1 [data-col="r1"],
+    #candidate-table.hide-col-r2 [data-col="r2"],
+    #candidate-table.hide-col-final [data-col="final"],
+    #candidate-table.hide-col-date [data-col="date"] {
+      display: none !important;
+    }
   </style>
 
   <!-- Filter Toolbar (Search + Sort + Counter) -->
@@ -406,6 +418,65 @@
           </select>
         </div>
 
+        <!-- Column Customizer Dropdown -->
+        <div class="relative inline-block text-left" id="col-customizer-wrap">
+          <button type="button" id="btn-col-customizer" onclick="toggleColCustomizerMenu(event)" class="inline-flex items-center gap-1.5 text-xs font-bold py-1.5 px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 shadow-2xs transition-colors" title="Customize visible columns" aria-haspopup="true" aria-expanded="false">
+            <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+            </svg>
+            <span>Columns</span>
+            <svg class="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+          </button>
+          <div id="col-customizer-menu" class="hidden absolute right-0 mt-1.5 w-52 bg-white rounded-xl shadow-xl border border-slate-200/90 p-2.5 z-50 text-xs text-slate-700 select-none" role="menu">
+            <div class="flex items-center justify-between pb-1.5 mb-1.5 border-b border-slate-100">
+              <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Toggle Columns</span>
+              <span id="col-count-badge" class="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">All Visible</span>
+            </div>
+            <div class="space-y-1 py-0.5" id="col-checkboxes-list">
+              <label class="flex items-center justify-between px-2 py-1 rounded hover:bg-slate-50 cursor-pointer">
+                <span class="font-medium text-slate-700">Credentials</span>
+                <input type="checkbox" data-col-target="credentials" checked onchange="toggleColumnVisibility('credentials', this.checked)" class="col-toggle-cb rounded border-slate-300 text-[#335eea] focus:ring-[#335eea]">
+              </label>
+              <label class="flex items-center justify-between px-2 py-1 rounded hover:bg-slate-50 cursor-pointer">
+                <span class="font-medium text-slate-700">MCQ Score</span>
+                <input type="checkbox" data-col-target="mcq" checked onchange="toggleColumnVisibility('mcq', this.checked)" class="col-toggle-cb rounded border-slate-300 text-[#335eea] focus:ring-[#335eea]">
+              </label>
+              {% if has_coding %}
+              <label class="flex items-center justify-between px-2 py-1 rounded hover:bg-slate-50 cursor-pointer">
+                <span class="font-medium text-slate-700">Coding Score</span>
+                <input type="checkbox" data-col-target="coding" checked onchange="toggleColumnVisibility('coding', this.checked)" class="col-toggle-cb rounded border-slate-300 text-[#335eea] focus:ring-[#335eea]">
+              </label>
+              {% endif %}
+              <label class="flex items-center justify-between px-2 py-1 rounded hover:bg-slate-50 cursor-pointer">
+                <span class="font-medium text-slate-700">Total Score</span>
+                <input type="checkbox" data-col-target="total" checked onchange="toggleColumnVisibility('total', this.checked)" class="col-toggle-cb rounded border-slate-300 text-[#335eea] focus:ring-[#335eea]">
+              </label>
+              <label class="flex items-center justify-between px-2 py-1 rounded hover:bg-slate-50 cursor-pointer">
+                <span class="font-medium text-slate-700">Round 1</span>
+                <input type="checkbox" data-col-target="r1" checked onchange="toggleColumnVisibility('r1', this.checked)" class="col-toggle-cb rounded border-slate-300 text-[#335eea] focus:ring-[#335eea]">
+              </label>
+              {% if has_round_2 %}
+              <label class="flex items-center justify-between px-2 py-1 rounded hover:bg-slate-50 cursor-pointer">
+                <span class="font-medium text-slate-700">Round 2</span>
+                <input type="checkbox" data-col-target="r2" checked onchange="toggleColumnVisibility('r2', this.checked)" class="col-toggle-cb rounded border-slate-300 text-[#335eea] focus:ring-[#335eea]">
+              </label>
+              {% endif %}
+              <label class="flex items-center justify-between px-2 py-1 rounded hover:bg-slate-50 cursor-pointer">
+                <span class="font-medium text-slate-700">Final Score</span>
+                <input type="checkbox" data-col-target="final" checked onchange="toggleColumnVisibility('final', this.checked)" class="col-toggle-cb rounded border-slate-300 text-[#335eea] focus:ring-[#335eea]">
+              </label>
+              <label class="flex items-center justify-between px-2 py-1 rounded hover:bg-slate-50 cursor-pointer">
+                <span class="font-medium text-slate-700">Date / Actions</span>
+                <input type="checkbox" data-col-target="date" checked onchange="toggleColumnVisibility('date', this.checked)" class="col-toggle-cb rounded border-slate-300 text-[#335eea] focus:ring-[#335eea]">
+              </label>
+            </div>
+            <div class="border-t border-slate-100 mt-1 pt-1.5 px-1 flex items-center justify-between">
+              <button type="button" onclick="resetColumnPreferences()" class="text-[11px] font-bold text-slate-500 hover:text-slate-800">Reset All</button>
+              <button type="button" onclick="closeColCustomizerMenu()" class="text-[11px] font-bold text-[#335eea] hover:underline">Done</button>
+            </div>
+          </div>
+        </div>
+
         <div id="clear-filters-wrap">
           {% if q or status or flagged or sort != 'newest' %}
             <button type="button" onclick="clearFiltersAsync(event)" class="text-xs font-bold text-slate-500 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-2.5 py-1.5 rounded-lg transition-colors">
@@ -424,7 +495,7 @@
   <!-- Candidate Table Card with Clickable Header Sorts -->
   <div id="candidate-table-card" class="card overflow-hidden shadow-xs relative w-full">
     <div class="candidate-table-wrap min-h-[340px] pb-24 w-full">
-      <table class="w-full text-xs text-left border-collapse">
+      <table id="candidate-table" class="w-full text-xs text-left border-collapse">
         <caption class="sr-only">Candidates for {{ exam.title }}</caption>
         <thead class="border-b border-slate-200 bg-slate-50/90 text-slate-600 font-bold uppercase tracking-wider text-[11px] select-none">
           <tr>
@@ -447,7 +518,7 @@
             </th>
 
             <!-- Col 2: Login Credentials -->
-            <th scope="col" class="px-2.5 py-3 text-left">
+            <th scope="col" data-col="credentials" class="px-2.5 py-3 text-left">
               <div class="flex items-center justify-between gap-1">
                 <span class="font-bold uppercase tracking-wider text-[11px] text-slate-700">Credentials</span>
                 <button type="button" id="btn-toggle-all-passwords" onclick="toggleAllPasswords()" class="text-[9px] font-sans font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-1 py-0.5 rounded border border-slate-300" title="Show or hide all candidate passwords">Show</button>
@@ -455,7 +526,7 @@
             </th>
 
             <!-- Col 3: MCQ Marks -->
-            <th scope="col" class="px-2 py-3 text-center">
+            <th scope="col" data-col="mcq" class="px-2 py-3 text-center">
               <button type="button" onclick="setSort('{% if sort == 'mcq_desc' %}mcq_asc{% else %}mcq_desc{% endif %}')" class="inline-flex items-center gap-0.5 font-bold uppercase tracking-wider text-[11px] text-slate-700 hover:text-slate-950 group" title="Sort by MCQ Score">
                 <span>MCQ</span>
                 <span class="text-xs transition-colors {% if sort == 'mcq_desc' or sort == 'mcq_asc' %}text-[#335eea] font-black{% else %}text-slate-300 group-hover:text-slate-500{% endif %}">
@@ -466,7 +537,7 @@
 
             <!-- Col 4: Coding Marks (if codes exists) -->
             {% if has_coding %}
-              <th scope="col" class="px-2 py-3 text-center">
+              <th scope="col" data-col="coding" class="px-2 py-3 text-center">
                 <button type="button" onclick="setSort('{% if sort == 'coding_desc' %}coding_asc{% else %}coding_desc{% endif %}')" class="inline-flex items-center gap-0.5 font-bold uppercase tracking-wider text-[11px] text-slate-700 hover:text-slate-950 group" title="Sort by Coding Score">
                   <span>Coding</span>
                   <span class="text-xs transition-colors {% if sort == 'coding_desc' or sort == 'coding_asc' %}text-[#335eea] font-black{% else %}text-slate-300 group-hover:text-slate-500{% endif %}">
@@ -477,7 +548,7 @@
             {% endif %}
 
             <!-- Col 5: Total Marks (Assessment Total) -->
-            <th scope="col" class="px-2 py-3 text-center">
+            <th scope="col" data-col="total" class="px-2 py-3 text-center">
               <button type="button" onclick="setSort('{% if sort == 'total_desc' %}total_asc{% else %}total_desc{% endif %}')" class="inline-flex items-center gap-0.5 font-bold uppercase tracking-wider text-[11px] text-slate-700 hover:text-slate-950 group" title="Sort by Total Assessment Score">
                 <span>Total</span>
                 <span class="text-xs transition-colors {% if sort == 'total_desc' or sort == 'total_asc' %}text-[#335eea] font-black{% else %}text-slate-300 group-hover:text-slate-500{% endif %}">
@@ -487,7 +558,7 @@
             </th>
 
             <!-- Col 6: Round 1 Score -->
-            <th scope="col" class="px-2 py-3 text-center">
+            <th scope="col" data-col="r1" class="px-2 py-3 text-center">
               <button type="button" onclick="setSort('{% if sort == 'r1_desc' %}r1_asc{% else %}r1_desc{% endif %}')" class="inline-flex items-center gap-0.5 font-bold uppercase tracking-wider text-[11px] text-slate-700 hover:text-slate-950 group" title="Sort by Round 1 Score">
                 <span>Round 1</span>
                 <span class="text-xs transition-colors {% if sort == 'r1_desc' or sort == 'r1_asc' %}text-[#335eea] font-black{% else %}text-slate-300 group-hover:text-slate-500{% endif %}">
@@ -498,7 +569,7 @@
 
             <!-- Col 7: Round 2 Score (if exists / configured) -->
             {% if has_round_2 %}
-              <th scope="col" class="px-2 py-3 text-center">
+              <th scope="col" data-col="r2" class="px-2 py-3 text-center">
                 <button type="button" onclick="setSort('{% if sort == 'r2_desc' %}r2_asc{% else %}r2_desc{% endif %}')" class="inline-flex items-center gap-0.5 font-bold uppercase tracking-wider text-[11px] text-slate-700 hover:text-slate-950 group" title="Sort by Round 2 Score">
                   <span>Round 2</span>
                   <span class="text-xs transition-colors {% if sort == 'r2_desc' or sort == 'r2_asc' %}text-[#335eea] font-black{% else %}text-slate-300 group-hover:text-slate-500{% endif %}">
@@ -509,7 +580,7 @@
             {% endif %}
 
             <!-- Col 8: Final Score -->
-            <th scope="col" class="px-2 py-3 text-center">
+            <th scope="col" data-col="final" class="px-2 py-3 text-center">
               <button type="button" onclick="setSort('{% if sort == 'final_desc' %}final_asc{% else %}final_desc{% endif %}')" class="inline-flex items-center gap-0.5 font-bold uppercase tracking-wider text-[11px] text-slate-900 hover:text-blue-700 group" title="Sort by Final Cumulative Score">
                 <span>Final</span>
                 <span class="text-xs transition-colors {% if sort == 'final_desc' or sort == 'final_asc' %}text-[#335eea] font-black{% else %}text-slate-300 group-hover:text-slate-500{% endif %}">
@@ -519,7 +590,7 @@
             </th>
 
             <!-- Col 9: Actions Header with Date Enrolled Sort -->
-            <th scope="col" class="px-3 py-3 text-right">
+            <th scope="col" data-col="date" class="px-3 py-3 text-right">
               <div class="flex items-center justify-end gap-1.5">
                 <button type="button" onclick="setSort('{% if sort == 'newest' %}oldest{% else %}newest{% endif %}')" class="inline-flex items-center gap-1 font-bold uppercase tracking-wider text-[10px] text-slate-500 hover:text-slate-900 group" title="Toggle newest/oldest enrollment date">
                   <span>Date:</span>
@@ -605,7 +676,7 @@
                 </td>
 
                 <!-- Col 2: Login Credentials -->
-                <td class="px-2.5 py-3">
+                <td data-col="credentials" class="px-2.5 py-3">
                   <div class="space-y-1">
                     <div class="flex items-center gap-1 font-mono text-[10px] bg-slate-100 text-slate-900 px-1.5 py-0.5 rounded border border-slate-200 w-fit">
                       <span class="text-slate-400 font-bold select-none text-[9px]">PWD:</span>
@@ -634,7 +705,7 @@
                 </td>
 
                 <!-- Col 3: MCQ Marks -->
-                <td class="px-2 py-3 text-center font-mono">
+                <td data-col="mcq" class="px-2 py-3 text-center font-mono">
                   {% if row.mcq_score is not None %}
                     <span class="font-bold text-slate-900 text-xs">{{ row.mcq_score }}</span>
                   {% else %}
@@ -644,7 +715,7 @@
 
                 <!-- Col 4: Coding Marks (if codes exists) -->
                 {% if has_coding %}
-                  <td class="px-2 py-3 text-center font-mono">
+                  <td data-col="coding" class="px-2 py-3 text-center font-mono">
                     {% if row.coding_score is not None %}
                       <span class="font-bold text-slate-900 text-xs">{{ row.coding_score }}</span>
                     {% else %}
@@ -654,7 +725,7 @@
                 {% endif %}
 
                 <!-- Col 5: Total Marks (Assessment Total) -->
-                <td class="px-2 py-3 text-center font-mono">
+                <td data-col="total" class="px-2 py-3 text-center font-mono">
                   {% if row.total_score is not None %}
                     <div>
                       <strong class="font-extrabold text-[#1E3AC8] text-xs">{{ row.total_score }}</strong>
@@ -668,7 +739,7 @@
                 </td>
 
                 <!-- Col 6: Round 1 Score -->
-                <td class="px-2 py-3 text-center round-cell" data-round="1" data-app-id="{{ app.pk }}">
+                <td data-col="r1" class="px-2 py-3 text-center round-cell" data-round="1" data-app-id="{{ app.pk }}">
                   {% if row.round_1 %}
                     {% if row.round_1.score is not None %}
                       <div class="font-mono">
@@ -710,7 +781,7 @@
 
                 <!-- Col 7: Round 2 Score (if configured) -->
                 {% if has_round_2 %}
-                  <td class="px-2 py-3 text-center round-cell" data-round="2" data-app-id="{{ app.pk }}">
+                  <td data-col="r2" class="px-2 py-3 text-center round-cell" data-round="2" data-app-id="{{ app.pk }}">
                     {% if row.round_2 %}
                       {% if row.round_2.score is not None %}
                         <div class="font-mono">
@@ -758,7 +829,7 @@
                 {% endif %}
 
                 <!-- Col 8: Final Score -->
-                <td class="px-2 py-3 text-center">
+                <td data-col="final" class="px-2 py-3 text-center">
                   {% if row.final_score is not None %}
                     <div>
                       <strong class="font-black text-slate-900 text-sm font-mono">{{ row.final_score }}</strong>
@@ -786,7 +857,7 @@
                 </td>
 
                 <!-- Col 9: Clear Hero Review Action + Controls -->
-                <td class="px-3 py-3 text-right whitespace-nowrap">
+                <td data-col="date" class="px-3 py-3 text-right whitespace-nowrap">
                   <div class="inline-flex items-center justify-end gap-1.5 whitespace-nowrap">
                     {% if attempt %}
                       <a href="{% url 'staff_attempt_review' attempt.pk %}" class="btn-review-cta" title="Open candidate review workspace">
@@ -925,11 +996,27 @@
     <div class="h-4 w-px bg-white/15 mx-0.5 shrink-0"></div>
 
     <div class="flex items-center gap-1.5 shrink-0">
-      <select id="bulk-round" class="bulk-round-select" title="Target interview round" onchange="updateBulkBar()">
-        {% for rnd in round_choices %}
-          <option value="{{ rnd }}">Round {{ rnd }}</option>
-        {% endfor %}
-      </select>
+      {% if round_choices|length == 1 %}
+        <div class="inline-flex items-center px-2.5 py-1 rounded-lg bg-white/10 border border-white/15 text-xs font-bold text-slate-200">
+          <input type="hidden" id="bulk-round" value="1">
+          <span>Round 1</span>
+        </div>
+      {% elif round_choices|length <= 3 %}
+        <div class="inline-flex items-center rounded-lg bg-white/10 p-0.5 border border-white/15 text-xs font-semibold" id="bulk-round-segmented">
+          <input type="hidden" id="bulk-round" value="1">
+          {% for rnd in round_choices %}
+            <button type="button" onclick="setBulkRound('{{ rnd }}', this)" class="bulk-round-seg-btn px-2.5 py-1 rounded-md text-xs font-bold transition-all {% if forloop.first %}bg-blue-600 text-white shadow-xs{% else %}text-slate-300 hover:text-white{% endif %}" data-round="{{ rnd }}">
+              Round {{ rnd }}
+            </button>
+          {% endfor %}
+        </div>
+      {% else %}
+        <select id="bulk-round" class="bulk-round-select" title="Target interview round" onchange="updateBulkBar()">
+          {% for rnd in round_choices %}
+            <option value="{{ rnd }}">Round {{ rnd }}</option>
+          {% endfor %}
+        </select>
+      {% endif %}
 
       <button type="button" onclick="submitBulkAction('advance')" class="bulk-dock-btn-advance" title="Mark selected candidates as passed for this round">
         Advance
@@ -1131,6 +1218,105 @@ function closeBatchModal() {
   if (m) m.classList.add('hidden');
 }
 
+// Column Customizer Functions
+function toggleColCustomizerMenu(event) {
+  if (event) event.stopPropagation();
+  const menu = document.getElementById('col-customizer-menu');
+  const btn = document.getElementById('btn-col-customizer');
+  if (!menu) return;
+  const isHidden = menu.classList.contains('hidden');
+  if (isHidden) {
+    menu.classList.remove('hidden');
+    if (btn) btn.setAttribute('aria-expanded', 'true');
+    document.addEventListener('click', closeColCustomizerOnClickOutside);
+  } else {
+    closeColCustomizerMenu();
+  }
+}
+
+function closeColCustomizerMenu() {
+  const menu = document.getElementById('col-customizer-menu');
+  const btn = document.getElementById('btn-col-customizer');
+  if (menu) menu.classList.add('hidden');
+  if (btn) btn.setAttribute('aria-expanded', 'false');
+  document.removeEventListener('click', closeColCustomizerOnClickOutside);
+}
+
+function closeColCustomizerOnClickOutside(e) {
+  const wrap = document.getElementById('col-customizer-wrap');
+  if (wrap && !wrap.contains(e.target)) {
+    closeColCustomizerMenu();
+  }
+}
+
+function getColumnPreferences() {
+  try {
+    const raw = localStorage.getItem('oa_col_prefs_v1');
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function saveColumnPreferences(prefs) {
+  try {
+    localStorage.setItem('oa_col_prefs_v1', JSON.stringify(prefs));
+  } catch (e) {}
+}
+
+function toggleColumnVisibility(colKey, isVisible) {
+  const prefs = getColumnPreferences();
+  prefs[colKey] = isVisible;
+  saveColumnPreferences(prefs);
+  applySavedColumnPreferences();
+}
+
+function resetColumnPreferences() {
+  try {
+    localStorage.removeItem('oa_col_prefs_v1');
+  } catch (e) {}
+  applySavedColumnPreferences();
+}
+
+function applySavedColumnPreferences() {
+  const table = document.getElementById('candidate-table');
+  if (!table) return;
+  const prefs = getColumnPreferences();
+  const validCols = ['credentials', 'mcq', 'coding', 'total', 'r1', 'r2', 'final', 'date'];
+  let hiddenCount = 0;
+
+  validCols.forEach(function(col) {
+    const cb = document.querySelector('.col-toggle-cb[data-col-target="' + col + '"]');
+    const isVisible = prefs[col] !== false; // default true
+    if (cb) cb.checked = isVisible;
+
+    if (!isVisible) {
+      table.classList.add('hide-col-' + col);
+      hiddenCount++;
+    } else {
+      table.classList.remove('hide-col-' + col);
+    }
+  });
+
+  const badge = document.getElementById('col-count-badge');
+  if (badge) {
+    if (hiddenCount === 0) {
+      badge.textContent = 'All Visible';
+      badge.className = 'text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded';
+    } else {
+      badge.textContent = hiddenCount + ' Hidden';
+      badge.className = 'text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded';
+    }
+  }
+}
+
+// Initialise column preferences
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', applySavedColumnPreferences);
+} else {
+  applySavedColumnPreferences();
+}
+
 function setSort(val) {
   const sortSelect = document.getElementById('sort');
   if (sortSelect) {
@@ -1203,6 +1389,7 @@ function applyFiltersAsync(customUrl) {
 
     window.history.pushState(null, '', targetUrl);
     updateBulkBar();
+    applySavedColumnPreferences();
   })
   .catch(function(err) {
     if (err.name !== 'AbortError') {
@@ -1264,9 +1451,9 @@ function updateBulkBar() {
       });
 
       if (allOnHold) {
-        holdBtn.textContent = 'Unhold';
+        holdBtn.innerHTML = '<span class="mr-1">⏳</span> Unhold';
         holdBtn.title = 'Remove hold from Round ' + round + ' and restore to pending review';
-        holdBtn.className = 'bulk-dock-btn-ghost text-amber-300 hover:text-amber-200 hover:bg-amber-500/20 font-bold';
+        holdBtn.className = 'bulk-dock-btn-ghost text-amber-300 hover:text-amber-200 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/30 font-bold';
         holdBtn.setAttribute('data-action', 'unhold');
       } else {
         holdBtn.textContent = 'Hold';
@@ -1314,6 +1501,22 @@ function deselectAllCandidates() {
   updateBulkBar();
 }
 
+function setBulkRound(round, btn) {
+  const input = document.getElementById('bulk-round');
+  if (input) input.value = round;
+  const seg = document.getElementById('bulk-round-segmented');
+  if (seg) {
+    seg.querySelectorAll('.bulk-round-seg-btn').forEach(function(b) {
+      if (b === btn || b.getAttribute('data-round') === String(round)) {
+        b.className = 'bulk-round-seg-btn px-2.5 py-1 rounded-md text-xs font-bold transition-all bg-blue-600 text-white shadow-xs';
+      } else {
+        b.className = 'bulk-round-seg-btn px-2.5 py-1 rounded-md text-xs font-bold transition-all text-slate-300 hover:text-white';
+      }
+    });
+  }
+  updateBulkBar();
+}
+
 function submitBulkSendCredentials(btn) {
   const selected = getSelectedCheckboxes();
   if (selected.length === 0) {
@@ -1327,32 +1530,66 @@ function submitBulkSendCredentials(btn) {
     }
     return;
   }
-  const form = document.getElementById('bulk-send-credentials-form');
-  const container = document.getElementById('bulk-send-ids-inputs');
-  const idsInput = document.getElementById('bulk-send-ids-input');
-  if (!form) return;
 
   const ids = selected.map(function(box) { return box.value; });
-  if (idsInput) idsInput.value = ids.join(',');
-
-  if (container) {
-    container.innerHTML = '';
-    selected.forEach(function(box) {
-      const inp = document.createElement('input');
-      inp.type = 'hidden';
-      inp.name = 'selected_ids';
-      inp.value = box.value;
-      container.appendChild(inp);
-    });
-  }
-
+  const origBtnContent = btn ? btn.innerHTML : '';
   if (btn) {
     btn.disabled = true;
     btn.classList.add('opacity-75', 'cursor-not-allowed');
     btn.innerHTML = '<span class="inline-block animate-spin mr-1">↻</span> Sending to ' + selected.length + '...';
   }
 
-  form.submit();
+  const formData = new FormData();
+  formData.append('mode', 'selected');
+  formData.append('async', '1');
+  ids.forEach(function(id) {
+    formData.append('selected_ids', id);
+  });
+
+  fetch("{% url 'staff_send_credentials' exam.pk %}", {
+    method: 'POST',
+    headers: {
+      'X-CSRFToken': getCsrfToken(),
+      'X-Requested-With': 'XMLHttpRequest'
+    },
+    body: formData
+  })
+  .then(function(res) {
+    return res.json();
+  })
+  .then(function(data) {
+    if (data.ok) {
+      showToast(data.message || ('Sent credentials to ' + selected.length + ' candidate(s)'), 'success');
+      // Update each selected row's credentials sent cell
+      ids.forEach(function(appId) {
+        const row = document.getElementById('row-app-' + appId);
+        if (row) {
+          const credStatusCell = row.querySelectorAll('td')[2];
+          if (credStatusCell) {
+            const badge = credStatusCell.querySelector('span.text-\\[9px\\]');
+            if (badge) {
+              badge.className = 'text-[9px] font-semibold text-emerald-800 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200 inline-block whitespace-nowrap';
+              badge.textContent = 'Sent Just now ✓';
+            }
+          }
+        }
+      });
+      deselectAllCandidates();
+    } else {
+      showToast(data.error || 'Failed to send credentials', 'error');
+    }
+  })
+  .catch(function(err) {
+    console.error('Error sending credentials:', err);
+    showToast('Failed to send credentials. Please try again.', 'error');
+  })
+  .finally(function() {
+    if (btn) {
+      btn.disabled = false;
+      btn.classList.remove('opacity-75', 'cursor-not-allowed');
+      btn.innerHTML = origBtnContent;
+    }
+  });
 }
 
 // Click-outside listener to close row action dropdowns and bulk more menu

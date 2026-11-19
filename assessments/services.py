@@ -790,12 +790,31 @@ def run_preflight(attempt, now, problem_id, language, code):
     return problem
 
 
-def run_results(problem, language, code, runner=None):
+def run_results(problem, language, code, runner=None, custom_input=None):
     """
-    Runs the code against public cases only without storing it or changing any score.
+    Runs the code against public cases only, or against custom input if provided, without storing it or changing any score.
     Hidden cases are never executed during preview runs, eliminating feedback and timing oracles.
     """
     runner = runner or get_runner()
+    if custom_input is not None:
+        case = CodingTestCase(problem=problem, input_data=custom_input, expected_output="", is_hidden=False)
+        try:
+            outcomes = execute_cases(problem, language, code, runner, cases=[case])
+        except RunnerError as exc:
+            raise AttemptError("The code could not be run right now. Please try again.", "runner_unavailable") from exc
+        case, status, outcome = outcomes[0]
+        compile_output = (outcome.compile_output if outcome and status == CodingTestResult.Status.COMPILE_ERROR else "")[:2000]
+        return {
+            "custom": {
+                "input": custom_input,
+                "status": status,
+                "output": (outcome.stdout if outcome else "")[:2000],
+                "error": ((outcome.stderr if outcome else "") or "")[:1000],
+            },
+            "public": [],
+            "compile_output": compile_output,
+        }
+
     public_cases = list(CodingTestCase.objects.filter(problem=problem, is_hidden=False).order_by("order", "id"))
     if not public_cases:
         return {

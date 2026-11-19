@@ -41,8 +41,9 @@
 
         <!-- Shorter, compact Completion Progress Track -->
         <div class="mt-3.5">
-          <div class="w-full max-w-sm sm:max-w-md h-2 bg-slate-100 rounded-full overflow-hidden shadow-inner">
-            <div style="width: {{ completion_rate }}%;"
+          <div
+            class="w-full max-w-xs sm:max-w-sm h-2.5 bg-slate-100 rounded-full overflow-hidden shadow-inner border border-slate-200/60">
+            <div style="width: {% if completion_rate >= 100 %}100{% else %}{{ completion_rate }}{% endif %}%;"
               class="h-full bg-emerald-500 rounded-full transition-all duration-700"
               title="{{ completion_rate|floatformat:-1 }}% Completed"></div>
           </div>
@@ -259,31 +260,47 @@
       </div>
 
       <dl class="space-y-4">
-        <div class="bg-slate-50 rounded-xl p-4 border border-slate-200/70 flex items-center justify-between">
-          <div>
-            <dt class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Multiple-Choice Average</dt>
-            <dd class="text-2xl font-bold text-slate-900 num mt-1">{{ avg_mcq|default:"0.0" }}</dd>
+        <div class="bg-slate-50 rounded-xl p-4 border border-slate-200/70">
+          <div class="flex items-center justify-between">
+            <div>
+              <dt class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Multiple-Choice Average</dt>
+              <dd class="text-2xl font-bold text-slate-900 num mt-1">{{ avg_mcq|default:"0.0" }}</dd>
+            </div>
+            <div
+              class="w-10 h-10 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center text-[#2447F5]">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+              </svg>
+            </div>
           </div>
-          <div
-            class="w-10 h-10 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center text-[#2447F5]">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-            </svg>
+          <div class="mt-3">
+            <div class="w-full h-1.5 bg-slate-200/70 rounded-full overflow-hidden">
+              <div class="h-full bg-[#2447F5] rounded-full transition-all duration-500"
+                style="width: {% if avg_mcq %}{% widthratio avg_mcq 100 100 %}{% else %}0{% endif %}%; max-width: 100%;"></div>
+            </div>
           </div>
         </div>
 
-        <div class="bg-slate-50 rounded-xl p-4 border border-slate-200/70 flex items-center justify-between">
-          <div>
-            <dt class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Coding Challenges Average</dt>
-            <dd class="text-2xl font-bold text-slate-900 num mt-1">{{ avg_coding|default:"0.0" }}</dd>
+        <div class="bg-slate-50 rounded-xl p-4 border border-slate-200/70">
+          <div class="flex items-center justify-between">
+            <div>
+              <dt class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Coding Challenges Average</dt>
+              <dd class="text-2xl font-bold text-slate-900 num mt-1">{{ avg_coding|default:"0.0" }}</dd>
+            </div>
+            <div
+              class="w-10 h-10 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+              </svg>
+            </div>
           </div>
-          <div
-            class="w-10 h-10 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-            </svg>
+          <div class="mt-3">
+            <div class="w-full h-1.5 bg-slate-200/70 rounded-full overflow-hidden">
+              <div class="h-full bg-indigo-600 rounded-full transition-all duration-500"
+                style="width: {% if avg_coding %}{% widthratio avg_coding 100 100 %}{% else %}0{% endif %}%; max-width: 100%;"></div>
+            </div>
           </div>
         </div>
       </dl>
@@ -343,5 +360,149 @@
       </div>
     </section>
   </div>
+
+  <!-- Cohort Score Distribution & Analytics Grid -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Visual Histogram -->
+    <section class="card p-6 shadow-xs bg-white border border-slate-200/90 rounded-2xl lg:col-span-2">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-4 mb-5 gap-2">
+        <div>
+          <h2 class="text-base font-bold text-slate-900">Cohort Score Distribution</h2>
+          <p class="text-xs text-slate-500 mt-0.5">Final assessment score breakdown across completed attempts</p>
+        </div>
+        <div class="flex items-center gap-3 text-xs font-semibold text-slate-500 flex-wrap">
+          {% if highest_score is not None %}
+            <span>High: <strong class="text-emerald-700 num font-bold">{{ highest_score }}</strong></span>
+            <span aria-hidden="true" class="text-slate-300">·</span>
+            <span>Median: <strong class="text-[#2447F5] num font-bold">{{ median_score }}</strong></span>
+            <span aria-hidden="true" class="text-slate-300">·</span>
+            <span>Low: <strong class="text-slate-800 num font-bold">{{ lowest_score }}</strong></span>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Histogram Bars -->
+      <div class="h-44 flex items-end justify-between gap-3 sm:gap-6 pt-6 pb-2 px-2 border-b border-slate-100">
+        {% for bucket in histogram_buckets %}
+          <div class="flex-1 flex flex-col items-center gap-2 h-full justify-end group">
+            <span class="text-[11px] font-extrabold text-slate-700 num opacity-0 group-hover:opacity-100 transition-opacity">
+              {{ bucket.count }}
+            </span>
+            <div class="w-full max-w-[54px] rounded-t-lg bg-blue-100/80 group-hover:bg-[#2447F5] transition-all relative overflow-hidden"
+                 style="height: {% if bucket.count > 0 %}{{ bucket.height_pct|default:15 }}{% else %}4{% endif %}%; min-height: 6px;">
+              {% if bucket.count > 0 %}
+                <div class="w-full h-full bg-[#2447F5] rounded-t-lg opacity-80 group-hover:opacity-100"></div>
+              {% endif %}
+            </div>
+            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider text-center mt-1">
+              {{ bucket.label }}
+            </span>
+          </div>
+        {% endfor %}
+      </div>
+      <div class="mt-3 flex items-center justify-between text-xs text-slate-500">
+        <span>Score Band (% of maximum possible score)</span>
+        <span class="font-medium">Total finalized: {{ submitted|add:expired }}</span>
+      </div>
+    </section>
+
+    <!-- Quick Stats Summary -->
+    <section class="card p-6 shadow-xs bg-white border border-slate-200/90 rounded-2xl flex flex-col justify-between">
+      <div>
+        <div class="border-b border-slate-100 pb-4 mb-4">
+          <h2 class="text-base font-bold text-slate-900">Cohort Insights</h2>
+          <p class="text-xs text-slate-500 mt-0.5">High-level test performance signals</p>
+        </div>
+        <div class="space-y-3.5">
+          <div class="p-3 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-600">Completion Yield</span>
+            <span class="text-sm font-extrabold text-slate-900 num">{{ completion_rate|floatformat:-1 }}%</span>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-600">On-Time Finalized</span>
+            <span class="text-sm font-extrabold text-emerald-700 num">{{ submitted }} ({{ submitted_pct }}%)</span>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-600">Timed Out at Limit</span>
+            <span class="text-sm font-extrabold text-indigo-700 num">{{ expired }} ({{ expired_pct }}%)</span>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-600">Integrity Flags</span>
+            <span class="text-sm font-extrabold {% if flagged > 0 %}text-rose-700{% else %}text-slate-800{% endif %} num">{{ flagged }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="pt-4 border-t border-slate-100">
+        <a href="{% url 'staff_exam_candidates' exam.pk %}" class="btn btn-secondary w-full text-xs font-bold py-2 justify-center">
+          Explore All Candidates &rarr;
+        </a>
+      </div>
+    </section>
+  </div>
+
+  <!-- Question Calibration & Item Difficulty Telemetry -->
+  {% if question_stats %}
+    <section class="card overflow-hidden shadow-xs bg-white border border-slate-200/90 rounded-2xl">
+      <div class="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h2 class="text-base font-bold text-slate-900">Question Calibration &amp; Difficulty Telemetry</h2>
+          <p class="text-xs text-slate-500 mt-0.5">Empirical pass rates (P-values) to identify outlier questions</p>
+        </div>
+        <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+          Top Questions
+        </span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-xs text-left">
+          <caption class="sr-only">Question Difficulty Telemetry</caption>
+          <thead class="border-b border-slate-200 bg-slate-50/80 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
+            <tr>
+              <th scope="col" class="px-4 py-3">Question Statement</th>
+              <th scope="col" class="px-3 py-3 text-center">Marks</th>
+              <th scope="col" class="px-3 py-3 text-center">Attempts</th>
+              <th scope="col" class="px-3 py-3 text-center">Correct</th>
+              <th scope="col" class="px-3 py-3 text-center">Pass Rate (P-value)</th>
+              <th scope="col" class="px-4 py-3 text-right">Calibration</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            {% for qstat in question_stats %}
+              <tr class="hover:bg-slate-50/60 transition-colors">
+                <td class="px-4 py-3 font-medium text-slate-800 max-w-md">
+                  <span class="line-clamp-1" title="{{ qstat.text }}">{{ qstat.text }}</span>
+                </td>
+                <td class="px-3 py-3 text-center font-mono font-bold text-slate-700">
+                  {{ qstat.marks }}
+                </td>
+                <td class="px-3 py-3 text-center font-mono text-slate-600">
+                  {{ qstat.total_attempts }}
+                </td>
+                <td class="px-3 py-3 text-center font-mono text-slate-600">
+                  {{ qstat.correct_attempts }}
+                </td>
+                <td class="px-3 py-3 text-center">
+                  {% if qstat.pass_pct is not None %}
+                    <div class="inline-flex items-center gap-1.5 font-mono font-extrabold text-xs">
+                      <span>{{ qstat.pass_pct }}%</span>
+                      <div class="w-12 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div class="h-full bg-[#2447F5] rounded-full" style="width: {{ qstat.pass_pct }}%;"></div>
+                      </div>
+                    </div>
+                  {% else %}
+                    <span class="text-slate-400 font-mono text-xs">—</span>
+                  {% endif %}
+                </td>
+                <td class="px-4 py-3 text-right">
+                  <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold border {{ qstat.diff_badge }}">
+                    {{ qstat.difficulty }}
+                  </span>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  {% endif %}
 </div>
 {% endblock %}

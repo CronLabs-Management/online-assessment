@@ -4237,6 +4237,14 @@ and selection */
   font-weight: 600 !important;
 }
 
+.bulk-round-seg-btn {
+  background: transparent !important;
+  border: none !important;
+  cursor: pointer !important;
+  line-height: 1 !important;
+  font-family: inherit !important;
+}
+
 .bulk-dock-btn-advance {
   display: inline-flex !important;
   align-items: center !important;

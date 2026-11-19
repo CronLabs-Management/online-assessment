@@ -391,6 +391,9 @@ async function handleAutoSubmit(reason) {
   }
 }
 
+let warned5mSectionId = null;
+let warned1mSectionId = null;
+
 function tick() {
   if (!state || !state.deadline) return;
   // Timer only runs once readiness check is complete and questions are displayed
@@ -403,10 +406,23 @@ function tick() {
   $("overall").textContent = fmt(overall);
   if (state.current_section) {
     const section = remainingFor(state.current_section.deadline);
+    const sectionId = state.current_section.id || "section_" + (state.current_section.order || 1);
     $("timer").textContent = fmt(section);
     // Warn in the last five minutes and alarm in the last minute. Colour is never the only cue: the text is the timer.
     $("timer").classList.toggle("text-amber-700", section > 60 && section <= 300);
     $("timer").classList.toggle("text-red-700", section > 0 && section <= 60);
+
+    // Floating Alert Toasts with Automatic Draft Flush
+    if (section > 0 && section <= 300 && section > 60 && warned5mSectionId !== sectionId) {
+      warned5mSectionId = sectionId;
+      showStatus("⏳ 5 minutes remaining in this section. Your draft is automatically saved.", "warn");
+      flushDrafts();
+    } else if (section > 0 && section <= 60 && warned1mSectionId !== sectionId) {
+      warned1mSectionId = sectionId;
+      showStatus("⚠️ Final minute! Please review and finalize your answers.", "error");
+      flushDrafts();
+    }
+
     if (section <= 0 && !isAutoSubmitting) {
       handleAutoSubmit("section");
       return;
@@ -1614,6 +1630,28 @@ function openVisit(kind, itemId) {
 
 // ---------------------------------------------------------------- MCQ
 
+let mcqFlaggedQuestions = (function() {
+  try {
+    const raw = localStorage.getItem(`mcq_flags_${attemptId}`);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch (_) {
+    return new Set();
+  }
+})();
+
+function toggleMcqFlag(qId) {
+  if (mcqFlaggedQuestions.has(qId)) {
+    mcqFlaggedQuestions.delete(qId);
+  } else {
+    mcqFlaggedQuestions.add(qId);
+  }
+  try {
+    localStorage.setItem(`mcq_flags_${attemptId}`, JSON.stringify(Array.from(mcqFlaggedQuestions)));
+  } catch (_) {}
+  lastRenderKey = "";
+  renderMcq();
+}
+
 function renderMcq() {
   $("attempt-root")?.classList.remove("is-coding-page");
   document.body.classList.remove("theme-dark");
@@ -1631,17 +1669,34 @@ function renderMcq() {
   if (mcqIndex >= questions.length) mcqIndex = 0;
   const question = questions[mcqIndex];
 
+  const answeredCount = questions.filter((q) => q.selected_option_id !== null && q.selected_option_id !== undefined).length;
+  const flaggedCount = questions.filter((q) => mcqFlaggedQuestions.has(q.id)).length;
+  const unansweredCount = questions.length - answeredCount;
+  const isFlagged = mcqFlaggedQuestions.has(question.id);
+
   const nav = questions
     .map((q, i) => {
       const answered = q.selected_option_id !== null && q.selected_option_id !== undefined;
+      const flagged = mcqFlaggedQuestions.has(q.id);
       const current = i === mcqIndex;
-      const tone = current
-        ? "border-[#2447F5] bg-[#2447F5] text-white shadow-xs font-bold"
-        : answered
-          ? "border-[#0B6B43] bg-[#E3F5EC] text-[#0B6B43] font-bold"
-          : "border-slate-300 bg-white text-slate-700 hover:border-slate-500 font-bold";
-      const label = `Question ${i + 1}${answered ? ", answered" : ", not answered"}${current ? ", current" : ""}`;
-      return `<button type="button" data-idx="${i}" aria-label="${label}" ${current ? 'aria-current="step"' : ""} class="num h-10 w-10 rounded-xl border text-sm font-bold ${tone}">${i + 1}</button>`;
+
+      let tone = "border-slate-300 bg-white text-slate-700 hover:border-slate-500 font-bold";
+      let badge = "";
+
+      if (current) {
+        tone = "border-[#2447F5] bg-[#2447F5] text-white shadow-xs font-black ring-2 ring-blue-300/60";
+      } else if (flagged) {
+        tone = "border-purple-400 bg-purple-50 text-purple-800 font-bold shadow-2xs";
+        badge = '<span class="absolute -top-1 -right-1 text-[10px] text-purple-600">⚑</span>';
+      } else if (answered) {
+        tone = "border-emerald-500 bg-emerald-50 text-emerald-800 font-bold";
+      }
+
+      const label = `Question ${i + 1}${answered ? ", answered" : ", not answered"}${flagged ? ", marked for review" : ""}${current ? ", current" : ""}`;
+      return `<button type="button" data-idx="${i}" aria-label="${label}" ${current ? 'aria-current="step"' : ""} class="num relative h-10 w-10 rounded-xl border text-sm font-bold flex items-center justify-center transition-transform hover:scale-105 cursor-pointer ${tone}">
+        <span>${i + 1}</span>
+        ${badge}
+      </button>`;
     })
     .join("");
 
@@ -1660,27 +1715,46 @@ function renderMcq() {
     })
     .join("");
 
-    const isLastQuestion = mcqIndex >= questions.length - 1;
-    const actionButtonHtml = isLastQuestion
-      ? `<button type="button" id="submit-section-mcq" class="btn btn-primary px-5 py-2 text-sm font-extrabold btn-submit-section shadow-cta">Submit Section &rarr;</button>`
-      : `<button type="button" id="next" class="btn btn-primary px-5 py-2 text-sm font-extrabold shadow-cta">Next question &rarr;</button>`;
+  const isLastQuestion = mcqIndex >= questions.length - 1;
+  const actionButtonHtml = isLastQuestion
+    ? `<button type="button" id="submit-section-mcq" class="btn btn-primary px-5 py-2 text-sm font-extrabold btn-submit-section shadow-cta cursor-pointer">Submit Section &rarr;</button>`
+    : `<button type="button" id="next" class="btn btn-primary px-5 py-2 text-sm font-extrabold shadow-cta cursor-pointer">Next question &rarr;</button>`;
 
-    content.innerHTML = `
-    <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-      <span class="num text-sm sm:text-base font-extrabold text-slate-500">Question ${mcqIndex + 1} of ${questions.length}</span>
-      <span class="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-extrabold text-[#2447F5] border border-blue-200">Multiple Choice</span>
+  content.innerHTML = `
+    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+      <div class="flex items-center gap-2.5">
+        <span class="num text-sm sm:text-base font-extrabold text-slate-800">Question ${mcqIndex + 1} of ${questions.length}</span>
+        <span class="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-extrabold text-[#2447F5] border border-blue-200">Multiple Choice</span>
+      </div>
+      <button type="button" id="btn-toggle-mcq-flag" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer select-none ${
+        isFlagged
+          ? 'bg-purple-100 text-purple-800 border-purple-300 shadow-2xs'
+          : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+      }" title="Mark this question to review later">
+        <span>${isFlagged ? '⚑' : '⚐'}</span>
+        <span>${isFlagged ? 'Marked for Review' : 'Mark for Review'}</span>
+      </button>
     </div>
     <p class="mt-4 whitespace-pre-line text-lg sm:text-xl font-bold leading-relaxed text-[#0F172A]">${escapeHtml(question.text)}</p>
     ${question.image_url ? `<img src="${escapeHtml(question.image_url)}" alt="Image for question ${mcqIndex + 1}" draggable="false" class="mt-4 block max-h-80 max-w-full rounded-xl border border-slate-200 bg-white select-none">` : ""}
     <div class="mt-6 space-y-3">${options}</div>
     <div class="mt-8 flex items-center justify-between gap-3 pt-4 border-t border-slate-100">
-      <button type="button" id="prev" class="btn btn-secondary px-4 py-2 text-sm font-bold" ${mcqIndex === 0 ? "disabled" : ""}>&larr; Previous</button>
+      <button type="button" id="prev" class="btn btn-secondary px-4 py-2 text-sm font-bold cursor-pointer" ${mcqIndex === 0 ? "disabled" : ""}>&larr; Previous</button>
       ${actionButtonHtml}
     </div>
-    <nav class="mt-6 border-t border-slate-200 pt-4" aria-label="Questions">
-      <p class="mb-2 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">Question Navigator</p>
-      <div class="flex flex-wrap gap-2">${nav}</div>
+    <nav class="mt-8 border-t border-slate-200 pt-5 space-y-3" aria-label="Question Navigator">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <p class="text-xs font-extrabold text-slate-700 uppercase tracking-wider">Question Navigator</p>
+        <div class="flex items-center gap-3 text-xs font-semibold text-slate-500">
+          <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span> <strong>${answeredCount}</strong> Answered</span>
+          <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-purple-500 inline-block"></span> <strong>${flaggedCount}</strong> For Review</span>
+          <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-slate-300 inline-block"></span> <strong>${unansweredCount}</strong> Unanswered</span>
+        </div>
+      </div>
+      <div class="flex flex-wrap gap-2 pt-1">${nav}</div>
     </nav>`;
+
+  $("btn-toggle-mcq-flag")?.addEventListener("click", () => toggleMcqFlag(question.id));
 
   content.querySelectorAll(`input[name="mcq-${question.id}"]`).forEach((input) => {
     input.addEventListener("change", () => {
@@ -1817,6 +1891,72 @@ let currentEditorTheme = (function() {
   }
 })();
 
+let currentEditorFontSize = (function() {
+  try {
+    const s = parseInt(localStorage.getItem("editor-font-size"), 10);
+    return (s >= 11 && s <= 24) ? s : 14;
+  } catch (_) {
+    return 14;
+  }
+})();
+
+let currentEditorWordWrap = (function() {
+  try {
+    return localStorage.getItem("editor-word-wrap") === "true";
+  } catch (_) {
+    return false;
+  }
+})();
+
+let customStdinInput = "";
+
+function setEditorFontSize(delta) {
+  const newSize = Math.max(11, Math.min(24, currentEditorFontSize + delta));
+  if (newSize === currentEditorFontSize) return;
+  currentEditorFontSize = newSize;
+  try {
+    localStorage.setItem("editor-font-size", String(newSize));
+  } catch (_) {}
+  const lbl = $("editor-font-size-label");
+  if (lbl) lbl.textContent = `${newSize}px`;
+
+  // Update Monaco instances
+  Object.values(editors).forEach(async (prom) => {
+    try {
+      const ed = await prom;
+      if (ed && ed.rawEditor && typeof ed.rawEditor.updateOptions === "function") {
+        ed.rawEditor.updateOptions({ fontSize: newSize });
+      } else if (ed && ed.rawEditor && ed.rawEditor.tagName === "TEXTAREA") {
+        ed.rawEditor.style.fontSize = `${newSize}px`;
+        ed.rawEditor.style.lineHeight = `${Math.round(newSize * 1.55)}px`;
+      }
+    } catch (_) {}
+  });
+}
+
+function toggleEditorWordWrap() {
+  currentEditorWordWrap = !currentEditorWordWrap;
+  try {
+    localStorage.setItem("editor-word-wrap", String(currentEditorWordWrap));
+  } catch (_) {}
+  const btn = $("btn-word-wrap-toggle");
+  if (btn) {
+    btn.classList.toggle("active", currentEditorWordWrap);
+    const stateSpan = btn.querySelector(".word-wrap-state");
+    if (stateSpan) stateSpan.textContent = currentEditorWordWrap ? "ON" : "OFF";
+  }
+  Object.values(editors).forEach(async (prom) => {
+    try {
+      const ed = await prom;
+      if (ed && ed.rawEditor && typeof ed.rawEditor.updateOptions === "function") {
+        ed.rawEditor.updateOptions({ wordWrap: currentEditorWordWrap ? "on" : "off" });
+      } else if (ed && ed.rawEditor && ed.rawEditor.tagName === "TEXTAREA") {
+        ed.rawEditor.style.whiteSpace = currentEditorWordWrap ? "pre-wrap" : "pre";
+      }
+    } catch (_) {}
+  });
+}
+
 function applyEditorTheme(theme) {
   currentEditorTheme = theme;
   try {
@@ -1875,6 +2015,9 @@ function applyEditorTheme(theme) {
   if (fallbackArea) {
     fallbackArea.style.background = theme === "light" ? "#ffffff" : "#1e1e1e";
     fallbackArea.style.color = theme === "light" ? "#0f172a" : "#d4d4d4";
+    fallbackArea.style.fontSize = `${currentEditorFontSize}px`;
+    fallbackArea.style.lineHeight = `${Math.round(currentEditorFontSize * 1.55)}px`;
+    fallbackArea.style.whiteSpace = currentEditorWordWrap ? "pre-wrap" : "pre";
   }
   if (fallbackGutter) {
     fallbackGutter.style.background = theme === "light" ? "#f8fafc" : "#181818";
@@ -1905,7 +2048,8 @@ async function makeEditor(problem, host) {
       theme: currentEditorTheme === "light" ? "vs" : "vs-dark",
       minimap: { enabled: false },
       automaticLayout: true,
-      fontSize: 14,
+      fontSize: currentEditorFontSize,
+      wordWrap: currentEditorWordWrap ? "on" : "off",
       lineNumbers: "on",
       lineNumbersMinChars: 3,
       lineDecorationsWidth: 10,
@@ -2721,6 +2865,19 @@ function renderCoding() {
           </div>
 
           <div class="flex items-center gap-2">
+            <!-- Font Size Controls (A- / A+) -->
+            <div class="flex items-center rounded-lg border border-inherit px-1 py-0.5 text-xs font-bold gap-0.5 select-none" title="Adjust Editor Font Size">
+              <button type="button" id="btn-font-dec" class="px-1.5 py-0.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer" title="Decrease font size" aria-label="Decrease font size">A-</button>
+              <span id="editor-font-size-label" class="font-mono text-[11px] px-1">${currentEditorFontSize}px</span>
+              <button type="button" id="btn-font-inc" class="px-1.5 py-0.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer" title="Increase font size" aria-label="Increase font size">A+</button>
+            </div>
+
+            <!-- Word Wrap Toggle -->
+            <button type="button" id="btn-word-wrap-toggle" class="btn-ide-toggle flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer select-none ${currentEditorWordWrap ? 'active' : ''}" title="Toggle Word Wrap">
+              <span>Wrap</span>
+              <span class="word-wrap-state text-[10px] font-mono opacity-80">${currentEditorWordWrap ? 'ON' : 'OFF'}</span>
+            </button>
+
             <!-- Theme Toggle Button (Light / Dark Mode) -->
             <button type="button" id="btn-theme-toggle" class="btn-ide-toggle flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer select-none" title="Toggle Light/Dark Theme">
               <span id="theme-toggle-icon">${currentEditorTheme === 'light' ? '🌙' : '☀️'}</span>
@@ -2761,6 +2918,9 @@ function renderCoding() {
             <div class="flex items-center gap-2">
               <button type="button" id="console-tab-cases" class="console-tab-btn px-2.5 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer ${activeConsoleTab === 'cases' ? 'active' : ''}">
                 Sample Cases
+              </button>
+              <button type="button" id="console-tab-custom" class="console-tab-btn px-2.5 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer ${activeConsoleTab === 'custom' ? 'active' : ''}">
+                Custom Input
               </button>
               <button type="button" id="console-tab-result" class="console-tab-btn px-2.5 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer ${activeConsoleTab === 'result' ? 'active' : ''}">
                 Test Result
@@ -2813,10 +2973,19 @@ function renderCoding() {
               </div>
             </div>
 
-            <!-- Tab View 2: Test Result -->
+            <!-- Tab View 2: Custom Input -->
+            <div id="console-view-custom" class="${activeConsoleTab === 'custom' ? '' : 'hidden'} space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] font-extrabold uppercase tracking-wider opacity-70">Custom Standard Input (stdin):</span>
+                <span class="text-[10px] opacity-60">Passed to program stdin on Run Code</span>
+              </div>
+              <textarea id="custom-stdin-input" class="w-full h-24 p-2.5 rounded-lg font-mono text-xs border border-inherit bg-transparent focus:outline-none focus:ring-1 focus:ring-blue-500 resize-y" placeholder="Enter custom test input here...">${escapeHtml(customStdinInput || "")}</textarea>
+            </div>
+
+            <!-- Tab View 3: Test Result -->
             <div id="console-view-result" class="${activeConsoleTab === 'result' ? '' : 'hidden'}">
               <div id="code-result" class="text-xs opacity-80">
-                Click <strong>"Run Code"</strong> to test your solution against example test cases.
+                Click <strong>"Run Code"</strong> to test your solution against example test cases or custom input.
               </div>
             </div>
 
@@ -2872,25 +3041,29 @@ function renderCoding() {
     btnRestoreProblem.onclick = () => toggleProblemCollapse(false);
   }
 
-  // Console Tabs
+  // Font Size & Word Wrap Toolbar Handlers
+  $("btn-font-dec")?.addEventListener("click", () => setEditorFontSize(-1));
+  $("btn-font-inc")?.addEventListener("click", () => setEditorFontSize(1));
+  $("btn-word-wrap-toggle")?.addEventListener("click", () => toggleEditorWordWrap());
+
+  // Console Tabs (Sample Cases, Custom Input, Test Result)
   const switchConsoleTab = (tab) => {
     activeConsoleTab = tab;
-    const tabCases = $("console-tab-cases");
-    const tabResult = $("console-tab-result");
-    const viewCases = $("console-view-cases");
-    const viewResult = $("console-view-result");
-    if (tabCases && tabResult) {
-      tabCases.classList.toggle("active", tab === "cases");
-      tabResult.classList.toggle("active", tab === "result");
-    }
-    if (viewCases && viewResult) {
-      viewCases.classList.toggle("hidden", tab !== 'cases');
-      viewResult.classList.toggle("hidden", tab !== 'result');
-    }
+    ["cases", "custom", "result"].forEach((t) => {
+      const btn = $(`console-tab-${t}`);
+      const pane = $(`console-view-${t}`);
+      if (btn) btn.classList.toggle("active", tab === t);
+      if (pane) pane.classList.toggle("hidden", tab !== t);
+    });
   };
 
   $("console-tab-cases")?.addEventListener("click", () => switchConsoleTab("cases"));
+  $("console-tab-custom")?.addEventListener("click", () => switchConsoleTab("custom"));
   $("console-tab-result")?.addEventListener("click", () => switchConsoleTab("result"));
+
+  $("custom-stdin-input")?.addEventListener("input", (e) => {
+    customStdinInput = e.target.value;
+  });
 
   // Console Drawer toggle
   const toggleBtn = $("btn-toggle-console");
@@ -3309,14 +3482,27 @@ async function runCode(problem, editor) {
     viewResult.classList.remove("hidden");
   }
 
-  if (target) target.innerHTML = `<div class="flex items-center gap-2 opacity-80 text-xs py-2"><span class="w-3.5 h-3.5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin shrink-0"></span><span>Running solution against sample test cases…</span></div>`;
+  const customInputEl = $("custom-stdin-input");
+  if (customInputEl) {
+    customStdinInput = customInputEl.value;
+  }
+
+  const payload = {
+    problem_id: problem.id,
+    language: editor.getLanguage(),
+    code: editor.getValue(),
+  };
+  if (customStdinInput && customStdinInput.trim()) {
+    payload.custom_input = customStdinInput;
+  }
+
+  const isCustom = Boolean(payload.custom_input);
+  if (target) {
+    target.innerHTML = `<div class="flex items-center gap-2 opacity-80 text-xs py-2"><span class="w-3.5 h-3.5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin shrink-0"></span><span>Running solution${isCustom ? " with custom input" : " against sample test cases"}…</span></div>`;
+  }
 
   try {
-    const data = await api("POST", "code-runs/", {
-      problem_id: problem.id,
-      language: editor.getLanguage(),
-      code: editor.getValue(),
-    });
+    const data = await api("POST", "code-runs/", payload);
     if (target) target.innerHTML = renderRunResults(data);
   } catch (err) {
     if (target) {
@@ -3345,6 +3531,38 @@ function renderRunResults(data) {
           ${makeCopyButton(data.compile_output, "Copy Error")}
         </div>
         <pre class="run-result-pre whitespace-pre-wrap font-mono text-xs p-3 rounded-lg max-h-40 overflow-y-auto">${escapeHtml(data.compile_output)}</pre>
+      </div>
+    `;
+  }
+
+  if (data.custom) {
+    const c = data.custom;
+    const isOk = c.status === "passed" || (!c.error && c.status !== "failed");
+    return `
+      <div class="run-result-box ${isOk ? 'pass' : 'fail'} rounded-xl p-3.5 space-y-2.5 border">
+        <div class="flex items-center justify-between pb-1 border-b border-inherit">
+          <div class="font-extrabold text-xs flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full ${isOk ? 'bg-emerald-500' : 'bg-rose-500'}"></span>
+            <span>Custom Standard Input Execution &bull; ${escapeHtml(c.status || (isOk ? 'Completed' : 'Error'))}</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            ${makeCopyButton(c.output, "Copy Output")}
+          </div>
+        </div>
+        <div class="space-y-1">
+          <span class="text-[10px] font-extrabold uppercase tracking-wider opacity-70">Custom Input (stdin):</span>
+          <pre class="console-pre p-2.5 rounded-lg font-mono text-xs overflow-x-auto whitespace-pre-wrap">${escapeHtml(c.input || "(empty)")}</pre>
+        </div>
+        <div class="space-y-1">
+          <span class="text-[10px] font-extrabold uppercase tracking-wider opacity-70">Standard Output (stdout):</span>
+          <pre class="console-pre p-2.5 rounded-lg font-mono text-xs ${isOk ? 'text-emerald-600 dark:text-emerald-400' : ''} overflow-x-auto whitespace-pre-wrap">${escapeHtml(c.output || "(no stdout)")}</pre>
+        </div>
+        ${c.error ? `
+          <div class="space-y-1">
+            <span class="text-[10px] font-extrabold uppercase tracking-wider text-rose-500">Standard Error (stderr):</span>
+            <pre class="console-pre p-2.5 rounded-lg font-mono text-xs text-rose-500 overflow-x-auto whitespace-pre-wrap">${escapeHtml(c.error)}</pre>
+          </div>
+        ` : ''}
       </div>
     `;
   }

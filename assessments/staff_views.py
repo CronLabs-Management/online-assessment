@@ -10,7 +10,7 @@ from django.core.cache import cache
 from django.core.mail import get_connection
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Avg, Q
+from django.db.models import Avg, Count, Q, Sum
 from django.http import FileResponse, Http404, HttpResponse, HttpResponseNotAllowed, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -22,7 +22,7 @@ from django.views.decorators.http import require_POST
 from . import interview_rounds, notifications
 from .ai_interview import generate_round_questions, get_gemini_config
 from .forms import CandidateEditForm, CandidateImportForm, InterviewDecisionForm, RevokeForm
-from .models import Application, Attempt, AuditLog, Exam, InterviewReview, ProctoringSnapshot
+from .models import Answer, Application, Attempt, AuditLog, Exam, InterviewReview, ProctoringSnapshot
 from .permissions import any_permission_required, has_perm, is_team_member, permission_required
 from .review import attempt_csv_rows, build_attempt_review, csv_safe, export_columns
 from .services import AttemptError, allow_resume, expire_due_attempts, snapshot_file_path
@@ -52,6 +52,87 @@ def staff_exam_overview(request, pk):
     finished_count = finished.count()
     rate = round(100 * finished_count / approved, 1) if approved else 0
 
+    # 1. Total possible exam score
+    default_exam_mcq_max = exam.mcq_questions.aggregate(m=Sum("marks"))["m"] or 0
+    default_exam_coding_max = exam.coding_problems.aggregate(m=Sum("marks"))["m"] or 0
+    exam_max_score = float(default_exam_mcq_max + default_exam_coding_max) or 100.0
+
+    # 2. Cohort score distribution histogram
+    histogram_buckets = [
+        {"label": "0–20%", "count": 0, "height_pct": 0},
+        {"label": "21–40%", "count": 0, "height_pct": 0},
+        {"label": "41–60%", "count": 0, "height_pct": 0},
+        {"label": "61–80%", "count": 0, "height_pct": 0},
+        {"label": "81–100%", "count": 0, "height_pct": 0},
+    ]
+    finished_attempts = list(finished)
+    scores = []
+    for a in finished_attempts:
+        if a.total_score is not None:
+            score_val = float(a.total_score)
+            scores.append(score_val)
+            pct = (score_val / exam_max_score) * 100 if exam_max_score > 0 else 0
+            if pct <= 20:
+                histogram_buckets[0]["count"] += 1
+            elif pct <= 40:
+                histogram_buckets[1]["count"] += 1
+            elif pct <= 60:
+                histogram_buckets[2]["count"] += 1
+            elif pct <= 80:
+                histogram_buckets[3]["count"] += 1
+            else:
+                histogram_buckets[4]["count"] += 1
+
+    max_bucket_count = max((b["count"] for b in histogram_buckets), default=0)
+    for b in histogram_buckets:
+        b["height_pct"] = round((b["count"] / max_bucket_count) * 100) if max_bucket_count > 0 else 0
+
+    highest_score = max(scores) if scores else None
+    lowest_score = min(scores) if scores else None
+    median_score = round(sorted(scores)[len(scores) // 2], 1) if scores else None
+
+    # 3. Question calibration statistics
+    question_stats = []
+    if finished_count > 0:
+        answers_agg = (
+            Answer.objects.filter(attempt__exam=exam, option__isnull=False)
+            .values("question_id")
+            .annotate(
+                total=Count("id"),
+                correct=Count("id", filter=Q(option__is_correct=True)),
+            )
+        )
+        agg_map = {row["question_id"]: row for row in answers_agg}
+        for q in exam.mcq_questions.all()[:10]:
+            data = agg_map.get(q.id, {"total": 0, "correct": 0})
+            total = data["total"]
+            correct = data["correct"]
+            pass_pct = round(100 * correct / total) if total > 0 else None
+            if pass_pct is not None:
+                if pass_pct < 35:
+                    difficulty = "Challenging"
+                    diff_badge = "bg-rose-50 text-rose-800 border-rose-200"
+                elif pass_pct <= 75:
+                    difficulty = "Balanced"
+                    diff_badge = "bg-blue-50 text-blue-800 border-blue-200"
+                else:
+                    difficulty = "High Pass"
+                    diff_badge = "bg-emerald-50 text-emerald-800 border-emerald-200"
+            else:
+                difficulty = "No data"
+                diff_badge = "bg-slate-100 text-slate-600 border-slate-200"
+
+            question_stats.append({
+                "id": q.id,
+                "text": q.text[:80] + ("..." if len(q.text) > 80 else ""),
+                "marks": q.marks,
+                "total_attempts": total,
+                "correct_attempts": correct,
+                "pass_pct": pass_pct,
+                "difficulty": difficulty,
+                "diff_badge": diff_badge,
+            })
+
     context = {
         "exam": exam,
         "on_list": applications.count(),
@@ -71,6 +152,11 @@ def staff_exam_overview(request, pk):
         "not_started_pct": round(100 * not_started / approved, 1) if approved else 0,
         "avg_mcq": round(float(completed_scores["mcq"] or 0), 2),
         "avg_coding": round(float(completed_scores["coding"] or 0), 2),
+        "histogram_buckets": histogram_buckets,
+        "highest_score": highest_score,
+        "lowest_score": lowest_score,
+        "median_score": median_score,
+        "question_stats": question_stats,
     }
     return render(request, "assessments/staff/overview.html", context)
 
@@ -90,8 +176,8 @@ def _candidate_rows(exam, q="", status="", flagged=False, sort="newest", score_v
             "reviews", "mcq_items__question", "coding_items__problem"
         )
     }
-    default_exam_mcq_max = sum(q.marks for q in exam.mcq_questions.all())
-    default_exam_coding_max = sum(p.marks for p in exam.coding_problems.all())
+    default_exam_mcq_max = exam.mcq_questions.aggregate(m=Sum("marks"))["m"] or 0
+    default_exam_coding_max = exam.coding_problems.aggregate(m=Sum("marks"))["m"] or 0
     default_exam_max = float(default_exam_mcq_max + default_exam_coding_max)
     rows = []
     for application in applications:
@@ -665,6 +751,16 @@ def staff_send_credentials(request, pk):
             pass
 
     audit(request.user, "credentials.batch", f"exam:{exam.pk}", f"mode={mode} sent={sent} failed={failed} selected={len(selected_ids) if selected_ids else 0}")
+    is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest" or request.POST.get("async") == "1"
+    msg = f"Login details sent to {sent} candidate(s)." if sent else "Failed to send credentials."
+    if is_ajax:
+        return JsonResponse({
+            "ok": bool(sent),
+            "sent": sent,
+            "failed": failed,
+            "selected_ids": selected_ids,
+            "message": msg,
+        })
     if sent:
         if selected_ids:
             messages.success(request, f"Login details sent to {sent} selected candidate(s).")
@@ -919,6 +1015,7 @@ def staff_attempt_review(request, pk):
             "interviewer_name": request.user.get_full_name() or request.user.username,
         }
     )
+    context["snapshots"] = list(attempt.snapshots.select_related("event").order_by("received_at"))
     return render(request, "assessments/staff/attempt_review.html", context)
 
 
@@ -1116,6 +1213,14 @@ def staff_snapshot_review(request, pk):
         snapshot.review_status = status
         snapshot.save(update_fields=["review_status"])
         audit(request.user, "snapshot.reviewed", f"snapshot:{snapshot.pk}", status)
+    is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest" or request.POST.get("async") == "1"
+    if is_ajax:
+        return JsonResponse({
+            "ok": True,
+            "snapshot_id": snapshot.pk,
+            "review_status": snapshot.review_status,
+            "label": snapshot.get_review_status_display(),
+        })
     return redirect("staff_attempt_review", pk=snapshot.attempt_id)
 
 
@@ -1160,8 +1265,77 @@ def staff_candidates_sample_csv(request, pk):
 
 @permission_required("audit.view")
 def staff_audit_log(request):
-    entries = AuditLog.objects.select_related("actor")[:500]
-    return render(request, "assessments/staff/audit_log.html", {"entries": entries})
+    category = request.GET.get("category", "all").strip().lower()
+    query = request.GET.get("q", "").strip()
+
+    qs = AuditLog.objects.select_related("actor")
+
+    if category == "credentials":
+        qs = qs.filter(
+            Q(action__icontains="credential") |
+            Q(action__icontains="password") |
+            Q(action__icontains="login_email") |
+            Q(action__icontains="sent")
+        )
+    elif category == "decisions":
+        qs = qs.filter(
+            Q(action__icontains="decision") |
+            Q(action__icontains="round") |
+            Q(action__icontains="hold") |
+            Q(action__icontains="unhold") |
+            Q(action__icontains="reject") |
+            Q(action__icontains="select")
+        )
+    elif category == "security":
+        qs = qs.filter(
+            Q(action__icontains="proctor") |
+            Q(action__icontains="violation") |
+            Q(action__icontains="flag") |
+            Q(action__icontains="lockout") |
+            Q(action__icontains="revoke")
+        )
+    elif category == "team":
+        qs = qs.filter(
+            Q(action__icontains="team") |
+            Q(action__icontains="member") |
+            Q(action__icontains="role") |
+            Q(action__icontains="invite") |
+            Q(action__icontains="user")
+        )
+
+    if query:
+        qs = qs.filter(
+            Q(action__icontains=query) |
+            Q(target__icontains=query) |
+            Q(detail__icontains=query) |
+            Q(actor__username__icontains=query) |
+            Q(actor__email__icontains=query)
+        )
+
+    entries = list(qs[:500])
+
+    counts = {
+        "all": AuditLog.objects.count(),
+        "credentials": AuditLog.objects.filter(
+            Q(action__icontains="credential") | Q(action__icontains="password") | Q(action__icontains="login_email") | Q(action__icontains="sent")
+        ).count(),
+        "decisions": AuditLog.objects.filter(
+            Q(action__icontains="decision") | Q(action__icontains="round") | Q(action__icontains="hold") | Q(action__icontains="unhold") | Q(action__icontains="reject") | Q(action__icontains="select")
+        ).count(),
+        "security": AuditLog.objects.filter(
+            Q(action__icontains="proctor") | Q(action__icontains="violation") | Q(action__icontains="flag") | Q(action__icontains="lockout") | Q(action__icontains="revoke")
+        ).count(),
+        "team": AuditLog.objects.filter(
+            Q(action__icontains="team") | Q(action__icontains="member") | Q(action__icontains="role") | Q(action__icontains="invite") | Q(action__icontains="user")
+        ).count(),
+    }
+
+    return render(request, "assessments/staff/audit_log.html", {
+        "entries": entries,
+        "category": category,
+        "q": query,
+        "counts": counts,
+    })
 
 
 @any_permission_required("candidates.view", "results.view")
